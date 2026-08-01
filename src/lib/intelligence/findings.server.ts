@@ -22,6 +22,7 @@
 //   src/lib/intelligence/engines.server.ts:441     discovery  → addGatedFindings(exemptCitation)
 //   src/lib/intelligence/engines.server.ts:579     witness    → addFindings (pre-gated at engine)
 //   src/lib/intelligence/engines.server.ts:733     trial      → addGatedFindings(exemptCitation)
+//   src/lib/intelligence/procedural-compliance.server.ts  missing-checklist → addGatedFindings(exemptCitation)
 //
 // If you add a new engine that writes findings, add it here and route through
 // `addGatedFindings` (with `exemptCitation` only for absence-of-evidence

@@ -13,6 +13,7 @@ import { resolveProceduralStage, type ProceduralStageResolution } from "./mx-pro
 import { resolveMissingDocuments, type MissingDocumentsReport } from "./mx-missing-documents";
 import { computeMxDeadlines, extractMxEventsFromCorpus, type MxDeadline } from "./mx-deadlines";
 import { loadCaseCorpusText } from "./jurisdiction-intel.server";
+import { addGatedFindings } from "./findings.server";
 
 type Db = SupabaseClient<Database>;
 
@@ -62,19 +63,30 @@ export async function runProceduralCompliance(args: {
       description:
         `No se identificó una argumentación expresa y desarrollada sobre "${i.label_es}" (${i.authority}, materia ${materia}) en los documentos proporcionados. ` +
         "Esto refleja lo que consta en el corpus analizado, no necesariamente una omisión en un escrito ya presentado ante el órgano jurisdiccional — verifique contra el expediente oficial antes de asumir un defecto procesal.",
-      finding_type: "EVIDENCE_BASED_INFERENCE",
       category: "cumplimiento_procesal",
-      severity: "high",
+      severity: "high" as const,
       legal_significance: i.authority,
+      potential_impact: null,
+      affected_party: null,
       source_module: SOURCE_MODULE,
-      verification_status: "verified",
-      confidence: 0.9,
+      // Absence-of-evidence finding: by construction there is no verbatim
+      // corpus quote to cite (the whole point is that the corpus does not
+      // contain the expected element). It previously hardcoded
+      // finding_type:"EVIDENCE_BASED_INFERENCE" and
+      // verification_status:"verified" directly on a raw insert, bypassing
+      // addGatedFindings/applyEvidenceGate entirely — so a finding with zero
+      // evidence_refs was explicitly stamped "verified". Routing through
+      // addGatedFindings with exemptCitation:true uses the same mechanism
+      // already established for this exact class of finding (see
+      // engines.server.ts's discovery-gap findings): the gate honestly
+      // classifies it AI_THEORY instead of claiming direct/inferred
+      // evidentiary support, and verification_status is left to the
+      // canonical (unset/default) value rather than being falsely asserted.
+      confidence: 0.7,
       metadata: { item_id: i.id, materia, authority: i.authority, requirement: i.requirement },
     }));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error, data } = await (db as any).from("case_findings").insert(rows).select("id");
-    if (error) throw new Error(`No se pudieron registrar los hallazgos procesales: ${error.message}`);
-    findings_written = (data as unknown[] | null)?.length ?? rows.length;
+    const gate = await addGatedFindings(db, caseId, rows, { exemptCitation: true });
+    findings_written = gate.inserted;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
