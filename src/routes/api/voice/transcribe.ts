@@ -48,6 +48,24 @@ export const Route = createFileRoute("/api/voice/transcribe")({
         const chain = await resolveVoiceProviderChain(supabase, userId);
         const attempts = applyVoiceCooldowns(flattenVoiceChain(chain));
 
+        // Usage gate — same reasoning as /api/voice/speak: the platform
+        // gateway fallback below spends the business's own provider
+        // credits when the user has no BYOK key, so it needs the same
+        // per-plan ceiling every other AI-backed feature already has.
+        const { checkAndConsumeUsage, usageExceededMessage } = await import("@/lib/usage.server");
+        const usage = await checkAndConsumeUsage({
+          userId,
+          kind: "ai_request",
+          feature: "voice_transcribe",
+          byokActive: chain.userKeyCount > 0,
+        });
+        if (!usage.allowed) {
+          return new Response(
+            JSON.stringify({ error: usageExceededMessage("Voice", usage) }),
+            { status: 429, headers: { "Content-Type": "application/json" } },
+          );
+        }
+
         const incoming = await request.formData();
         const file = incoming.get("file");
         const languageField = incoming.get("language");
