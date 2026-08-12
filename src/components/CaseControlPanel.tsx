@@ -333,12 +333,18 @@ function CollapsedCaseSettings({
   // match an <option>, leaving the browser to silently highlight whichever
   // option happens to be first (Penal) while state stays out of sync.
   const [ct, setCt] = useState<string>(caseType ?? "");
-  const [mode, setMode] = useState<string>(analysisMode || "balanced");
+  // Balance Mode was removed from the UI (only Strict/Exploratory remain
+  // user-selectable); "strict" is the new default for cases with no stored
+  // mode. A case whose analysisMode is still the legacy "balanced" value
+  // (set before this change) simply shows neither button selected until the
+  // user picks one and saves — the value itself is left alone, and the
+  // backend/zod enum still accepts "balanced" so nothing errors.
+  const [mode, setMode] = useState<string>(analysisMode || "strict");
   const [juris, setJuris] = useState<string>(jurisdiction ?? "");
   const [caseAnalysis, setCaseAnalysis] = useState<string>(caseAnalysisMode || "ongoing");
   useEffect(() => {
     setCt(caseType ?? "");
-    setMode(analysisMode || "balanced");
+    setMode(analysisMode || "strict");
     setJuris(jurisdiction ?? "");
     setCaseAnalysis(caseAnalysisMode || "ongoing");
   }, [caseType, analysisMode, jurisdiction, caseAnalysisMode]);
@@ -381,7 +387,7 @@ function CollapsedCaseSettings({
 
   const dirty =
     ct !== (caseType ?? "") ||
-    mode !== (analysisMode || "balanced") ||
+    mode !== (analysisMode || "strict") ||
     juris !== (jurisdiction ?? "") ||
     caseAnalysis !== (caseAnalysisMode || "ongoing");
   const disabled = running || m.isPending;
@@ -452,7 +458,6 @@ function CollapsedCaseSettings({
             <div className="grid gap-1.5">
               {[
                 { v: "strict", label: t("caseSettings.mode.strict"), desc: t("caseSettings.mode.strict.desc") },
-                { v: "balanced", label: t("caseSettings.mode.balanced"), desc: t("caseSettings.mode.balanced.desc") },
                 { v: "exploratory", label: t("caseSettings.mode.exploratory"), desc: t("caseSettings.mode.exploratory.desc") },
               ].map((opt) => (
                 <button
