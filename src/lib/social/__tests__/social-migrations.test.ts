@@ -14,12 +14,13 @@ const searchRepair=migration("20260821000000_social_search_index_immutability.sq
 const organizationOnboarding=migration("20260821010000_social_organization_onboarding.sql");
 const authorizationRepair=migration("20260821020000_social_authorization_argument_order.sql");
 const workflowReliability=migration("20260821030000_social_core_workflow_reliability.sql");
+const apiSecurity=migration("20260821040000_public_api_security_hardening.sql");
 const serverSource=readFileSync(join(process.cwd(),"src","lib","social.functions.ts"),"utf8");
 const routeSource=readFileSync(join(process.cwd(),"src","routes","_authenticated","social.tsx"),"utf8");
 const accountRouteSource=readFileSync(join(process.cwd(),"src","routes","_authenticated","account.tsx"),"utf8");
 const accountServerSource=readFileSync(join(process.cwd(),"src","lib","account.functions.ts"),"utf8");
 const workspaceSource=readFileSync(join(process.cwd(),"src","components","social","SocialCaseWorkspace.tsx"),"utf8");
-const sql=[foundation,workflows,hardening,transactional,firstRun,operational,searchRepair,organizationOnboarding,authorizationRepair,workflowReliability].join("\n").toLowerCase();
+const sql=[foundation,workflows,hardening,transactional,firstRun,operational,searchRepair,organizationOnboarding,authorizationRepair,workflowReliability,apiSecurity].join("\n").toLowerCase();
 
 describe("social-care migration security coverage",()=>{
   it.each([
@@ -186,6 +187,22 @@ describe("social-care migration security coverage",()=>{
     expect(organizationOnboarding).toContain("'Atención Integral'");
     expect(routeSource).toContain('to="/account"');
     expect(routeSource).not.toContain("createOrganization({name,slug:");
+  });
+  it("closes all seven public API security findings without user-specific bypasses",()=>{
+    expect(apiSecurity).toContain("alter table public.social_role_capabilities enable row level security");
+    expect(apiSecurity).toContain("revoke all on table public.social_role_capabilities from public, anon, authenticated");
+    expect(apiSecurity).toContain("drop policy if exists plan_ent_read_authenticated");
+    expect(apiSecurity).toContain("revoke all on table public.plan_entitlements from public, anon, authenticated");
+    expect(apiSecurity).toContain('drop policy if exists "Anyone can view active plans"');
+    expect(apiSecurity).toContain("revoke all on table public.billing_plans from public, anon");
+    expect(apiSecurity).toContain("alter table public.profiles enable row level security");
+    expect(apiSecurity).toContain("for select to authenticated using (id=auth.uid())");
+    expect(apiSecurity).toContain("where n.nspname='public' and p.prosecdef");
+    expect(apiSecurity).toContain("revoke execute on function %s from public, anon");
+    expect(apiSecurity).toContain("alter function %s set search_path = public, extensions, pg_temp");
+    expect(apiSecurity).toContain("begin;");
+    expect(apiSecurity).toContain("commit;");
+    expect(apiSecurity).not.toMatch(/[\\w.+-]+@[\\w.-]+/);
   });
   it("controls Stripe and Mercado Pago independently while keeping one enabled",()=>{
     expect(billing).toContain("'mercadopago','stripe'");
