@@ -159,12 +159,12 @@ language sql
 immutable
 parallel safe
 set search_path=public,pg_temp
-as $
+as $resource_search$
   select to_tsvector(
     'spanish'::regconfig,
     coalesce(p_name,'')||' '||coalesce(p_description,'')||' '||coalesce(array_to_string(p_services,' '),'')
   )
-$;
+$resource_search$;
 
 drop index if exists public.social_institutions_search_idx;
 create index social_institutions_search_idx on public.social_institutions using gin
