@@ -166,42 +166,42 @@ alter table public.resource_knowledge_records enable row level security;
 alter table public.resource_knowledge_versions enable row level security;
 
 create policy resource_categories_read on public.resource_service_categories for select to authenticated
-  using (org_id is null or public.is_org_member(org_id,auth.uid()) or public.is_platform_admin(auth.uid()));
+  using (org_id is null or public.social_is_org_member(org_id,auth.uid()) or public.social_is_platform_admin(auth.uid()));
 create policy resource_categories_manage on public.resource_service_categories for all to authenticated
-  using (public.is_platform_admin(auth.uid()) or (org_id is not null and public.can_manage_org(org_id,auth.uid())))
-  with check (public.is_platform_admin(auth.uid()) or (org_id is not null and public.can_manage_org(org_id,auth.uid())));
+  using (public.social_is_platform_admin(auth.uid()) or (org_id is not null and public.social_can_manage_org(org_id,auth.uid())))
+  with check (public.social_is_platform_admin(auth.uid()) or (org_id is not null and public.social_can_manage_org(org_id,auth.uid())));
 create policy resource_verifications_read on public.resource_verifications for select to authenticated
-  using (public.is_platform_admin(auth.uid()) or (org_id is not null and public.is_org_member(org_id,auth.uid())));
+  using (public.social_is_platform_admin(auth.uid()) or (org_id is not null and public.social_is_org_member(org_id,auth.uid())));
 create policy resource_verifications_manage on public.resource_verifications for all to authenticated
-  using (public.is_platform_admin(auth.uid()) or (org_id is not null and public.can_manage_org(org_id,auth.uid())))
-  with check (public.is_platform_admin(auth.uid()) or (org_id is not null and public.can_manage_org(org_id,auth.uid())));
+  using (public.social_is_platform_admin(auth.uid()) or (org_id is not null and public.social_can_manage_org(org_id,auth.uid())))
+  with check (public.social_is_platform_admin(auth.uid()) or (org_id is not null and public.social_can_manage_org(org_id,auth.uid())));
 create policy resource_corrections_read on public.resource_corrections for select to authenticated
-  using (submitted_by=auth.uid() or public.is_platform_admin(auth.uid()) or (org_id is not null and public.can_manage_org(org_id,auth.uid())));
+  using (submitted_by=auth.uid() or public.social_is_platform_admin(auth.uid()) or (org_id is not null and public.social_can_manage_org(org_id,auth.uid())));
 create policy resource_corrections_insert on public.resource_corrections for insert to authenticated
-  with check (submitted_by=auth.uid() and (org_id is null or public.is_org_member(org_id,auth.uid()) or public.is_platform_admin(auth.uid())));
+  with check (submitted_by=auth.uid() and (org_id is null or public.social_is_org_member(org_id,auth.uid()) or public.social_is_platform_admin(auth.uid())));
 create policy resource_corrections_manage on public.resource_corrections for update to authenticated
-  using (public.is_platform_admin(auth.uid()) or (org_id is not null and public.can_manage_org(org_id,auth.uid())));
+  using (public.social_is_platform_admin(auth.uid()) or (org_id is not null and public.social_can_manage_org(org_id,auth.uid())));
 create policy resource_experiences_access on public.resource_internal_experiences for all to authenticated
-  using (public.is_platform_admin(auth.uid()) or public.is_org_member(org_id,auth.uid()))
-  with check ((created_by=auth.uid() and public.is_org_member(org_id,auth.uid())) or public.is_platform_admin(auth.uid()));
+  using (public.social_is_platform_admin(auth.uid()) or public.social_is_org_member(org_id,auth.uid()))
+  with check ((created_by=auth.uid() and public.social_is_org_member(org_id,auth.uid())) or public.social_is_platform_admin(auth.uid()));
 create policy resource_knowledge_read on public.resource_knowledge_records for select to authenticated
-  using ((approval_status='approved' and (org_id is null or public.is_org_member(org_id,auth.uid()))) or public.is_platform_admin(auth.uid()) or (org_id is not null and public.can_manage_org(org_id,auth.uid())));
+  using ((approval_status='approved' and (org_id is null or public.social_is_org_member(org_id,auth.uid()))) or public.social_is_platform_admin(auth.uid()) or (org_id is not null and public.social_can_manage_org(org_id,auth.uid())));
 create policy resource_knowledge_manage on public.resource_knowledge_records for all to authenticated
-  using (public.is_platform_admin(auth.uid()) or (org_id is not null and public.can_manage_org(org_id,auth.uid())))
-  with check (public.is_platform_admin(auth.uid()) or (org_id is not null and public.can_manage_org(org_id,auth.uid())));
+  using (public.social_is_platform_admin(auth.uid()) or (org_id is not null and public.social_can_manage_org(org_id,auth.uid())))
+  with check (public.social_is_platform_admin(auth.uid()) or (org_id is not null and public.social_can_manage_org(org_id,auth.uid())));
 create policy resource_knowledge_versions_read on public.resource_knowledge_versions for select to authenticated
   using (exists(select 1 from public.resource_knowledge_records k where k.id=knowledge_id));
 create policy resource_knowledge_versions_manage on public.resource_knowledge_versions for all to authenticated
-  using (exists(select 1 from public.resource_knowledge_records k where k.id=knowledge_id and (public.is_platform_admin(auth.uid()) or (k.org_id is not null and public.can_manage_org(k.org_id,auth.uid())))))
-  with check (exists(select 1 from public.resource_knowledge_records k where k.id=knowledge_id and (public.is_platform_admin(auth.uid()) or (k.org_id is not null and public.can_manage_org(k.org_id,auth.uid())))));
+  using (exists(select 1 from public.resource_knowledge_records k where k.id=knowledge_id and (public.social_is_platform_admin(auth.uid()) or (k.org_id is not null and public.social_can_manage_org(k.org_id,auth.uid())))))
+  with check (exists(select 1 from public.resource_knowledge_records k where k.id=knowledge_id and (public.social_is_platform_admin(auth.uid()) or (k.org_id is not null and public.social_can_manage_org(k.org_id,auth.uid())))));
 
 drop policy if exists social_institutions_read on public.social_institutions;
 create policy social_institutions_read on public.social_institutions for select to authenticated
-  using (status<>'archived' and (org_id is null or public.is_org_member(org_id,auth.uid()) or public.is_platform_admin(auth.uid())));
+  using (status<>'archived' and (org_id is null or public.social_is_org_member(org_id,auth.uid()) or public.social_is_platform_admin(auth.uid())));
 drop policy if exists social_institutions_manage on public.social_institutions;
 create policy social_institutions_manage on public.social_institutions for all to authenticated
-  using (public.is_platform_admin(auth.uid()) or (org_id is not null and public.can_manage_org(org_id,auth.uid())))
-  with check (public.is_platform_admin(auth.uid()) or (org_id is not null and public.can_manage_org(org_id,auth.uid())));
+  using (public.social_is_platform_admin(auth.uid()) or (org_id is not null and public.social_can_manage_org(org_id,auth.uid())))
+  with check (public.social_is_platform_admin(auth.uid()) or (org_id is not null and public.social_can_manage_org(org_id,auth.uid())));
 
 create or replace function public.search_resource_network(
   p_query text default null,p_state text default null,p_municipality text default null,
@@ -271,7 +271,7 @@ declare i public.social_institutions%rowtype; v_id uuid;
 begin
   select * into i from public.social_institutions where id=p_institution for update;
   if not found then raise exception 'Resource not found'; end if;
-  if not (public.is_platform_admin(auth.uid()) or (i.org_id is not null and public.can_manage_org(i.org_id,auth.uid()))) then raise exception 'Resource verification denied'; end if;
+  if not (public.social_is_platform_admin(auth.uid()) or (i.org_id is not null and public.social_can_manage_org(i.org_id,auth.uid()))) then raise exception 'Resource verification denied'; end if;
   insert into public.resource_verifications(institution_id,org_id,status,source,evidence_url,notes,verified_by,next_verification_at)
   values(i.id,i.org_id,p_status,p_source,p_evidence_url,p_notes,auth.uid(),p_next_verification) returning id into v_id;
   update public.social_institutions set status=p_status,verification_status=p_status,verification_source=p_source,
