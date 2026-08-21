@@ -152,8 +152,23 @@ create table if not exists public.resource_knowledge_versions (
   unique(knowledge_id,version)
 );
 
-create index if not exists social_institutions_search_idx on public.social_institutions using gin
-  (to_tsvector('spanish',coalesce(official_name,'')||' '||coalesce(description,'')||' '||array_to_string(services,' ')));
+create or replace function public.resource_search_document(
+  p_name text,p_description text,p_services text[]
+) returns tsvector
+language sql
+immutable
+parallel safe
+set search_path=public,pg_temp
+as $
+  select to_tsvector(
+    'spanish'::regconfig,
+    coalesce(p_name,'')||' '||coalesce(p_description,'')||' '||coalesce(array_to_string(p_services,' '),'')
+  )
+$;
+
+drop index if exists public.social_institutions_search_idx;
+create index social_institutions_search_idx on public.social_institutions using gin
+  (public.resource_search_document(official_name,description,services));
 create index if not exists social_institutions_location_idx on public.social_institutions(state_code,municipality,status);
 create index if not exists resource_verifications_institution_idx on public.resource_verifications(institution_id,verified_at desc);
 create index if not exists resource_knowledge_filters_idx on public.resource_knowledge_records(approval_status,knowledge_type,review_due_at);
@@ -242,7 +257,7 @@ create or replace function public.search_resource_network(
        case when p_urgency='emergency' and i.emergency_available then 20 else 0 end) as score
     from public.social_institutions i
     where i.active and i.status not in ('closed','archived')
-      and (p_query is null or to_tsvector('spanish',coalesce(i.official_name,i.name,'')||' '||coalesce(i.description,'')||' '||array_to_string(i.services,' ')) @@ plainto_tsquery('spanish',p_query))
+      and (p_query is null or public.resource_search_document(coalesce(i.official_name,i.name),i.description,i.services) @@ plainto_tsquery('spanish'::regconfig,p_query))
       and (p_state is null or upper(i.state_code)=upper(p_state) or upper(p_state)=any(i.coverage_states) or 'national'=any(i.coverage_levels) or i.remote_available)
       and (p_municipality is null or lower(i.municipality)=lower(p_municipality) or lower(p_municipality)=any(i.coverage_municipalities) or 'statewide'=any(i.coverage_levels) or 'national'=any(i.coverage_levels) or i.remote_available)
       and (p_service is null or p_service=any(i.services))
