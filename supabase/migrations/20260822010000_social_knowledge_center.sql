@@ -19,10 +19,10 @@ alter table public.resource_knowledge_records
   add column if not exists archived_at timestamptz,
   add column if not exists file_type text;
 
+alter table public.resource_knowledge_records drop constraint if exists resource_knowledge_records_approval_status_check;
 update public.resource_knowledge_records set approval_status='archived' where approval_status='retired';
 update public.resource_knowledge_records set approval_status='pending_review' where approval_status='in_review';
 
-alter table public.resource_knowledge_records drop constraint if exists resource_knowledge_records_approval_status_check;
 alter table public.resource_knowledge_records add constraint resource_knowledge_records_approval_status_check
   check(approval_status in ('draft','pending_review','approved','published','revision_required','expired','archived'));
 alter table public.resource_knowledge_records drop constraint if exists resource_knowledge_records_knowledge_type_check;
