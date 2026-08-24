@@ -88,9 +88,23 @@ function SocialCarePage(){
     refetchInterval:5000,
     refetchOnWindowFocus:true,
   });
-  const resolvedOrg=orgId||workspace.data?.organizations?.[0]?.id||"";
-  const organizationAccount=(workspace.data?.organizationAccounts??[]).find((x:any)=>x.orgId===resolvedOrg);
+  const allOrganizations=workspace.data?.organizations??[];
+  const allOrganizationAccounts=workspace.data?.organizationAccounts??[];
+  const currentUserId=workspace.data?.userId??"";
+  const employeeOrgIds=allOrganizationAccounts
+    .filter((account:any)=>account.can_manage!==true&&(account.members??[]).some((member:any)=>member.user_id===currentUserId&&member.status==="active"))
+    .map((account:any)=>account.orgId);
+  const availableOrganizations=employeeOrgIds.length
+    ? allOrganizations.filter((organization:any)=>employeeOrgIds.includes(organization.id))
+    : allOrganizations;
+  const requestedOrg=orgId&&availableOrganizations.some((organization:any)=>organization.id===orgId)?orgId:"";
+  const resolvedOrg=requestedOrg||availableOrganizations[0]?.id||"";
+  const organizationAccount=allOrganizationAccounts.find((x:any)=>x.orgId===resolvedOrg);
   const organizationMembers=organizationAccount?.members??[];
+  const canManageOrganization=organizationAccount?.can_manage===true;
+  const navigationAreas=canManageOrganization
+    ? PRIMARY_AREAS
+    : PRIMARY_AREAS.filter((item)=>["dashboard","cases","caseWork","tasks","documents"].includes(item.id));
   const programs=(workspace.data?.programs??[]).filter((p:any)=>p.org_id===resolvedOrg);
   const visibleCases=(workspace.data?.cases??[]).filter((c:any)=>c.org_id===resolvedOrg);
   const visiblePeople=(workspace.data?.people??[]).filter((p:any)=>p.org_id===resolvedOrg);
@@ -156,6 +170,11 @@ function SocialCarePage(){
       setAcceptedInvite(token);acceptInvitationMutation.mutate(token);
     }
   },[acceptedInvite]);
+  useEffect(()=>{
+    if(!canManageOrganization&&["people","families","activity","administration"].includes(area)){
+      setArea("dashboard");
+    }
+  },[area,canManageOrganization]);
   const stats=workspace.data?.stats;
   const filtered=useMemo(()=>{
     const q=query.trim().toLocaleLowerCase("es-MX"); if(!q)return visibleCases;
@@ -184,26 +203,26 @@ function SocialCarePage(){
         </div>
         <label className="min-w-[180px] text-xs font-medium text-muted-foreground">
           {es?"Organización":"Organization"}
-          <select aria-label={es?"Organización activa":"Active organization"} value={resolvedOrg} onChange={e=>setOrgId(e.target.value)} disabled={!workspace.data?.organizations?.length} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-60">
-            {!workspace.data?.organizations?.length&&<option value="">{es?"Sin organización":"No organization"}</option>}
-            {(workspace.data?.organizations??[]).map((o:any)=><option key={o.id} value={o.id}>{o.name}</option>)}
+          <select aria-label={es?"Organización activa":"Active organization"} value={resolvedOrg} onChange={e=>setOrgId(e.target.value)} disabled={!availableOrganizations.length} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-60">
+            {!availableOrganizations.length&&<option value="">{es?"Sin organización":"No organization"}</option>}
+            {availableOrganizations.map((o:any)=><option key={o.id} value={o.id}>{o.name}</option>)}
           </select>
         </label>
       </div>
     </header>
 
-    {!workspace.data?.organizations?.length&&<section className="mt-5 rounded-xl border border-warning/40 bg-warning/10 p-5">
+    {!availableOrganizations.length&&<section className="mt-5 rounded-xl border border-warning/40 bg-warning/10 p-5">
       <div className="flex gap-2"><AlertTriangle className="mt-0.5 h-5 w-5 text-warning"/><div><h2 className="font-semibold">{es?"La organización aún no está disponible":"Organization is not available yet"}</h2><p className="mt-1 text-sm text-muted-foreground">{es?"La suscripción y el perfil deben crear la organización automáticamente. Actualice la página; si continúa, un administrador debe revisar el evento de aprovisionamiento.":"Subscription and profile completion create the organization automatically. Refresh the page; if this remains, an administrator should inspect the provisioning event."}</p></div></div>
     </section>}
 
-    <OpenAndAssignCaseModal open={caseModalOpen} es={es} draft={caseDraft} setDraft={setCaseDraft}
+    {canManageOrganization&&<OpenAndAssignCaseModal open={caseModalOpen} es={es} draft={caseDraft} setDraft={setCaseDraft}
       programs={programs} people={visiblePeople} families={visibleFamilies} members={organizationMembers}
       currentUserId={workspace.data?.userId??""} pending={createCaseMutation.isPending}
-      onClose={()=>setCaseModalOpen(false)} onSubmit={()=>createCaseMutation.mutate()}/>
+      onClose={()=>setCaseModalOpen(false)} onSubmit={()=>createCaseMutation.mutate()}/>} 
     <div className="mt-5 grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
       <aside className="h-fit rounded-xl border border-border bg-card p-2 lg:sticky lg:top-4">
         <nav aria-label={es?"Navegación de Atención Integral":"Comprehensive Care navigation"} className="max-h-[72vh] space-y-1 overflow-y-auto">
-          {PRIMARY_AREAS.map(a=>{const Icon=a.icon;const active=a.id==="people"?area==="people"||area==="families":area===a.id;return <button key={a.id} onClick={()=>setArea(a.id)} className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${active?"bg-primary text-primary-foreground":"hover:bg-muted"}`}><Icon className="h-4 w-4"/>{es?a.es:a.en}</button>})}
+          {navigationAreas.map(a=>{const Icon=a.icon;const active=a.id==="people"?area==="people"||area==="families":area===a.id;return <button key={a.id} onClick={()=>setArea(a.id)} className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${active?"bg-primary text-primary-foreground":"hover:bg-muted"}`}><Icon className="h-4 w-4"/>{es?a.es:a.en}</button>})}
           <details className="border-t border-border pt-2">
             <summary className="cursor-pointer px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{es?"Herramientas y recursos":"Tools and resources"}</summary>
             <div className="mt-1 space-y-1">{CONTEXT_AREAS.map(a=>{const Icon=a.icon;return <button key={a.id} onClick={()=>setArea(a.id)} className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${area===a.id?"bg-primary text-primary-foreground":"hover:bg-muted"}`}><Icon className="h-4 w-4"/>{es?a.es:a.en}</button>})}</div>
@@ -222,7 +241,7 @@ function SocialCarePage(){
           <div className="mt-4 rounded-xl border border-warning/30 bg-warning/10 p-4">
             <div className="flex gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 text-warning"/><div><p className="text-sm font-semibold">{es?"Guía de escalamiento":"Escalation guidance"}</p><p className="text-sm text-muted-foreground">{EMERGENCY_GUIDANCE[locale]}</p></div></div>
           </div>
-          {!visibleCases.length&&<div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4"><div><p className="text-sm font-semibold">{es?"Registre su primer caso":"Register your first case"}</p><p className="text-xs text-muted-foreground">{es?"Registre o seleccione al cliente, defina el tipo y asigne al responsable en un solo flujo.":"Register or select the client, choose the case type, and assign responsibility in one workflow."}</p></div><button type="button" onClick={()=>setCaseModalOpen(true)} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">{es?"Registrar nuevo caso":"Register New Case"}</button></div>}
+          {canManageOrganization&&!visibleCases.length&&<div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4"><div><p className="text-sm font-semibold">{es?"Registre su primer caso":"Register your first case"}</p><p className="text-xs text-muted-foreground">{es?"Registre o seleccione al cliente, defina el tipo y asigne al responsable en un solo flujo.":"Register or select the client, choose the case type, and assign responsibility in one workflow."}</p></div><button type="button" onClick={()=>setCaseModalOpen(true)} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">{es?"Registrar nuevo caso":"Register New Case"}</button></div>}
           <CaseTable cases={visibleCases.slice(0,12)} es={es} onOpen={setSelectedCaseId}/>
         </>}
 
@@ -234,7 +253,7 @@ function SocialCarePage(){
         {area==="caseWork"&&<section className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-5">
             <div><h2 className="font-semibold">{es?"Trabajo del caso":"Case Work"}</h2><p className="mt-1 text-sm text-muted-foreground">{es?"Abra un caso autorizado para trabajar ingreso, riesgo, plan, intervenciones, servicios, canalizaciones, documentos, actividad y cierre con el mismo expediente.":"Open an authorized case to work intake, risk, care plan, interventions, services, referrals, documents, activity, and closure in one continuous record."}</p></div>
-            <button type="button" onClick={()=>setCaseModalOpen(true)} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">{es?"Registrar nuevo caso":"Register New Case"}</button>
+            {canManageOrganization&&<button type="button" onClick={()=>setCaseModalOpen(true)} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">{es?"Registrar nuevo caso":"Register New Case"}</button>}
           </div>
           <CaseTable cases={visibleCases} es={es} onOpen={setSelectedCaseId}/>
         </section>}
