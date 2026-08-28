@@ -137,7 +137,8 @@ export function SocialCaseWorkspace({
   };
   const caseData = detail.data;
   const c = caseData?.case;
-  const person = people.find((p) => p.id === c?.person_id);
+  const person = caseData?.person;
+  const caseMembers = caseData?.organizationMembers ?? [];
   const caseLabel = c?.case_number ?? "";
   const caseOrgId = c?.org_id ?? "";
   const casePersonId = c?.person_id ?? undefined;
@@ -815,7 +816,7 @@ export function SocialCaseWorkspace({
           <div>
             <p className="font-mono text-sm text-primary">{caseLabel}</p>
             <h2 className="text-xl font-semibold">
-              {person?.legal_name ?? (es ? "Caso familiar" : "Family case")}
+              {person?.legal_name ?? (es ? "Cliente no vinculado" : "No linked client")}
             </h2>
             <p className="text-xs text-muted-foreground">
               {localizedEnum(c?.case_type, es)} ·{" "}
@@ -882,14 +883,14 @@ export function SocialCaseWorkspace({
           <span>
             {es ? "Responsable" : "Assigned"}:{" "}
             <strong className="text-foreground">
-              {organizationMembers.find((m: any) => m.user_id === c?.assigned_case_manager)?.name ??
+              {caseMembers.find((m: any) => m.user_id === c?.assigned_case_manager)?.name ??
                 (es ? "Sin asignar" : "Unassigned")}
             </strong>
           </span>
           <span>
             {es ? "Supervisor" : "Supervisor"}:{" "}
             <strong className="text-foreground">
-              {organizationMembers.find((m: any) => m.user_id === c?.supervising_manager)?.name ??
+              {caseMembers.find((m: any) => m.user_id === c?.supervising_manager)?.name ??
                 "—"}
             </strong>
           </span>
@@ -1215,7 +1216,7 @@ export function SocialCaseWorkspace({
                 </p>
                 <p>
                   <strong>{es ? "Cliente" : "Client"}:</strong>{" "}
-                  {person?.legal_name ?? (es ? "Caso familiar" : "Family case")}
+                  {person?.legal_name ?? (es ? "Cliente no vinculado" : "No linked client")}
                 </p>
                 <p>
                   <strong>{es ? "Tipo" : "Type"}:</strong> {localizedEnum(c?.case_type, es)}
@@ -1239,7 +1240,9 @@ export function SocialCaseWorkspace({
               )}
               render={(x) => (
                 <p>
-                  {new Date(x.occurred_at).toLocaleString()} · {localizedEnum(x.event_type, es)}
+                  {new Date(x.occurred_at).toLocaleString()} · {localizedEnum(x.event_type, es)} ·{" "}
+                  {caseMembers.find((m: any) => m.user_id === x.actor_id)?.name ??
+                    (es ? "Usuario autorizado" : "Authorized user")}
                 </p>
               )}
             />
