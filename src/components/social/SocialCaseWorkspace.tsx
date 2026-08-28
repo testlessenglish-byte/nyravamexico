@@ -137,8 +137,8 @@ export function SocialCaseWorkspace({
   };
   const caseData = detail.data;
   const c = caseData?.case;
-  const person = caseData?.person;
-  const caseMembers = caseData?.organizationMembers ?? [];
+  const person = people.find((p) => p.id === c?.person_id);
+  const caseMembers = organizationMembers;
   const caseLabel = c?.case_number ?? "";
   const caseOrgId = c?.org_id ?? "";
   const casePersonId = c?.person_id ?? undefined;
