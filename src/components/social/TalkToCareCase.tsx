@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Bot, CheckCircle2, HeartPulse, Loader2, ShieldAlert } from "lucide-react";
@@ -12,9 +12,20 @@ const label=(v:string,es:boolean)=>{const x:Record<string,[string,string]>={crit
 export function TalkToCareCase({caseId}:{caseId:string}){
  const {locale}=useI18n();const es=locale==="es";const askFn=useServerFn(askTalkToCareCase);const proposeFn=useServerFn(proposeCareAssistantAction);const confirmFn=useServerFn(confirmCareAssistantAction);
  const [question,setQuestion]=useState("");const [result,setResult]=useState<any>(null);const [proposal,setProposal]=useState<any>(null);
- const ask=useMutation({mutationFn:(healthCheck:boolean)=>askFn({data:{caseId,question:healthCheck?(es?"Ejecutar revisión integral del caso":"Run complete case health check"):question,language:es?"es":"en",healthCheck}}),onSuccess:setResult,onError:(e:any)=>toast.error(e.message)});
+ const lastCheckRef=useRef<boolean|null>(null);
+ const ask=useMutation({mutationFn:(healthCheck:boolean)=>{lastCheckRef.current=healthCheck;return askFn({data:{caseId,question:healthCheck?(es?"Ejecutar revisión integral del caso":"Run complete case health check"):question,language:es?"es":"en",healthCheck}})},onSuccess:setResult,onError:(e:any)=>toast.error(e.message)});
  const propose=useMutation({mutationFn:(actionType:string)=>proposeFn({data:{caseId,runId:result?.runId,actionType:actionType as any,title:label(actionType,es),details:{source:"talk_to_care_case"}}}),onSuccess:setProposal,onError:(e:any)=>toast.error(e.message)});
  const confirm=useMutation({mutationFn:()=>confirmFn({data:{proposalId:proposal.id,confirm:true}}),onSuccess:x=>{setProposal(x);toast.success(es?"Acción confirmada y registrada":"Action confirmed and recorded")},onError:(e:any)=>toast.error(e.message)});
+ 
+ const prevLocaleRef=useRef(locale);
+ useEffect(()=>{
+   if(prevLocaleRef.current!==locale){
+     prevLocaleRef.current=locale;
+     if(result&&lastCheckRef.current!==null){
+       ask.mutate(lastCheckRef.current);
+     }
+   }
+ },[locale,result]);
  const r=result?.response,h=r?.health_check;
  return <section className="space-y-4"><div className="rounded-xl border border-primary/30 bg-primary/5 p-5"><h3 className="flex items-center gap-2 text-lg font-semibold"><Bot className="h-5 w-5 text-primary"/>{es?"Consultar Caso de Atención":"Talk to Care Case"}</h3><p className="text-sm text-muted-foreground">{es?"Analiza únicamente información autorizada del caso seleccionado. No cambia riesgos, consentimiento, planes, referencias ni estado del caso.":"Analyzes only authorized information from the selected case. It does not change risk, consent, plans, referrals, or case status."}</p><textarea rows={4} value={question} onChange={e=>setQuestion(e.target.value)} placeholder={es?"¿Qué falta en este caso? ¿Qué requiere seguimiento?":"What is missing? What needs follow-up?"} className="mt-3 w-full rounded-lg border border-border bg-background p-3 text-sm"/><div className="mt-3 flex flex-wrap gap-2"><button disabled={question.trim().length<2||ask.isPending} onClick={()=>ask.mutate(false)} className="rounded bg-primary px-4 py-2 text-sm text-primary-foreground">{ask.isPending&&<Loader2 className="mr-2 inline h-4 w-4 animate-spin"/>}{es?"Consultar":"Ask"}</button><button disabled={ask.isPending} onClick={()=>ask.mutate(true)} className="rounded border border-primary px-4 py-2 text-sm text-primary"><HeartPulse className="mr-2 inline h-4 w-4"/>{es?"Ejecutar revisión de salud del caso":"Run Case Health Check"}</button></div></div>
  {r&&<><div className="grid gap-3 lg:grid-cols-2"><Panel title={es?"Estado actual del caso":"Current case status"}><p>{r.current_case_status.summary}</p><p className="text-xs text-muted-foreground">{r.current_case_status.last_activity??"—"}</p></Panel><Panel title={es?"Faltante o incompleto":"Missing or incomplete"}>{r.missing_or_incomplete.length?r.missing_or_incomplete.map((x:any)=><Item key={x.code} x={x}/>):<p>{es?"Nada identificado por las reglas actuales.":"Nothing identified by current rules."}</p>}</Panel><Panel title={es?"Riesgos que requieren revisión":"Risks requiring review"}>{r.risks_requiring_review.length?r.risks_requiring_review.map((x:any)=><Item key={x.code} x={x}/>):<p>{es?"No se detectaron alertas críticas deterministas.":"No deterministic critical alerts found."}</p>}</Panel><Panel title={es?"Próximos pasos recomendados":"Recommended next steps"}>{r.recommended_next_steps.map((x:any,i:number)=><div key={i} className="rounded border border-border p-2 text-sm"><b>{x.action}</b><p>{x.responsible_role} · {x.suggested_due_date} · {x.consent_required?(es?"Requiere revisar consentimiento":"Consent review required"):(es?"Sin requisito identificado":"No requirement identified")}</p><p className="text-xs text-muted-foreground">{x.supporting_record}</p></div>)}</Panel></div>
