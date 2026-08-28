@@ -6,6 +6,7 @@ import {
   Send, ShieldAlert, ShieldCheck, UserCheck, Users,
 } from "lucide-react";
 import { CaseActivityDrawerModal } from "./CaseActivityDrawerModal";
+import { localizedEnum } from "@/lib/social/social-i18n";
 
 interface Props {
   caseId: string;
@@ -136,7 +137,7 @@ export function CaseActivityFeed({
       const op = (eventType in entityGroup ? eventType : "insert") as "insert" | "update" | "delete";
       return es ? entityGroup[op][0] : entityGroup[op][1];
     }
-    return es ? `${entityType} (${eventType})` : `${entityType} (${eventType})`;
+    return es ? `${localizedEnum(entityType, es)} (${localizedEnum(eventType, es)})` : `${localizedEnum(entityType, es)} (${localizedEnum(eventType, es)})`;
   };
 
   const getRecordSubtitle = (item: any) => {
@@ -148,7 +149,7 @@ export function CaseActivityFeed({
     switch (item.entity_type) {
       case "social_interventions": {
         const found = interventions.find((i) => i.id === item.entity_id);
-        const service = found?.service_type || item.metadata?.service_type || (es ? "Trabajo Social" : "Social Work");
+        const service = localizedEnum(found?.service_type || item.metadata?.service_type || "social_work", es);
         const worker = caseRecord?.assigned_case_manager_name || caseRecord?.assigned_case_manager?.slice(0, 8) || (es ? "Profesional" : "Staff");
         return `${service} · ${timeContext} · ${worker}`;
       }
@@ -159,7 +160,8 @@ export function CaseActivityFeed({
       }
       case "social_assessments": {
         const found = assessments.find((a) => a.id === item.entity_id);
-        const level = found?.risk_level || item.metadata?.risk_level || (es ? "Riesgo evaluado" : "Risk assessed");
+        const rawLevel = found?.risk_level || item.metadata?.risk_level || "unknown";
+        const level = localizedEnum(rawLevel, es);
         const ver = found?.current_version || item.metadata?.version || 1;
         return `${level.toUpperCase()} · ${es ? "Versión" : "Version"} ${ver} · ${timeContext}`;
       }
@@ -179,7 +181,7 @@ export function CaseActivityFeed({
         return `${title} · ${timeContext}`;
       }
       case "social_document_access_events": {
-        const action = item.metadata?.action === "download" ? (es ? "Descarga" : "Download") : (es ? "Vista previa" : "Preview");
+        const action = localizedEnum(item.metadata?.action || "preview", es);
         return `${action} · ${timeContext}`;
       }
       case "social_cases": {
@@ -364,8 +366,8 @@ export function CaseActivityFeed({
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="hidden sm:inline rounded bg-muted/60 px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
-                      {act.event_type}
+                    <span className="hidden sm:inline rounded bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      {localizedEnum(act.event_type, es)}
                     </span>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>

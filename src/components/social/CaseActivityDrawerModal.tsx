@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { CaseDynamicText } from "@/components/social/CaseDynamicText";
+import { localizedEnum } from "@/lib/social/social-i18n";
 import {
   deleteSocialIntervention, getSocialActivityRecordDetail,
   getSocialDocumentAccessUrl, updateSocialIntervention,
@@ -222,10 +223,10 @@ export function CaseActivityDrawerModal({
                 <div className="space-y-4 rounded-xl border border-border bg-background p-4">
                   <div className="flex items-center justify-between border-b border-border pb-2">
                     <span className="font-bold text-foreground text-sm">
-                      {record.service_type || (es ? "Intervención de Trabajo Social" : "Social Work Intervention")}
+                      {localizedEnum(record.service_type, es)}
                     </span>
                     <span className="rounded bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                      {record.record_type}
+                      {localizedEnum(record.record_type, es)}
                     </span>
                   </div>
 
@@ -238,7 +239,7 @@ export function CaseActivityDrawerModal({
                       )}
                       <div className="flex flex-wrap gap-4 pt-1 text-[11px] text-muted-foreground border-t border-border/60">
                         <span>{es ? "Seguimiento requerido" : "Follow-up required"}: <b>{record.follow_up_required ? (es ? "Sí" : "Yes") : (es ? "No" : "No")}</b></span>
-                        <span>{es ? "Confidencialidad" : "Confidentiality"}: <b>{record.confidentiality_level || "standard"}</b></span>
+                        <span>{es ? "Confidencialidad" : "Confidentiality"}: <b>{localizedEnum(record.confidentiality_level || "standard", es)}</b></span>
                       </div>
                     </div>
                   ) : (
@@ -310,7 +311,7 @@ export function CaseActivityDrawerModal({
                       {es ? "Plan de Atención" : "Care Plan"} · v{record.current_version || 1}
                     </span>
                     <span className="rounded bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                      {record.status}
+                      {localizedEnum(record.status, es)}
                     </span>
                   </div>
 
@@ -336,8 +337,8 @@ export function CaseActivityDrawerModal({
                       {record.social_care_plan_versions[0].social_care_plan_goals.map((g: any, i: number) => (
                         <div key={g.id || i} className="rounded-lg border border-border/80 bg-card p-3 space-y-1">
                           <div className="flex items-center justify-between">
-                            <span className="font-semibold text-primary">{g.priority || "normal"}</span>
-                            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px]">{g.status}</span>
+                            <span className="font-semibold text-primary">{localizedEnum(g.priority || "normal", es)}</span>
+                            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px]">{localizedEnum(g.status || "todo", es)}</span>
                           </div>
                           {g.identified_need && <CaseDynamicText label={es ? "Necesidad" : "Need"} text={g.identified_need} />}
                           {g.goal && <CaseDynamicText label={es ? "Meta" : "Goal"} text={g.goal} />}
@@ -357,7 +358,7 @@ export function CaseActivityDrawerModal({
                       {es ? "Evaluación de Riesgo" : "Risk Assessment"} · v{record.current_version || 1}
                     </span>
                     <span className="rounded bg-destructive/15 px-2 py-0.5 text-[10px] font-bold text-destructive uppercase">
-                      {record.risk_level}
+                      {localizedEnum(record.risk_level, es)}
                     </span>
                   </div>
 
@@ -395,13 +396,13 @@ export function CaseActivityDrawerModal({
                   <div className="flex items-center justify-between border-b border-border pb-2">
                     <span className="font-bold text-foreground text-sm">{record.title}</span>
                     <span className="rounded bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                      {record.lifecycle_status?.toUpperCase() || "ACTIVE"}
+                      {localizedEnum(record.lifecycle_status || "finalized", es)}
                     </span>
                   </div>
 
                   <div className="grid gap-2 sm:grid-cols-2 text-[11px] text-muted-foreground">
-                    <div>{es ? "Tipo" : "Type"}: <b className="text-foreground">{record.document_type || "general"}</b></div>
-                    <div>{es ? "Registro" : "Record type"}: <b className="text-foreground">{record.record_type}</b></div>
+                    <div>{es ? "Tipo" : "Type"}: <b className="text-foreground">{localizedEnum(record.document_type, es)}</b></div>
+                    <div>{es ? "Registro" : "Record type"}: <b className="text-foreground">{localizedEnum(record.record_type, es)}</b></div>
                     <div>{es ? "Versión" : "Version"}: <b className="text-foreground">v{record.current_version || 1}</b></div>
                     <div>{es ? "Idioma" : "Language"}: <b className="text-foreground uppercase">{record.language_code || "es"}</b></div>
                     {record.sent_to && (
@@ -436,7 +437,7 @@ export function CaseActivityDrawerModal({
                       {es ? "Evento de Acceso a Documento" : "Document Access Event"}
                     </span>
                     <span className="rounded bg-muted px-2 py-0.5 text-[10px] font-semibold">
-                      {record.action?.toUpperCase()}
+                      {localizedEnum(record.action, es)}
                     </span>
                   </div>
                   <div className="space-y-2 text-[11px] text-muted-foreground">
@@ -456,10 +457,10 @@ export function CaseActivityDrawerModal({
                       {es ? record.title_es : record.title_en}
                     </span>
                     <span className="rounded bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-600">
-                      {record.severity?.toUpperCase()}
+                      {localizedEnum(record.severity, es)}
                     </span>
                   </div>
-                  <p className="text-muted-foreground">{es ? "Tipo" : "Type"}: {record.alert_type}</p>
+                  <p className="text-muted-foreground">{es ? "Tipo" : "Type"}: {localizedEnum(record.alert_type, es)}</p>
                   {record.due_at && <p className="text-muted-foreground">{es ? "Vencimiento" : "Due date"}: {new Date(record.due_at).toLocaleDateString()}</p>}
                 </div>
               )}
@@ -470,9 +471,9 @@ export function CaseActivityDrawerModal({
                     {es ? "Estado del Caso" : "Case Status"} — {record.case_number}
                   </h5>
                   <div className="grid gap-2 sm:grid-cols-2 text-[11px] text-muted-foreground">
-                    <div>{es ? "Estado" : "Status"}: <b className="text-foreground">{record.status}</b></div>
-                    <div>{es ? "Prioridad" : "Priority"}: <b className="text-foreground">{record.priority}</b></div>
-                    <div>{es ? "Riesgo" : "Risk"}: <b className="text-foreground">{record.risk_level}</b></div>
+                    <div>{es ? "Estado" : "Status"}: <b className="text-foreground">{localizedEnum(record.status, es)}</b></div>
+                    <div>{es ? "Prioridad" : "Priority"}: <b className="text-foreground">{localizedEnum(record.priority, es)}</b></div>
+                    <div>{es ? "Riesgo" : "Risk"}: <b className="text-foreground">{localizedEnum(record.risk_level, es)}</b></div>
                     <div>{es ? "Última actividad" : "Last activity"}: <b className="text-foreground">{new Date(record.last_activity_at).toLocaleString()}</b></div>
                   </div>
                 </div>
