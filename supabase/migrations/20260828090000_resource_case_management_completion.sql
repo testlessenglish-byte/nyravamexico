@@ -24,9 +24,13 @@ alter table public.social_resource_communications enable row level security;
 create index if not exists social_resource_communications_case_idx
   on public.social_resource_communications(social_case_id,created_at desc);
 
+drop policy if exists social_resource_communications_read on public.social_resource_communications;
+drop policy if exists social_resource_communications_insert on public.social_resource_communications;
+drop policy if exists social_resource_communications_update on public.social_resource_communications;
+
 create policy social_resource_communications_read on public.social_resource_communications
   for select to authenticated using (
-    public.is_platform_admin(auth.uid()) or public.social_can_access_case(social_case_id,'general_case_record',false,auth.uid())
+    public.social_is_platform_admin(auth.uid()) or public.social_can_access_case(social_case_id,'general_case_record',false,auth.uid())
   );
 create policy social_resource_communications_insert on public.social_resource_communications
   for insert to authenticated with check (
