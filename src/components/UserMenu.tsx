@@ -32,10 +32,20 @@ type Props = {
  * mobile and desktop headers.
  */
 export function UserMenu({ initials, displayName, email, isAdmin }: Props) {
-  const nav = useNavigate();
   const signOut = async () => {
-    await supabase.auth.signOut();
-    nav({ to: "/auth" });
+    try {
+      await supabase.auth.signOut({ scope: "global" });
+    } catch {}
+    try {
+      await supabase.auth.signOut({ scope: "local" });
+    } catch {}
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch {}
+      window.location.replace("/auth?logged_out=1");
+    }
   };
 
   return (

@@ -429,8 +429,19 @@ function AppLayout() {
             <div className="border-t border-sidebar-border p-3">
               <button
                 onClick={async () => {
-                  await supabase.auth.signOut();
-                  nav({ to: "/auth" });
+                  try {
+                    await supabase.auth.signOut({ scope: "global" });
+                  } catch {}
+                  try {
+                    await supabase.auth.signOut({ scope: "local" });
+                  } catch {}
+                  if (typeof window !== "undefined") {
+                    try {
+                      localStorage.clear();
+                      sessionStorage.clear();
+                    } catch {}
+                    window.location.replace("/auth?logged_out=1");
+                  }
                 }}
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent/50"
               >
@@ -505,8 +516,19 @@ function AppLayout() {
             </div>
             <button
               onClick={async () => {
-                await supabase.auth.signOut();
-                nav({ to: "/auth" });
+                try {
+                  await supabase.auth.signOut({ scope: "global" });
+                } catch {}
+                try {
+                  await supabase.auth.signOut({ scope: "local" });
+                } catch {}
+                if (typeof window !== "undefined") {
+                  try {
+                    localStorage.clear();
+                    sessionStorage.clear();
+                  } catch {}
+                  window.location.replace("/auth?logged_out=1");
+                }
               }}
               className="rounded-md p-1.5 text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
               aria-label={t("nav.logout")}
