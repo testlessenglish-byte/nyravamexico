@@ -64,24 +64,33 @@ async function signedUrl(admin: Db, path: string | null): Promise<string | null>
 // -------------------- Public (no auth) --------------------
 
 export const listPublishedDemoCases = createServerFn({ method: "GET" }).handler(async () => {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data, error } = await supabaseAdmin
-    .from("demo_cases")
-    .select("id,slug,name,case_type,summary,thumbnail_path,sort_order")
-    .eq("published", true)
-    .order("sort_order", { ascending: true });
-  if (error) throw new Error(error.message);
-  return await Promise.all(
-    (data ?? []).map(async (c) => ({
-      id: c.id,
-      slug: c.slug,
-      name: c.name,
-      case_type: c.case_type,
-      case_type_label: PRACTICE_AREA_LABELS[c.case_type as PracticeArea] ?? c.case_type,
-      summary: c.summary,
-      thumbnail_url: await signedUrl(supabaseAdmin, c.thumbnail_path),
-    })),
-  );
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("demo_cases")
+      .select("id,slug,name,case_type,summary,thumbnail_path,sort_order")
+      .eq("published", true)
+      .order("sort_order", { ascending: true });
+    if (error) {
+      console.warn("[demo-cases] Failed to list published demo cases:", error.message);
+      return [];
+    }
+    return await Promise.all(
+      (data ?? []).map(async (c) => ({
+        id: c.id,
+        slug: c.slug,
+        name: c.name,
+        case_type: c.case_type,
+        case_type_label: PRACTICE_AREA_LABELS[c.case_type as PracticeArea] ?? c.case_type,
+        summary: c.summary,
+        thumbnail_url: await signedUrl(supabaseAdmin, c.thumbnail_path),
+        sort_order: c.sort_order ?? 0,
+      })),
+    );
+  } catch (err) {
+    console.warn("[demo-cases] listPublishedDemoCases degraded:", err);
+    return [];
+  }
 });
 
 export const getPublishedDemoCase = createServerFn({ method: "GET" })
