@@ -177,8 +177,14 @@ function SocialCarePage(){
   const allOrganizationAccounts=workspace.data?.organizationAccounts??[];
   const currentUserId=workspace.data?.userId??"";
   const availableOrganizations=allOrganizations;
-  const requestedOrg=orgId&&availableOrganizations.some((organization:any)=>organization.id===orgId)?orgId:"";
-  const resolvedOrg=requestedOrg||availableOrganizations[0]?.id||"";
+  const storedOrg=typeof window!=="undefined"?localStorage.getItem("nyrava:current_social_org"):null;
+  const orgWithCases=availableOrganizations.find((o:any)=>(workspace.data?.cases??[]).some((c:any)=>c.org_id===o.id))?.id;
+  const requestedOrg=(orgId&&availableOrganizations.some((organization:any)=>organization.id===orgId)&&orgId)
+    || (storedOrg&&availableOrganizations.some((organization:any)=>organization.id===storedOrg)&&storedOrg)
+    || orgWithCases
+    || availableOrganizations[0]?.id
+    || "";
+  const resolvedOrg=requestedOrg;
   const organizationAccount=allOrganizationAccounts.find((x:any)=>x.orgId===resolvedOrg);
   const organizationMembers=organizationAccount?.members??[];
   const canManageOrganization=organizationAccount?.can_manage===true;
@@ -193,6 +199,13 @@ function SocialCarePage(){
   const visiblePeople=(workspace.data?.people??[]).filter((p:any)=>p.org_id===resolvedOrg);
   const visibleFamilies=(workspace.data?.families??[]).filter((x:any)=>x.org_id===resolvedOrg);
   const visibleAlerts=(workspace.data?.alerts??[]).filter((x:any)=>x.org_id===resolvedOrg);
+  const orgTasks=(workspace.data?.tasks??[]).filter((t:any)=>t.org_id===resolvedOrg);
+  const orgReferrals=(workspace.data?.referrals??[]).filter((r:any)=>r.org_id===resolvedOrg);
+  const now=Date.now();
+  const orgActiveCases=visibleCases.filter((c:any)=>!["closed","archived","transferred"].includes(c.status)).length;
+  const orgCriticalRisk=visibleAlerts.filter((a:any)=>a.severity==="critical"&&!a.acknowledged_at).length;
+  const orgOverdueTasks=orgTasks.filter((t:any)=>t.due_at&&new Date(t.due_at).getTime()<now&&t.status!=="done").length;
+  const orgUnverifiedReferrals=orgReferrals.filter((r:any)=>r.status!=="completed").length;
   const emergencyAlerts=visibleAlerts.filter((alert:any)=>
     alert.severity==="critical"
     && !alert.acknowledged_at
@@ -311,7 +324,7 @@ function SocialCarePage(){
         </div>
         <label className="min-w-[180px] text-xs font-medium text-muted-foreground">
           {es?"Organización":"Organization"}
-          <select aria-label={es?"Organización activa":"Active organization"} value={resolvedOrg} onChange={e=>setOrgId(e.target.value)} disabled={!availableOrganizations.length} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-60">
+          <select aria-label={es?"Organización activa":"Active organization"} value={resolvedOrg} onChange={e=>{setOrgId(e.target.value);if(typeof window!=="undefined")localStorage.setItem("nyrava:current_social_org",e.target.value);}} disabled={!availableOrganizations.length} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-60">
             {!availableOrganizations.length&&<option value="">{es?"Sin organización":"No organization"}</option>}
             {availableOrganizations.map((o:any)=><option key={o.id} value={o.id}>{o.name}</option>)}
           </select>
@@ -341,10 +354,10 @@ function SocialCarePage(){
       <main className="min-w-0">
         {area==="dashboard"&&<>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Metric label={es?"Casos activos":"Active cases"} value={stats?.active??0}/>
-            <Metric label={es?"Riesgo crítico":"Critical risk"} value={stats?.critical??0} danger/>
-            <Metric label={es?"Tareas vencidas":"Overdue tasks"} value={stats?.overdue??0}/>
-            <Metric label={es?"Canalizaciones sin verificar":"Unverified referrals"} value={stats?.unverifiedReferrals??0}/>
+            <Metric label={es?"Casos activos":"Active cases"} value={orgActiveCases}/>
+            <Metric label={es?"Riesgo crítico":"Critical risk"} value={orgCriticalRisk} danger/>
+            <Metric label={es?"Tareas vencidas":"Overdue tasks"} value={orgOverdueTasks}/>
+            <Metric label={es?"Canalizaciones sin verificar":"Unverified referrals"} value={orgUnverifiedReferrals}/>
           </div>
           <div className="mt-4 rounded-xl border border-warning/30 bg-warning/10 p-4">
             <div className="flex gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 text-warning"/><div><p className="text-sm font-semibold">{es?"Guía de escalamiento":"Escalation guidance"}</p><p className="text-sm text-muted-foreground">{EMERGENCY_GUIDANCE[locale]}</p></div></div>

@@ -21,8 +21,8 @@ describe("Comprehensive Care Organization Resolution & Polling Fix", () => {
   });
 
   it("strictly validates requested organization against authorized availableOrganizations", () => {
-    expect(route).toContain('const requestedOrg=orgId&&availableOrganizations.some((organization:any)=>organization.id===orgId)?orgId:"";');
-    expect(route).toContain('const resolvedOrg=requestedOrg||availableOrganizations[0]?.id||"";');
+    expect(route).toContain('const requestedOrg=(orgId&&availableOrganizations.some((organization:any)=>organization.id===orgId)&&orgId)');
+    expect(route).toContain('const resolvedOrg=requestedOrg;');
   });
 
   it("preserves tenant-scoped case filtering on resolved authorized organization", () => {
