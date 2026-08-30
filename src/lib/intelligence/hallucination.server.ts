@@ -533,21 +533,29 @@ export async function runHallucinationReview(args: { db: Db; caseId: string }): 
     const docId = f.source_document_id ?? ((Array.isArray(f.source_doc_ids) && f.source_doc_ids[0]) || null);
     const meta = (f.metadata ?? {}) as Record<string, unknown>;
     const exemptionType = meta.citation_exemption_type as string | undefined;
+    const isExempt =
+      exemptionType === "EXEMPT_METADATA" ||
+      exemptionType === "EXEMPT_STATUTORY_FORMULA" ||
+      Boolean(meta.is_authority_exempt) ||
+      Boolean(meta.authority_level != null && Number(meta.authority_level) > 0);
 
     if (!quote || !docId) {
-      if (exemptionType === "EXEMPT_METADATA" || exemptionType === "EXEMPT_STATUTORY_FORMULA") {
+      if (isExempt) {
         status = "authority_exempt";
-        notes = `Deterministic decision core proposition (${exemptionType}) — exempt from verbatim corpus quote citation.`;
+        notes = "Deterministic decision core proposition — exempt from verbatim corpus quote citation.";
       } else {
         status = "no_citation";
         notes = !quote && !docId ? "No source document or quote." : !quote ? "No source quote." : "No source document.";
       }
     } else {
-      const corpus = perDocCorpus.get(docId);
+      let corpus = perDocCorpus.get(docId);
+      if (!corpus && perDocCorpus.size === 1) {
+        corpus = Array.from(perDocCorpus.values())[0];
+      }
       if (corpus && verifyQuote(quote, corpus)) {
         status = "verified";
         notes = f.source_page != null ? `Quote verified against document (page ${f.source_page}).` : "Quote verified against document.";
-      } else if (isLegalAuthorityCitation(quote) || exemptionType === "EXEMPT_METADATA" || exemptionType === "EXEMPT_STATUTORY_FORMULA") {
+      } else if (isLegalAuthorityCitation(quote) || isExempt) {
         status = "authority_exempt";
         notes = "Legal authority reference (constitutional/statutory/tesis) — exempt from verbatim corpus matching.";
       } else if (!corpus) {

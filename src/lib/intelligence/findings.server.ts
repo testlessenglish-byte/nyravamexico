@@ -1047,14 +1047,24 @@ export async function addFindings(db: Db, rows: NewFinding[]) {
   // example (ADR 4640/2017, a CIVIL apelación reviewed via amparo directo
   // en revisión): agent:ways_out_analysis wrote "La resolución del
   // Tribunal de Enjuiciamiento desestimó un argumento novedoso..." —
-  // Tribunal de Enjuiciamiento is exclusive to accusatorial CRIMINAL
-  // procedure (CNPP) and does not exist in a civil dispute; none of the
-  // finding's own cited quotes even mentioned it. See
-  // domain-vocabulary-gate.ts for why this is a denylist (unambiguous
-  // single-materia-exclusive institution names) rather than an allowlist
-  // (which would require this code to judge what's substantively
-  // applicable per materia — a legal-content call this codebase
-  // consistently leaves to the user's own research).
+          // Tribunal de Enjuiciamiento is exclusive to accusatorial CRIMINAL
+          // procedure (CNPP) and does not exist in a civil dispute; none of the
+          // finding's own cited quotes even mentioned it. See
+          // domain-vocabulary-gate.ts for why this is a denylist (unambiguous
+          // single-materia-exclusive institution names) rather than an allowlist
+          // (which would require this code to judge what's substantively
+          // applicable per materia — a legal-content call this codebase
+          // consistently leaves to the user's own research).
+  const { data: caseDocuments } = classifyCaseId
+    ? await db
+        .from("documents")
+        .select("id, filename, created_at")
+        .eq("case_id", classifyCaseId)
+        .order("created_at", { ascending: true })
+    : { data: [] };
+  const caseDocList = caseDocuments ?? [];
+  const singleDocId = caseDocList.length === 1 ? caseDocList[0].id : null;
+
   const domainVocabularyRejected: Array<{
     title: string;
     case_id: string;
@@ -1093,11 +1103,33 @@ export async function addFindings(db: Db, rows: NewFinding[]) {
 
     const primaryQuote =
       ev.find((e) => typeof e.quote === "string" && e.quote.length > 0)?.quote ?? null;
-    const primaryDocId =
+    let primaryDocId =
       ev.find((e) => typeof (e.document_id ?? e.doc_id) === "string")?.document_id ??
       ev.find((e) => typeof e.doc_id === "string")?.doc_id ??
       r.source_doc_ids?.[0] ??
       null;
+
+    if (!primaryDocId && caseDocList.length > 0 && primaryQuote) {
+      const docNRef = ev.find((e) => (e as any).doc_n != null);
+      if (docNRef && typeof (docNRef as any).doc_n === "number") {
+        const idx = (docNRef as any).doc_n - 1;
+        if (idx >= 0 && idx < caseDocList.length) {
+          primaryDocId = caseDocList[idx].id;
+        }
+      }
+      if (!primaryDocId) {
+        primaryDocId = singleDocId ?? caseDocList[0].id;
+      }
+    }
+
+    if (primaryDocId) {
+      for (const e of ev) {
+        if (!e.document_id && !e.doc_id) {
+          e.document_id = primaryDocId;
+        }
+      }
+    }
+
     const primaryPage = ev.find((e) => e.page !== undefined && e.page !== null)?.page ?? null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const extra = r as any;
@@ -1119,6 +1151,18 @@ export async function addFindings(db: Db, rows: NewFinding[]) {
       normalizedType === "DIRECT_EVIDENCE" && !hasCompleteCitation
         ? "EVIDENCE_BASED_INFERENCE"
         : normalizedType;
+
+    const isHolding =
+      r.proposition_type === "holding" ||
+      extra.proposition_type === "holding" ||
+      r.audit_classification === "VERIFIED_COURT_HOLDING" ||
+      extra.audit_classification === "VERIFIED_COURT_HOLDING";
+
+    const speaker_role = isHolding ? "scjn" : normSpeakerRole(r.speaker_role);
+    const proposition_type = isHolding ? "holding" : normPropositionType(r.proposition_type);
+    const adoption_status = isHolding ? "adopted" : normAdoptionStatus(r.adoption_status);
+    const impact_direction = isHolding && !r.impact_direction ? "neutral" : (r.impact_direction ?? "neutral");
+
     // Lift canonical identity out of metadata onto the top-level column so
     // joins/exports/audit tools can resolve findings by canonical_finding_id
     // without walking JSON. (Priority 2 fix — metadata → top-level.)
@@ -1132,6 +1176,13 @@ export async function addFindings(db: Db, rows: NewFinding[]) {
     // hit this path.
     const reconciliation_state =
       typeof meta.reconciliation_state === "string" ? (meta.reconciliation_state as string) : null;
+
+    const sourceDocIds = r.source_doc_ids?.length
+      ? r.source_doc_ids
+      : resolvedDocId
+        ? [resolvedDocId]
+        : [];
+
     payload.push({
       case_id: r.case_id,
       user_id: r.user_id,
@@ -1151,14 +1202,14 @@ export async function addFindings(db: Db, rows: NewFinding[]) {
       potential_impact: r.potential_impact,
       affected_party: normParty(r.affected_party),
       benefited_party: normParty(r.benefited_party),
-      authority_level: r.authority_level ?? null,
+      authority_level: r.authority_level ?? (isHolding ? 1 : null),
       score_dimension: r.score_dimension ?? null,
       reason_for_score_effect: r.reason_for_score_effect ?? null,
-      speaker_role: normSpeakerRole(r.speaker_role),
-      proposition_type: normPropositionType(r.proposition_type),
-      adoption_status: normAdoptionStatus(r.adoption_status),
-      audit_classification: normAuditClassification(r.audit_classification),
-      source_doc_ids: r.source_doc_ids ?? [],
+      speaker_role,
+      proposition_type,
+      adoption_status,
+      audit_classification: isHolding ? "VERIFIED_COURT_HOLDING" : normAuditClassification(r.audit_classification),
+      source_doc_ids: sourceDocIds,
       // The relevance-filtered set (`ev`), not the raw upstream one — an
       // evidence_ref this gate stripped for being irrelevant must not
       // persist in the stored array either, or the report could still
@@ -1166,7 +1217,10 @@ export async function addFindings(db: Db, rows: NewFinding[]) {
       evidence_refs: ev as J,
       related_finding_ids: r.related_finding_ids ?? [],
       tags: [...new Set([...(r.tags ?? []), ...computeDimensionTags(r)])],
-      metadata: (r.metadata ?? {}) as J,
+      metadata: {
+        ...(r.metadata ?? {}),
+        is_authority_exempt: isHolding,
+      } as J,
       finding_type,
       // Set by addGatedFindings' path (classifyEvidenceRelationship, see
       // evidence-gate.server.ts); null for the few call sites that persist

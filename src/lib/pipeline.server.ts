@@ -6086,9 +6086,12 @@ async function _runReportInner(args: {
   // the entire report — scoring already handled the hard-error case.
   const { getCanonicalReportFindings, assertPipelineOrder } =
     await import("./intelligence/scoring-selection");
+  const { rankFindingsForReport } = await import("./intelligence/finding-selection");
+  const { detectProceduralPosture } = await import("./intelligence/procedural-posture");
+
   const { data: caseTsRow } = await db
     .from("cases")
-    .select("discovery_at,contradiction_at,evidence_intel_at,scored_at")
+    .select("*")
     .eq("id", caseId)
     .maybeSingle();
   const caseTs = (caseTsRow ?? {
@@ -6102,6 +6105,14 @@ async function _runReportInner(args: {
     evidence_intel_at: string | null;
     scored_at: string | null;
   };
+
+  const proceduralPosture = detectProceduralPosture({
+    caseRow: caseTsRow,
+    corpusText: corpusSnapshot?.text ?? "",
+    resolutivos: (caseTsRow?.shared_brief as any)?.resolutivo_verbatim ?? null,
+    materia: area,
+  });
+
   let findings: typeof allFindings;
   try {
     assertPipelineOrder(caseTs, "report");
@@ -6109,6 +6120,7 @@ async function _runReportInner(args: {
       caseRow: caseTs,
       findings: allFindings as unknown as never,
     });
+    findings = rankFindingsForReport(findings as any) as typeof allFindings;
   } catch (e) {
     const code = (e as { code?: string })?.code ?? "CANONICAL_GUARD_FAILED";
     pipelineWarnings.push(code);
@@ -7348,6 +7360,7 @@ ${paginationTail}`;
     narrativeParsed: chunkParsedByName.narrative ?? null,
     memoParsed: chunkParsedByName.memo ?? null,
     intelParsed: chunkParsedByName.intelligence ?? null,
+    posture: proceduralPosture,
   });
 
   // --- Defense-in-depth: strip ungrounded standalone confidence figures ---
@@ -8920,6 +8933,7 @@ ${paginationTail}`;
       ...parsed,
       case_type: caseType,
       case_analysis_mode: reportCaseAnalysisMode,
+      procedural_posture: proceduralPosture,
       penal_disposition: penalDisposition,
       penal_perspective_scores: reportPenalPerspectiveScores,
       risk_consistency: {

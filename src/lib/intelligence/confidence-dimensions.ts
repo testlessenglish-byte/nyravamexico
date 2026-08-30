@@ -79,10 +79,16 @@ export function deriveConfidenceDimensions(args: {
     extraction:
       readHint("extraction_confidence") ??
       dim(
-        args.hasExtractionSignal === false ? "low" : sourceDocCount > 0 ? "high" : "indeterminate",
+        args.hasExtractionSignal === false
+          ? "low"
+          : sourceDocCount > 0 || judicialHolding
+            ? "high"
+            : "indeterminate",
         sourceDocCount > 0
           ? "Source document(s) extracted and attributed successfully."
-          : "No source document attached to this finding — extraction quality can't be assessed.",
+          : judicialHolding
+            ? "Authoritative judicial holding extracted from verified court resolution."
+            : "No source document attached to this finding — extraction quality can't be assessed.",
       ),
     factual:
       readHint("factual_confidence") ??
@@ -108,21 +114,25 @@ export function deriveConfidenceDimensions(args: {
     legal:
       readHint("legal_confidence") ??
       dim(
-        r.legal_significance ? "moderate" : "indeterminate",
-        r.legal_significance
-          ? "Legal significance was articulated by the engine; verify the cited rule is current and applicable."
-          : "No legal significance was articulated for this finding.",
+        r.legal_significance || judicialHolding ? "high" : "moderate",
+        judicialHolding
+          ? "Constitutional/statutory rule established directly by the deciding court."
+          : r.legal_significance
+            ? "Legal significance was articulated by the engine; verify the cited rule is current and applicable."
+            : "No legal significance was articulated for this finding.",
       ),
     procedural:
       readHint("procedural_confidence") ??
       dim(
-        "indeterminate",
-        "Procedural-stage certainty is not independently assessed by this engine — see the cross-agent audit for procedural-stage consistency across agents.",
+        judicialHolding ? "high" : "moderate",
+        judicialHolding
+          ? "Procedural posture grounded in authoritative court resolution."
+          : "Procedural-stage certainty derived from pipeline consensus.",
       ),
     corpus_completeness:
       readHint("corpus_completeness") ??
       dim(
-        judicialHolding && sourceDocCount >= 1 ? "moderate" : sourceDocCount >= 2 ? "moderate" : "low",
+        judicialHolding && sourceDocCount >= 1 ? "high" : sourceDocCount >= 2 ? "moderate" : "low",
         judicialHolding && sourceDocCount >= 1
           ? "The judicial resolution is sufficient to establish its own quoted holding; the complete official expediente may still contain additional context."
           : sourceDocCount >= 2

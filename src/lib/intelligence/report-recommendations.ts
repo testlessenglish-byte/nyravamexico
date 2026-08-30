@@ -10,6 +10,7 @@ import {
   type RecommendationOwner,
 } from "./report-canonical-context";
 import { filterUnsupportedLegalFilingRecommendations } from "./recommendation-grounding";
+import { sanitizeActionsForPosture, type ProceduralPosture } from "./procedural-posture";
 
 export type RecommendationPriority = "critical" | "high" | "medium" | "low";
 
@@ -205,9 +206,10 @@ export function mergeCanonicalRecommendations(args: {
   narrativeParsed?: Record<string, any> | null;
   memoParsed?: Record<string, any> | null;
   intelParsed?: Record<string, any> | null;
+  posture?: ProceduralPosture | null;
 }): CanonicalRecommendation[] {
   const narrativeProseText = String(args.narrativeParsed?.prose?.recommendations ?? "");
-  const candidates: RecommendationCandidate[] = [
+  const rawCandidates: RecommendationCandidate[] = [
     ...extractRecommendationCandidatesFromProse(narrativeProseText, "narrative"),
     ...fromMemoNextActions(args.memoParsed),
     ...fromMemoRecommendedMotions(args.memoParsed),
@@ -215,6 +217,10 @@ export function mergeCanonicalRecommendations(args: {
     ...fromIntelStrategyRecommendations(args.intelParsed),
     ...fromIntelMotionOpportunities(args.intelParsed),
   ].filter((c) => c.title.length > 0);
+
+  const candidates = args.posture
+    ? sanitizeActionsForPosture(rawCandidates, args.posture)
+    : rawCandidates;
 
   const clusters: CanonicalRecommendation[] = [];
   for (const cand of candidates) {

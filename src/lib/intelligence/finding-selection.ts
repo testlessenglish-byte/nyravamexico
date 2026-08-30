@@ -287,3 +287,67 @@ export function getFindingConsensus(f: SelectableFinding): FindingConsensus {
         : `identificado por ${agreementCount} etapas del pipeline`,
   };
 }
+
+/**
+ * Deterministic ranking layer for appellate and constitutional resolutions.
+ * Priority hierarchy:
+ *  1. Dispositive result / Resolutivos (is_dispositive)
+ *  2. Controlling constitutional / statutory holding (is_controlling_issue)
+ *  3. Court's material reasoning & procedural violations
+ *  4. Remand / procedural consequences
+ *  5. Secondary doctrine / international human rights
+ *  6. Background facts & evidence
+ *  7. Strategic observations
+ */
+export function rankFindingsForReport<T extends SelectableFinding>(
+  findings: ReadonlyArray<T>,
+): T[] {
+  const scoreFinding = (f: T): number => {
+    const title = String(f.title ?? "").toLowerCase();
+    const desc = String(f.description ?? "").toLowerCase();
+    const cat = String(f.category ?? "").toLowerCase();
+    const auditClass = String(f.audit_classification ?? "").toUpperCase();
+    const propType = String((f as any).proposition_type ?? "").toLowerCase();
+
+    // 1. Dispositive / resolutivo
+    if ((f as any).is_dispositive || cat.includes("resolutivo") || /primero\.|segundo\.|se revoca|se confirma|devu[eé]lvanse/i.test(title)) {
+      return 1000;
+    }
+
+    // 2. Controlling holding (e.g. Inconstitucionalidad, taxatividad, exact application)
+    if (
+      (f as any).is_controlling_issue ||
+      auditClass === "VERIFIED_COURT_HOLDING" ||
+      propType === "holding" ||
+      /inconstitucional|taxatividad|exacta aplicaci[oó]n|art[ií]culo\s*8|garant[ií]a\s*constitucional/i.test(title)
+    ) {
+      return 900;
+    }
+
+    // 3. Court's material reasoning / procedural violations
+    if (/violaci[oó]n procesal|debido proceso|acceso a la justicia|legitimaci[oó]n/i.test(title + " " + cat)) {
+      return 700;
+    }
+
+    // 4. Secondary doctrine / human rights
+    if (/convenci[oó]n|tratado|derechos humanos|pro persona/i.test(title + " " + cat)) {
+      return 500;
+    }
+
+    // 5. Background facts / condena
+    if (/condena|fraude|hechos|antecedentes/i.test(title + " " + desc)) {
+      return 300;
+    }
+
+    return 100;
+  };
+
+  return [...findings].sort((a, b) => {
+    const sa = scoreFinding(a);
+    const sb = scoreFinding(b);
+    if (sa !== sb) return sb - sa;
+    const ca = Number(a.confidence ?? 0);
+    const cb = Number(b.confidence ?? 0);
+    return cb - ca;
+  });
+}

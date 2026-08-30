@@ -958,16 +958,16 @@ async function _runMultiAgentPipeline(args: OrchestratorArgs): Promise<{
 // Report generation itself never assigns the final status: generating a
 // report and approving a report are separate actions.
 // ---------------------------------------------------------------------------
+export type ReleaseDecision = "PASS" | "PASS_WITH_WARNINGS" | "BLOCKED";
+
 export type FinalReleaseReview = {
   reviewed: boolean;
   released: boolean;
+  decision: ReleaseDecision;
   status: "released" | "needs_revision" | "failed";
   gates: { report: boolean; qa: boolean; judge: boolean; hallucination: boolean };
-  /** Required pipeline engines (canGenerateReport's REPORT_BLOCKING_ENGINES)
-   *  that were NOT in a good terminal state when the release decision was
-   *  made — empty when every required engine succeeded. A non-empty list
-   *  here means "needs_revision" even if every gate agent above passed. */
   missingRequiredEngines: string[];
+  warnings: string[];
   errors: string[];
 };
 
@@ -979,12 +979,13 @@ export async function runFinalReleaseReview(args: OrchestratorArgs): Promise<Fin
 async function _runFinalReleaseReview(args: OrchestratorArgs): Promise<FinalReleaseReview> {
   const runId = crypto.randomUUID();
   const { getAnalysisMode } = await import("@/lib/intelligence/evidence-gate.server");
+  const { validateJSONPipelineIntegrity } = await import("@/lib/intelligence/json-integrity-gate");
   const analysisMode = (await getAnalysisMode(args.db, args.caseId)) as AnalysisMode;
   const ctx: RunCtx = { ...args, runId, analysisMode };
 
   const { data: reportRow } = await args.db
     .from("reports")
-    .select("case_id")
+    .select("case_id, full_report")
     .eq("case_id", args.caseId)
     .maybeSingle();
   if (!reportRow) {
@@ -992,19 +993,17 @@ async function _runFinalReleaseReview(args: OrchestratorArgs): Promise<FinalRele
     return {
       reviewed: false,
       released: false,
+      decision: "BLOCKED",
       status: "failed",
       gates: { report: false, qa: false, judge: false, hallucination: false },
       missingRequiredEngines: [],
+      warnings: [],
       errors: ["No completed report to review."],
     };
   }
 
   // ORDER IS A RELEASE INVARIANT. Hallucination may quarantine/suppress
-  // unsupported rows. Judge must therefore run after it. ADR5829/2025 proved
-  // the old order was wrong: Judge saw 19 rows (63% cited) and failed, then
-  // Hallucination reconciled the set to 14 rows and the same Judge logic
-  // subsequently saw 71%. Final release must never be decided from the stale
-  // pre-reconciliation population.
+  // unsupported rows. Judge must therefore run after it.
   const gateRunners: Array<[string, (c: RunCtx) => Promise<AgentResult>]> = [
     ["report", agentReport],
     ["qa", agentQA],
@@ -1014,6 +1013,7 @@ async function _runFinalReleaseReview(args: OrchestratorArgs): Promise<FinalRele
 
   const outcomes: Record<string, boolean> = {};
   const errors: string[] = [];
+  const warnings: string[] = [];
   for (const [key, fn] of gateRunners) {
     const def = AGENT_DEFINITIONS.find((d) => d.key === key)!;
     const startedAt = Date.now();
@@ -1041,23 +1041,50 @@ async function _runFinalReleaseReview(args: OrchestratorArgs): Promise<FinalRele
       `Required engine(s) not in a completed state: ${engineGate.missingBlocking.join(", ")}.`,
     );
   }
+  if (engineGate.missingEnriching.length > 0) {
+    warnings.push(...engineGate.missingEnriching.map((e) => `Enriching engine ${e} incomplete`));
+  }
 
-  const released = gatesPassed && engineGate.ok;
+  // Pre-release JSON Integrity Validation
+  const { data: caseRow } = await args.db.from("cases").select("*").eq("id", args.caseId).maybeSingle();
+  const { data: findingsData } = await args.db.from("case_findings").select("*").eq("case_id", args.caseId);
+  const integrity = validateJSONPipelineIntegrity({
+    caseRow,
+    findings: (findingsData ?? []) as never,
+    isLimitedMode: analysisMode === "strict",
+    reportReleased: gatesPassed && engineGate.ok,
+  });
+
+  if (!integrity.valid) {
+    errors.push(...integrity.violations.filter((v) => v.severity === "critical").map((v) => v.message));
+  }
+  if (integrity.warning_count > 0) {
+    warnings.push(...integrity.violations.filter((v) => v.severity === "warning").map((v) => v.message));
+  }
+
+  // Authoritative Decision
+  let decision: ReleaseDecision = "BLOCKED";
+  if (gatesPassed && engineGate.ok && integrity.valid) {
+    decision = warnings.length > 0 ? "PASS_WITH_WARNINGS" : "PASS";
+  }
+
+  const released = decision === "PASS" || decision === "PASS_WITH_WARNINGS";
   const status: FinalReleaseReview["status"] = released ? "released" : "needs_revision";
-  const statusMessage = released
+  const statusMessage = decision === "PASS"
     ? "Final review passed — report released."
-    : !engineGate.ok
-      ? `Final review blocked — required engine(s) did not complete: ${engineGate.missingBlocking.join(", ")}.`
-      : "Final review requires revision — see QA/Judge/Hallucination logs.";
+    : decision === "PASS_WITH_WARNINGS"
+      ? `Final review passed with warnings — report released (${warnings.length} warning(s)).`
+      : !engineGate.ok
+        ? `Final review blocked — required engine(s) did not complete: ${engineGate.missingBlocking.join(", ")}.`
+        : `Final review requires revision: ${errors.join("; ").slice(0, 500)}`;
 
+  // Atomic state update
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error: releaseStateError } = await (args.db as any)
     .from("cases")
     .update({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       status: status as any,
-      // Released is a terminal persisted state even when the database
-      // migration has not yet reached a deployment environment.
       progress: released ? 100 : 99,
       completed_at: released ? new Date().toISOString() : null,
       report_at: released ? new Date().toISOString() : null,
@@ -1065,25 +1092,57 @@ async function _runFinalReleaseReview(args: OrchestratorArgs): Promise<FinalRele
       worker_lease_until: null,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       status_message: statusMessage as any,
+      error: released ? null : errors.join("; ").slice(0, 2000),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
     .eq("id", args.caseId);
+
   if (releaseStateError) {
     throw new Error(`Failed to persist final release state for case ${args.caseId}: ${releaseStateError.message}`);
   }
+
+  // Update persisted report release_gate metadata so report snapshot agrees with case state
+  try {
+    const fullRep = ((reportRow.full_report as Record<string, unknown>) ?? {});
+    await args.db
+      .from("reports")
+      .update({
+        full_report: {
+          ...fullRep,
+          release_decision: decision,
+          release_warnings: warnings,
+          release_gate: {
+            ok: released,
+            decision,
+            gates: outcomes,
+            missing_required_engines: engineGate.missingBlocking,
+            warnings,
+            errors,
+          },
+        } as any,
+      })
+      .eq("case_id", args.caseId);
+  } catch (e) {
+    console.warn("[final-release] failed to update report release_gate object", e);
+  }
+
   console.info(
     `[final-release] ${JSON.stringify({
       run_id: runId,
       case_id: args.caseId,
       status,
+      decision,
       gates: outcomes,
       missing_required_engines: engineGate.missingBlocking,
+      warnings_count: warnings.length,
+      errors_count: errors.length,
     })}`,
   );
 
   return {
     reviewed: true,
     released,
+    decision,
     status,
     gates: {
       report: Boolean(outcomes.report),
@@ -1092,6 +1151,7 @@ async function _runFinalReleaseReview(args: OrchestratorArgs): Promise<FinalRele
       hallucination: Boolean(outcomes.hallucination),
     },
     missingRequiredEngines: engineGate.missingBlocking,
+    warnings,
     errors,
   };
 }
