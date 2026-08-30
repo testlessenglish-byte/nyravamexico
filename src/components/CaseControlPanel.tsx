@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Play, RotateCw, Settings as SettingsIcon, ChevronDown, ChevronUp, FilePlus2, ShieldCheck, FastForward, Wrench } from "lucide-react";
+import { Loader2, Play, RotateCw, Settings as SettingsIcon, ChevronDown, ChevronUp, FilePlus2, ShieldCheck, FastForward, Wrench, AlertTriangle } from "lucide-react";
 import {
   queueCaseForPipeline,
   resumeFullPipelineStep,
@@ -17,6 +17,7 @@ import { AGENT_DEFINITIONS } from "@/lib/agents/types";
 import { CASE_TYPE_SELECT_OPTIONS } from "@/lib/intelligence/practice-areas";
 import { JURISDICTION_GROUPS } from "@/lib/intelligence/jurisdictions";
 import { CASE_ANALYSIS_MODE_SELECTABLE_OPTIONS } from "@/lib/intelligence/case-analysis-mode";
+import { getCaseConfiguration } from "@/lib/intelligence/case-configuration";
 import { useI18n } from "@/i18n";
 import { drivePipeline } from "@/lib/pipeline-driver";
 
@@ -42,6 +43,7 @@ export function CaseControlPanel({
   analysisMode: _analysisMode,
   jurisdiction,
   caseAnalysisMode,
+  matterMetadata,
   documentsCount,
   invalidate,
 }: {
@@ -53,6 +55,7 @@ export function CaseControlPanel({
   analysisMode: string | null;
   jurisdiction: string | null;
   caseAnalysisMode: string | null;
+  matterMetadata?: Record<string, unknown> | null;
   documentsCount: number;
   invalidate: () => void;
 }) {
@@ -293,6 +296,7 @@ export function CaseControlPanel({
         underlyingMateria={underlyingMateria}
         jurisdiction={jurisdiction}
         caseAnalysisMode={caseAnalysisMode}
+        matterMetadata={matterMetadata}
         running={running}
         invalidate={invalidate}
       />
@@ -307,6 +311,7 @@ function CollapsedCaseSettings({
   underlyingMateria,
   jurisdiction,
   caseAnalysisMode,
+  matterMetadata,
   running,
   invalidate,
 }: {
@@ -316,25 +321,42 @@ function CollapsedCaseSettings({
   underlyingMateria?: string | null;
   jurisdiction: string | null;
   caseAnalysisMode: string | null;
+  matterMetadata?: Record<string, unknown> | null;
   running: boolean;
   invalidate: () => void;
 }) {
   const { t, locale } = useI18n();
   const [open, setOpen] = useState(false);
   const updateFn = useServerFn(updateCaseSettings);
-  const [ct, setCt] = useState<string>(caseType ?? "");
-  const [pv, setPv] = useState<string>(proceduralVehicle ?? "");
-  const [um, setUm] = useState<string>(underlyingMateria ?? "");
-  const [juris, setJuris] = useState<string>(jurisdiction ?? "");
-  const [caseAnalysis, setCaseAnalysis] = useState<string>(caseAnalysisMode || "ongoing");
+
+  const config = getCaseConfiguration({
+    case_type: caseType,
+    procedural_vehicle: proceduralVehicle,
+    underlying_materia: underlyingMateria,
+    jurisdiction,
+    case_analysis_mode: caseAnalysisMode,
+    matter_metadata: matterMetadata,
+  });
+
+  const effectiveUserCaseType = config.user_selected_case_type ?? caseType ?? "";
+  const effectiveUserVehicle = config.user_selected_procedural_vehicle ?? proceduralVehicle ?? "";
+  const effectiveUserUnderlying = config.user_selected_underlying_materia ?? underlyingMateria ?? "";
+  const effectiveUserJurisdiction = config.user_selected_jurisdiction ?? jurisdiction ?? "";
+  const effectiveUserCaseAnalysisMode = config.user_selected_case_analysis_mode ?? caseAnalysisMode ?? "ongoing";
+
+  const [ct, setCt] = useState<string>(effectiveUserCaseType);
+  const [pv, setPv] = useState<string>(effectiveUserVehicle);
+  const [um, setUm] = useState<string>(effectiveUserUnderlying);
+  const [juris, setJuris] = useState<string>(effectiveUserJurisdiction);
+  const [caseAnalysis, setCaseAnalysis] = useState<string>(effectiveUserCaseAnalysisMode);
 
   useEffect(() => {
-    setCt(caseType ?? "");
-    setPv(proceduralVehicle ?? "");
-    setUm(underlyingMateria ?? "");
-    setJuris(jurisdiction ?? "");
-    setCaseAnalysis(caseAnalysisMode || "ongoing");
-  }, [caseType, proceduralVehicle, underlyingMateria, jurisdiction, caseAnalysisMode]);
+    setCt(effectiveUserCaseType);
+    setPv(effectiveUserVehicle);
+    setUm(effectiveUserUnderlying);
+    setJuris(effectiveUserJurisdiction);
+    setCaseAnalysis(effectiveUserCaseAnalysisMode);
+  }, [effectiveUserCaseType, effectiveUserVehicle, effectiveUserUnderlying, effectiveUserJurisdiction, effectiveUserCaseAnalysisMode]);
 
   const m = useMutation({
     mutationFn: (patch: { case_type?: string; procedural_vehicle?: string | null; underlying_materia?: string | null; jurisdiction?: string | null; case_analysis_mode?: string }) =>
@@ -360,11 +382,11 @@ function CollapsedCaseSettings({
   });
 
   const dirty =
-    ct !== (caseType ?? "") ||
-    pv !== (proceduralVehicle ?? "") ||
-    um !== (underlyingMateria ?? "") ||
-    juris !== (jurisdiction ?? "") ||
-    caseAnalysis !== (caseAnalysisMode || "ongoing");
+    ct !== effectiveUserCaseType ||
+    pv !== effectiveUserVehicle ||
+    um !== effectiveUserUnderlying ||
+    juris !== effectiveUserJurisdiction ||
+    caseAnalysis !== effectiveUserCaseAnalysisMode;
   const disabled = running || m.isPending;
 
   return (
@@ -386,11 +408,46 @@ function CollapsedCaseSettings({
           {pv && <span className="rounded bg-accent/10 px-2 py-0.5 text-accent font-medium">{pv.replace(/_/g, " ")}</span>}
           {um && <span className="rounded bg-secondary px-2 py-0.5 text-secondary-foreground font-medium">Materia: {um}</span>}
           {juris && <span className="rounded bg-muted px-2 py-0.5 text-muted-foreground font-medium">{juris}</span>}
+          {config.classification_conflict && (
+            <span className="rounded bg-amber-500/20 text-amber-300 px-2 py-0.5 font-medium flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" />
+              {config.detected_case_type ? `Detectado: ${config.detected_case_type}` : "Conflicto"}
+            </span>
+          )}
         </div>
       )}
 
       {open && (
         <div className="border-t border-border p-4 space-y-4">
+          {config.classification_conflict && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200 space-y-1.5">
+              <div className="font-semibold flex items-center gap-1.5 text-amber-400">
+                <AlertTriangle className="h-4 w-4" />
+                {locale === "en" ? "Classification Conflict" : "Conflicto de Clasificación"}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {locale === "en"
+                  ? "The uploaded document contains markers indicating a different classification than originally selected."
+                  : "El documento cargado contiene elementos que indican una clasificación distinta a la seleccionada inicialmente."}
+              </p>
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div className="rounded bg-background/60 p-2 border border-border/50">
+                  <div className="text-muted-foreground">{locale === "en" ? "Selected by user:" : "Seleccionado por usuario:"}</div>
+                  <div className="font-medium text-foreground capitalize">{config.user_selected_case_type || "N/A"}</div>
+                </div>
+                <div className="rounded bg-amber-500/15 p-2 border border-amber-500/30">
+                  <div className="text-amber-400/90">{locale === "en" ? "Detected from doc:" : "Detectado en documento:"}</div>
+                  <div className="font-medium text-amber-300 capitalize">{config.detected_case_type || "N/A"}</div>
+                </div>
+              </div>
+              {config.conflict_details?.detected_quote && (
+                <div className="mt-1 text-[10px] text-muted-foreground italic border-t border-amber-500/20 pt-1">
+                  &ldquo;{config.conflict_details.detected_quote.slice(0, 120)}...&rdquo;
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-foreground/80">{t("caseSettings.caseType")}</label>
             <select

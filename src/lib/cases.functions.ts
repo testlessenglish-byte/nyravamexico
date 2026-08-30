@@ -159,6 +159,18 @@ export const createCaseAndUpload = createServerFn({ method: "POST" })
     }
 
     const { trace, traceSpan, newCorrelationId } = await import("@/lib/pipeline-trace.server");
+    const { createInitialCaseConfiguration } = await import("@/lib/intelligence/case-configuration");
+
+    const caseConfiguration = createInitialCaseConfiguration({
+      user_selected_case_type: case_type,
+      user_selected_jurisdiction: jurisdiction,
+      user_selected_analysis_mode: analysis_mode,
+      user_selected_case_analysis_mode: case_analysis_mode,
+      user_selected_procedural_vehicle: procedural_vehicle,
+      user_selected_underlying_materia: underlying_materia,
+      source: "user",
+    });
+    matter_metadata.case_configuration = caseConfiguration;
 
     const { data: created, error } = await supabase
       .from("cases")
@@ -2860,7 +2872,7 @@ export const updateCaseSettings = createServerFn({ method: "POST" })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: before } = await (supabase as any)
       .from("cases")
-      .select("analysis_mode,case_type,case_analysis_mode")
+      .select("analysis_mode,case_type,case_analysis_mode,matter_metadata,jurisdiction,procedural_vehicle,underlying_materia")
       .eq("id", data.caseId)
       .maybeSingle();
     const previousMode = (before?.analysis_mode as string | null) ?? null;
@@ -2918,6 +2930,29 @@ export const updateCaseSettings = createServerFn({ method: "POST" })
       patch.report_at = null;
       patch.next_stage = null;
     }
+
+    // Authoritative case_configuration update
+    const { getCaseConfiguration } = await import("@/lib/intelligence/case-configuration");
+    const currentConfig = getCaseConfiguration(before);
+    const updatedConfig = {
+      ...currentConfig,
+      user_selected_case_type: data.case_type !== undefined ? data.case_type : currentConfig.user_selected_case_type,
+      user_selected_jurisdiction: data.jurisdiction !== undefined ? data.jurisdiction : currentConfig.user_selected_jurisdiction,
+      user_selected_analysis_mode: data.analysis_mode !== undefined ? data.analysis_mode : currentConfig.user_selected_analysis_mode,
+      user_selected_case_analysis_mode: data.case_analysis_mode !== undefined ? data.case_analysis_mode : currentConfig.user_selected_case_analysis_mode,
+      user_selected_procedural_vehicle: data.procedural_vehicle !== undefined ? data.procedural_vehicle : currentConfig.user_selected_procedural_vehicle,
+      user_selected_underlying_materia: data.underlying_materia !== undefined ? data.underlying_materia : currentConfig.user_selected_underlying_materia,
+      active_case_type: data.case_type !== undefined ? data.case_type : currentConfig.active_case_type,
+      active_jurisdiction: data.jurisdiction !== undefined ? data.jurisdiction : currentConfig.active_jurisdiction,
+      active_analysis_mode: data.analysis_mode !== undefined ? data.analysis_mode : currentConfig.active_analysis_mode,
+      active_case_analysis_mode: data.case_analysis_mode !== undefined ? data.case_analysis_mode : currentConfig.active_case_analysis_mode,
+      active_procedural_vehicle: data.procedural_vehicle !== undefined ? data.procedural_vehicle : currentConfig.active_procedural_vehicle,
+      active_underlying_materia: data.underlying_materia !== undefined ? data.underlying_materia : currentConfig.active_underlying_materia,
+      source: "manual_edit" as const,
+      selected_at: new Date().toISOString(),
+    };
+    const currentMeta = (before?.matter_metadata as Record<string, unknown> | null) ?? {};
+    patch.matter_metadata = { ...currentMeta, case_configuration: updatedConfig };
 
     await updateCaseWithSchemaDriftRetry(supabase, data.caseId, patch);
 

@@ -133,6 +133,16 @@ export async function autoDetectCaseContext(
       if (needsType) patch.case_type = caseType;
       if (needsJur && jurisdiction) patch.jurisdiction = jurisdiction;
       if (Object.keys(patch).length) {
+        const { getCaseConfiguration, updateCaseConfigurationWithClassification } = await import("@/lib/intelligence/case-configuration");
+        const existingConfig = getCaseConfiguration(current as any);
+        const updatedConfig = updateCaseConfigurationWithClassification(existingConfig, {
+          detected_case_type: caseType,
+          detected_jurisdiction: jurisdiction,
+          allowAutoCorrection: true,
+        });
+        const currentMeta = (current.matter_metadata as Record<string, unknown> | null) ?? {};
+        patch.matter_metadata = { ...currentMeta, case_configuration: updatedConfig };
+
         await supabase.from("cases").update(patch).eq("id", caseId);
       }
 

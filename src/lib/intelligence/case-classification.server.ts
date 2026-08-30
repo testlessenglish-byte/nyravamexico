@@ -590,7 +590,7 @@ export async function runCaseClassification(
   const { data: caseRow } = await db
     .from("cases")
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .select("case_type,jurisdiction,case_type_source,procedural_vehicle,underlying_materia" as any)
+    .select("case_type,jurisdiction,case_type_source,procedural_vehicle,underlying_materia,matter_metadata" as any)
     .eq("id", caseId)
     .maybeSingle();
   const current = (caseRow ?? {}) as {
@@ -599,12 +599,29 @@ export async function runCaseClassification(
     case_type_source?: string | null;
     procedural_vehicle?: string | null;
     underlying_materia?: string | null;
+    matter_metadata?: Record<string, unknown> | null;
   };
   const isManuallyLocked =
     current.case_type_source === "manual_override" ||
     current.case_type_source === "manual_override_conflicting";
 
+  const { getCaseConfiguration, updateCaseConfigurationWithClassification } = await import("./case-configuration");
+  const existingConfig = getCaseConfiguration(caseRow as any);
+
+  const updatedConfig = updateCaseConfigurationWithClassification(existingConfig, {
+    detected_case_type: caseTypeField?.value ?? null,
+    detected_jurisdiction: jurisdictionField?.value === "Federal" ? "federal" : (jurisdictionField?.value ?? null),
+    detected_procedural_vehicle: proceduralVehicleField?.value ?? null,
+    detected_underlying_materia: underlyingMateriaField?.value ?? null,
+    source_quote: caseTypeField?.source?.quote ?? null,
+    document_filename: caseTypeField?.source?.filename ?? null,
+    allowAutoCorrection: !isManuallyLocked,
+  });
+
   const patch: Record<string, unknown> = {};
+  const currentMeta = (current.matter_metadata as Record<string, unknown> | null) ?? {};
+  patch.matter_metadata = { ...currentMeta, case_configuration: updatedConfig };
+
   // STALE-ARTIFACT INVALIDATION (Fix instructions Step 5): true only when
   // this run is about to WRITE a case_type value that actually DIFFERS from
   // what was there before — not merely re-confirming the same value. The

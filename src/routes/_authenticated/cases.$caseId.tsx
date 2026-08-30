@@ -586,6 +586,8 @@ function Workspace() {
             jurisdiction={(c as any).jurisdiction ?? null}
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             caseAnalysisMode={(c as any).case_analysis_mode ?? "ongoing"}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            matterMetadata={(c as any).matter_metadata ?? null}
             documentsCount={docs.length}
             invalidate={invalidate}
           />

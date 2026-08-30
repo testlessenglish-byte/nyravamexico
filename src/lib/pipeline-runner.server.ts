@@ -158,6 +158,40 @@ async function _runPipelineForCase(
     }
   }
 
+  // Authoritative Configuration Validation & Execution Snapshot
+  const { data: fullCaseRow } = await (supabase as any)
+    .from("cases")
+    .select("id,case_type,jurisdiction,analysis_mode,case_analysis_mode,procedural_vehicle,underlying_materia,matter_metadata")
+    .eq("id", caseId)
+    .maybeSingle();
+
+  const {
+    validateConfigurationForExecution,
+    createExecutionConfigurationSnapshot,
+  } = await import("@/lib/intelligence/case-configuration");
+
+  const validated = validateConfigurationForExecution(fullCaseRow ?? { id: caseId });
+  const executionSnapshot = createExecutionConfigurationSnapshot(
+    fullCaseRow ?? { id: caseId },
+    executionId,
+  );
+
+  const mm = ((fullCaseRow as any)?.matter_metadata as Record<string, unknown> | null) ?? {};
+  await (supabase as any)
+    .from("cases")
+    .update({
+      matter_metadata: {
+        ...mm,
+        execution_configuration: executionSnapshot,
+      },
+    })
+    .eq("id", caseId);
+
+  trace("execution.configuration_validated", {
+    execution_id: executionId,
+    configuration: executionSnapshot,
+  });
+
   let isTerminated = false;
   const runnerAbortController = new AbortController();
 
