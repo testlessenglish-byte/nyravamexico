@@ -766,7 +766,8 @@ function scoreCanonicalSurvivorCandidate(f: Record<string, unknown>): number {
  */
 export function dedupeReportableFindingsByCanonicalId<T extends Record<string, unknown>>(
   findings: ReadonlyArray<T>,
-): CanonicalDedupeResult<T> {
+): CanonicalDedupeResult<T & { _alias_ids?: string[]; _alias_titles?: string[] }> {
+  type DedupedRow = T & { _alias_ids?: string[]; _alias_titles?: string[] };
   const byCanonical = new Map<string, T[]>();
   const nonCanonical: T[] = [];
 
@@ -781,13 +782,13 @@ export function dedupeReportableFindingsByCanonicalId<T extends Record<string, u
     }
   }
 
-  const deduped: T[] = [];
+  const deduped: DedupedRow[] = [];
   const duplicateAudit: CanonicalDedupeAudit[] = [];
   let duplicatesFound = 0;
 
   for (const [cid, group] of byCanonical) {
     if (group.length === 1) {
-      deduped.push(group[0]);
+      deduped.push(group[0] as DedupedRow);
       continue;
     }
 
@@ -869,7 +870,7 @@ export function dedupeReportableFindingsByCanonicalId<T extends Record<string, u
       _canonical_deduped: true,
     };
 
-    deduped.push(master as T);
+    deduped.push(master as DedupedRow);
 
     duplicateAudit.push({
       canonical_id: cid,
@@ -885,7 +886,7 @@ export function dedupeReportableFindingsByCanonicalId<T extends Record<string, u
 
   // Add non-canonical findings
   for (const nc of nonCanonical) {
-    deduped.push(nc);
+    deduped.push(nc as DedupedRow);
   }
 
   const distinctCanonical = new Set(

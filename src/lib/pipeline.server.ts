@@ -6254,6 +6254,11 @@ async function _runReportInner(args: {
 
   await setCase(db, caseId, { status_message: "Indexing evidence pages", progress: 45 });
   const { corpus, docIndex, resolutivoVerbatim } = await buildPaginatedCorpus(db, caseId);
+  const { loadCanonicalSourcesForCase } = await import("./intelligence/canonical-source-identity.server");
+  const { resolveCanonicalSourceId } = await import("./intelligence/canonical-source-identity");
+  const canonicalSourceAudit = await loadCanonicalSourcesForCase(db, caseId);
+  const canonicalSourceMetrics = canonicalSourceAudit.metrics;
+  const canonicalSources = canonicalSourceAudit.canonical_sources;
   // See extractResolutivoVerbatim's doc comment above buildPaginatedCorpus
   // for why this exists as its own block, appended after the corpus in
   // every prompt that includes it: it must never be silently truncated
@@ -7685,11 +7690,13 @@ ${paginationTail}`;
         ? "No verified findings in this category. Upload additional source documents and re-run the pipeline."
         : "No se identificaron hallazgos verificados en esta categoría. Suba fuentes documentales adicionales y vuelva a ejecutar el proceso.";
 
+    const canonicalSourceCount = canonicalSourceMetrics.independent_source_count;
+
     prose.executive_summary =
       prose.executive_summary ||
       (locale === "en"
-        ? `This report identifies ${findings.length} verified finding(s) across ${docIndex.length} source document(s). The highest-priority issues requiring attorney attention:\n\n${bullets || noContent}`
-        : `Este informe identifica ${findings.length} hallazgo(s) verificado(s) en ${docIndex.length} documento(s) fuente. Las cuestiones de mayor prioridad que requieren atención del abogado:\n\n${bullets || noContent}`);
+        ? `This report identifies ${findings.length} verified finding(s) across ${canonicalSourceCount} source document(s). The highest-priority issues requiring attorney attention:\n\n${bullets || noContent}`
+        : `Este informe identifica ${findings.length} hallazgo(s) verificado(s) en ${canonicalSourceCount} documento(s) fuente. Las cuestiones de mayor prioridad que requieren atención del abogado:\n\n${bullets || noContent}`);
 
     prose.attorney_summary =
       prose.attorney_summary ||
@@ -7706,8 +7713,8 @@ ${paginationTail}`;
     prose.case_overview =
       prose.case_overview ||
       (locale === "en"
-        ? `Case type: ${caseType}. Document corpus: ${docIndex.length} document(s) reviewed.\n${docLines || "No documents indexed."}\n\nVerified issues identified: ${findings.length}.`
-        : `Materia: ${caseType}. Corpus documental: ${docIndex.length} documento(s) revisado(s).\n${docLines || "No hay documentos indexados."}\n\nCuestiones verificadas identificadas: ${findings.length}.`);
+        ? `Case type: ${caseType}. Document corpus: ${canonicalSourceCount} document(s) reviewed.\n${docLines || "No documents indexed."}\n\nVerified issues identified: ${findings.length}.`
+        : `Materia: ${caseType}. Corpus documental: ${canonicalSourceCount} documento(s) revisado(s).\n${docLines || "No hay documentos indexados."}\n\nCuestiones verificadas identificadas: ${findings.length}.`);
 
     prose.evidence_summary =
       prose.evidence_summary ||
@@ -8243,11 +8250,14 @@ ${paginationTail}`;
     const recMotions = (parsed as Record<string, unknown>).recommended_motions;
     if (Array.isArray(recMotions)) (parsed as Record<string, unknown>).recommended_motions = recMotions.filter((item) => !isProspectiveTrialRecommendation(item));
   }
-  // Count facts corroborated by ≥2 documents (heuristic: distinct doc ids on finding citations).
+  // Count facts corroborated by ≥2 canonical documents.
   let corroboratedCount = 0;
   for (const f of findings as Array<{ source_doc_ids?: unknown }>) {
     const ids = Array.isArray(f.source_doc_ids) ? f.source_doc_ids : [];
-    if (new Set(ids).size >= 2) corroboratedCount += 1;
+    const canonicalIds = ids
+      .map((id) => resolveCanonicalSourceId(id, canonicalSourceAudit) ?? String(id))
+      .filter(Boolean);
+    if (new Set(canonicalIds).size >= 2) corroboratedCount += 1;
   }
   // Recalibration signals — high-weight doc types, charging documents, and
   // distinct document type breadth. These promote the case to Full Analysis
@@ -8260,7 +8270,7 @@ ${paginationTail}`;
     })),
   );
   const ess = computeESS({
-    documentCount: docIndex.length,
+    documentCount: canonicalSourceMetrics.unique_source_count,
     pageCount: pageCountTotal,
     extractedChars,
     factCount: findings.length,
@@ -9491,12 +9501,21 @@ ${paginationTail}`;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (reportRow.full_report as any).citation_audit_appendix = citationAudit.appendix_markdown;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (reportRow.full_report as any).source_audit = {
+      canonical_sources: canonicalSources,
+      metrics: canonicalSourceMetrics,
+      invariants: canonicalSourceAudit.invariants,
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const valBlock = ((reportRow.full_report as any).validation ?? {}) as Record<string, unknown>;
     valBlock.report_quality = qualityAudit;
     valBlock.evidence_map_totals = evidenceMap.totals;
     valBlock.ocr_coverage = ocrCoverage;
     valBlock.canonical_timeline_totals = canonicalTimeline.totals;
     valBlock.cross_document_graph_totals = documentGraph.totals;
+    valBlock.source_audit = canonicalSourceMetrics;
+    valBlock.canonical_source_count = canonicalSourceMetrics.unique_source_count;
+    valBlock.independent_source_count = canonicalSourceMetrics.independent_source_count;
     valBlock.citation_audit = {
       total: citationAudit.total,
       supported: citationAudit.supported,

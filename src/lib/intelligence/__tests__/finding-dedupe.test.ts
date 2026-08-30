@@ -610,3 +610,183 @@ describe("Final Reportable Finding Deduplication by canonical_finding_id", () =>
     expect(audit.citation_ids).toContain("cit-3");
   });
 });
+
+describe("Canonical Source Document Identity & Corroboration Engine", () => {
+  it("Scenario A: same document with different display names resolves to 1 canonical source", async () => {
+    const { normalizeCanonicalSources, resolveCanonicalSourceId } = await import("../canonical-source-identity");
+    const rawDocs = [
+      {
+        id: "doc-uuid-001",
+        filename: "sentencia_primera_instancia.pdf",
+        display_name: "Sentencia Definitiva 123/2024",
+        content_hash: "hash_sentencia_111111",
+        metadata: { ocr_title: "JUZGADO PRIMERO CIVIL - SENTENCIA" },
+      },
+    ];
+
+    const audit = normalizeCanonicalSources(rawDocs);
+
+    expect(audit.metrics.unique_source_count).toBe(1);
+    expect(audit.metrics.independent_source_count).toBe(1);
+
+    // All names/aliases resolve to the same canonical_source_id
+    expect(resolveCanonicalSourceId("doc-uuid-001", audit)).toBe("doc-uuid-001");
+    expect(resolveCanonicalSourceId("sentencia_primera_instancia.pdf", audit)).toBe("doc-uuid-001");
+    expect(resolveCanonicalSourceId("Sentencia Definitiva 123/2024", audit)).toBe("doc-uuid-001");
+    expect(resolveCanonicalSourceId("JUZGADO PRIMERO CIVIL - SENTENCIA", audit)).toBe("doc-uuid-001");
+  });
+
+  it("Scenario B: same file uploaded twice (same hash) preserves 2 records but counts 1 independent source", async () => {
+    const { normalizeCanonicalSources } = await import("../canonical-source-identity");
+    const rawDocs = [
+      {
+        id: "doc-first",
+        filename: "amparo_demanda.pdf",
+        content_hash: "sha256_identical_hash_99999",
+      },
+      {
+        id: "doc-reupload",
+        filename: "amparo_demanda_copia.pdf",
+        content_hash: "sha256_identical_hash_99999",
+      },
+    ];
+
+    const audit = normalizeCanonicalSources(rawDocs);
+
+    expect(audit.canonical_sources.length).toBe(2); // Both records preserved
+    expect(audit.metrics.raw_source_records).toBe(2);
+    expect(audit.metrics.duplicate_hash_count).toBe(1);
+    expect(audit.metrics.independent_source_count).toBe(1); // Only 1 independent evidentiary source
+
+    const dup = audit.canonical_sources.find((d) => d.document_id === "doc-reupload");
+    expect(dup?.is_duplicate_physical_source).toBe(true);
+    expect(dup?.duplicate_of_document_id).toBe("doc-first");
+    expect(dup?.canonical_source_id).toBe("doc-first");
+  });
+
+  it("Scenario C: same document cited on 10 pages produces 10 citations and 1 independent source", async () => {
+    const { evaluateSourceCorroboration } = await import("../canonical-source-identity");
+    const citationSourceIds = Array.from({ length: 10 }, () => "doc-scjn-resolution");
+
+    const corrob = evaluateSourceCorroboration(citationSourceIds, "es");
+
+    expect(corrob.citation_count).toBe(10);
+    expect(corrob.independent_source_count).toBe(1);
+    expect(corrob.independent_corroboration).toBe(false);
+    expect(corrob.corroboration_prose).toContain("sustentado por una resolución judicial con múltiples pasajes relevantes");
+    expect(corrob.corroboration_prose).not.toContain("documentos independientes");
+  });
+
+  it("Scenario D: two genuinely different PDFs count as 2 independent sources with corroboration", async () => {
+    const { normalizeCanonicalSources, evaluateSourceCorroboration } = await import("../canonical-source-identity");
+    const rawDocs = [
+      {
+        id: "doc-sentencia",
+        filename: "sentencia.pdf",
+        content_hash: "hash_sentencia_abc",
+      },
+      {
+        id: "doc-peritaje",
+        filename: "peritaje_contable.pdf",
+        content_hash: "hash_peritaje_xyz",
+      },
+    ];
+
+    const audit = normalizeCanonicalSources(rawDocs);
+
+    expect(audit.metrics.unique_source_count).toBe(2);
+    expect(audit.metrics.independent_source_count).toBe(2);
+
+    const corrob = evaluateSourceCorroboration(["doc-sentencia", "doc-peritaje"], "es");
+    expect(corrob.independent_corroboration).toBe(true);
+    expect(corrob.corroboration_prose).toContain("2 documentos independientes corroboran el hallazgo");
+  });
+
+  it("Scenario E: draft and signed version with different hashes remain separate documents linked by family", async () => {
+    const { normalizeCanonicalSources } = await import("../canonical-source-identity");
+    const rawDocs = [
+      {
+        id: "doc-draft",
+        filename: "proyecto_sentencia.pdf",
+        content_hash: "hash_draft_111",
+        document_family_id: "family-sentencia-2024",
+        document_version: 1,
+      },
+      {
+        id: "doc-signed",
+        filename: "sentencia_firmada_engrose.pdf",
+        content_hash: "hash_signed_222",
+        document_family_id: "family-sentencia-2024",
+        document_version: 2,
+        supersedes_document_id: "doc-draft",
+      },
+    ];
+
+    const audit = normalizeCanonicalSources(rawDocs);
+
+    expect(audit.metrics.unique_source_count).toBe(2);
+    expect(audit.metrics.independent_source_count).toBe(2);
+    expect(audit.canonical_sources[1].supersedes_document_id).toBe("doc-draft");
+  });
+
+  it("Scenario F: OCR label differing from filename is treated as alias only", async () => {
+    const { normalizeCanonicalSources, resolveCanonicalSourceId } = await import("../canonical-source-identity");
+    const rawDocs = [
+      {
+        id: "doc-ocr-diff",
+        filename: "scan_00019283.pdf",
+        metadata: { ocr_title: "ACTA DE AUDIENCIA INICIAL DE CONTROL DE DETENCIÓN" },
+      },
+    ];
+
+    const audit = normalizeCanonicalSources(rawDocs);
+
+    expect(audit.metrics.unique_source_count).toBe(1);
+    expect(resolveCanonicalSourceId("ACTA DE AUDIENCIA INICIAL DE CONTROL DE DETENCIÓN", audit)).toBe("doc-ocr-diff");
+    expect(resolveCanonicalSourceId("scan_00019283.pdf", audit)).toBe("doc-ocr-diff");
+  });
+
+  it("Scenario G: multiple engines citing the same source with different alias strings normalize to one canonical source", async () => {
+    const { normalizeCanonicalSources, normalizeCitationsWithCanonicalSources } = await import("../canonical-source-identity");
+    const rawDocs = [
+      {
+        id: "doc-adr",
+        filename: "ADR_311_2015.pdf",
+        display_name: "Amparo Directo en Revisión 311/2015",
+        metadata: { ocr_title: "SUPREMA CORTE DE JUSTICIA - ADR 311/2015" },
+      },
+    ];
+
+    const audit = normalizeCanonicalSources(rawDocs);
+
+    const citations = [
+      { document_id: "doc-adr", page: 10, quote: "Cita 1" },
+      { filename: "ADR_311_2015.pdf", page: 15, quote: "Cita 2" },
+      { source_document_id: "SUPREMA CORTE DE JUSTICIA - ADR 311/2015", page: 20, quote: "Cita 3" },
+    ];
+
+    const normalized = normalizeCitationsWithCanonicalSources(citations, audit);
+
+    expect(normalized.length).toBe(3);
+    const canonicalIds = normalized.map((n) => n.canonical_source_id);
+    expect(new Set(canonicalIds).size).toBe(1);
+    expect(canonicalIds[0]).toBe("doc-adr");
+  });
+
+  it("Scenario H: validates all platform-wide invariants", async () => {
+    const { normalizeCanonicalSources } = await import("../canonical-source-identity");
+    const rawDocs = [
+      { id: "d1", filename: "doc1.pdf", content_hash: "hash_aaa" },
+      { id: "d2", filename: "doc2.pdf", content_hash: "hash_bbb" },
+      { id: "d3", filename: "doc1_copy.pdf", content_hash: "hash_aaa" }, // duplicate upload
+    ];
+
+    const audit = normalizeCanonicalSources(rawDocs);
+
+    expect(audit.invariants.unique_source_count_valid).toBe(true);
+    expect(audit.invariants.independent_source_count_valid).toBe(true);
+    expect(audit.invariants.same_document_id_cannot_count_twice).toBe(true);
+    expect(audit.invariants.same_document_hash_cannot_create_independent_corroboration).toBe(true);
+    expect(audit.invariants.all_invariants_passed).toBe(true);
+  });
+});
