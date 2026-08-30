@@ -163,3 +163,31 @@ export function categorizeMissingEvidence(
   }
   return "missing_for_future_litigation";
 }
+
+/**
+ * Format a hard constraint prompt block for upstream analyzers and agents
+ * to prevent generation of active-trial / future-hearing actions on concluded matters.
+ */
+export function formatPosturePromptConstraint(
+  posture: ProceduralPosture,
+  locale: "en" | "es" = "es",
+): string {
+  if (posture.is_final_resolution) {
+    const decType = posture.decision_type ?? (posture.court_level === "scjn" ? "ejecutoria de la SCJN" : "sentencia definitiva");
+    if (locale === "es") {
+      return [
+        `[POSTURA PROCESAL OBLIGATORIA: RESOLUCIÓN CONCLUIDA / ${decType.toUpperCase()}]`,
+        `Este caso corresponde a una resolución judicial emitida/concluida (${decType}), NO a un juicio en trámite.`,
+        `- PROHIBIDO proponer acciones preparatorias de juicio, recolección prospectiva de testimonios, preparación de testigos o solicitudes de pruebas para audiencias futuras (ej. "recopilar testimonios antes de la audiencia", "preparar testigos", "solicitar descubrimiento").`,
+        `- Limitar el análisis a la legalidad, motivación, violaciones y resolutivos de la resolución analizada.${posture.remand_ordered ? " Dado que se ordenó reposición/devolución, las acciones deben limitarse estrictamente al cumplimiento de la ejecutoria ordenada." : ""}`,
+      ].join("\n");
+    }
+    return [
+      `[MANDATORY PROCEDURAL POSTURE: CONCLUDED RESOLUTION / ${decType.toUpperCase()}]`,
+      `This matter represents a concluded judicial resolution (${decType}), NOT an active pending trial.`,
+      `- STRICTLY FORBIDDEN: Generating forward-looking trial preparation, witness gathering, or evidence requests for future hearings.`,
+      `- Analysis must strictly focus on the legality, errors, holdings, and dispositive result of the decided resolution.${posture.remand_ordered ? " Actions must strictly relate to compliance with the remand order." : ""}`,
+    ].join("\n");
+  }
+  return "";
+}

@@ -2456,10 +2456,21 @@ async function _runAnalyzersInner(args: {
     hasCaseStateUpdateDocs((analyzerDocFilenames ?? []) as never),
     analyzerLocaleForPreamble,
   );
+  const { detectProceduralPosture, formatPosturePromptConstraint } =
+    await import("./intelligence/procedural-posture");
+  const { data: analyzerCaseRow } = await db.from("cases").select("*").eq("id", caseId).maybeSingle();
+  const analyzerPosture = detectProceduralPosture({
+    caseRow: analyzerCaseRow,
+    resolutivos: (analyzerCaseRow?.shared_brief as any)?.resolutivo_verbatim ?? null,
+    materia: analyzerArea,
+  });
+  const analyzerPosturePrompt = formatPosturePromptConstraint(analyzerPosture, analyzerLocaleForPreamble);
+
   const analyzerPreamble =
     `${mexicoLock(analyzerLocaleForPreamble)}\n` +
     `${groundingContract(analyzerLocaleForPreamble)}\n` +
     (analyzerProceduralTypeLock ? `${analyzerProceduralTypeLock}\n` : "") +
+    (analyzerPosturePrompt ? `${analyzerPosturePrompt}\n` : "") +
     (analyzerCaseStateUpdateNotice ? `${analyzerCaseStateUpdateNotice}\n` : "") +
     (analyzerCaseAnalysisObjective ? `${analyzerCaseAnalysisObjective}\n` : "") +
     (analyzerAuditClassificationInstructions ? `${analyzerAuditClassificationInstructions}\n` : "") +
@@ -4310,10 +4321,21 @@ export async function runAgents(args: {
     const allowedMotionTypesForArea = Array.from(
       getAllowedMotionTypes(normalizedArea, activeDomains),
     ).sort();
+    const { detectProceduralPosture, formatPosturePromptConstraint } =
+      await import("./intelligence/procedural-posture");
+    const { data: agentCaseRow } = await db.from("cases").select("*").eq("id", caseId).maybeSingle();
+    const agentPosture = detectProceduralPosture({
+      caseRow: agentCaseRow,
+      resolutivos: (agentCaseRow?.shared_brief as any)?.resolutivo_verbatim ?? null,
+      materia: area,
+    });
+    const agentPosturePrompt = formatPosturePromptConstraint(agentPosture, areaPreambleLocale);
+
     const areaPreamble =
       `${mexicoLock(areaPreambleLocale)}\n` +
       `${groundingContract(areaPreambleLocale)}\n` +
       (proceduralTypeLock ? `${proceduralTypeLock}\n` : "") +
+      (agentPosturePrompt ? `${agentPosturePrompt}\n` : "") +
       (areaCaseStateUpdateNotice ? `${areaCaseStateUpdateNotice}\n` : "") +
       (areaCaseAnalysisObjective ? `${areaCaseAnalysisObjective}\n` : "") +
       (areaAuditClassificationInstructions ? `${areaAuditClassificationInstructions}\n` : "") +
@@ -5232,8 +5254,12 @@ ${JSON.stringify(findingsForLlm)}`,
   // Strip non-applicable dimensions from the LLM payload BEFORE persistence
   // so renderers (PDF, DOCX, dashboard) cannot show off-domain dimensions
   // like "Conviction Risk" or "Chain of Custody" on a civil case.
-  const { applicableDimensionsFor, scrubScoringContributors, gateDimensionForCaseType } =
-    await import("./intelligence/scoring.server");
+  const {
+    applicableDimensionsFor,
+    scrubScoringContributors,
+    gateDimensionForCaseType,
+    computeDecomposedRiskScore,
+  } = await import("./intelligence/scoring.server");
   const applicableSet = new Set(applicableDimensionsFor(caseTypeForScore));
   // Cross-domain escalation (e.g. a tax_law case where a charging document
   // was detected): union in the criminal dimension set so chain_of_custody /
@@ -5323,7 +5349,7 @@ ${JSON.stringify(findingsForLlm)}`,
           appeal_risk: criminalLike ? penalPerspectiveScores!.reversal_risk.score : null,
           overall_confidence: Math.round(det.overall_confidence * 100),
           methodology: det.methodology,
-          rationale: { llm: llmDimsScoped, deterministic: det.dimensions } as unknown as J,
+          rationale: { llm: llmDimsScoped, deterministic: det.dimensions, risk: computeDecomposedRiskScore(findings as any, null) } as unknown as J,
 
           positive_contributors: (flatPos.length
             ? flatPos
@@ -5335,6 +5361,7 @@ ${JSON.stringify(findingsForLlm)}`,
           dimension_breakdowns: {
             llm: llmDimsScoped,
             deterministic: det,
+            risk: computeDecomposedRiskScore(findings as any, null),
             penal_perspective: penalPerspectiveScores,
             case_type: caseTypeForScore,
             authoritative: "deterministic",

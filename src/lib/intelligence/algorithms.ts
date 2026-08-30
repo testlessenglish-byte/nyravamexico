@@ -18,6 +18,8 @@
 export type Severity = "low" | "medium" | "high" | "critical";
 const SEV_RANK: Record<Severity, number> = { low: 1, medium: 2, high: 3, critical: 4 };
 
+import type { ProceduralPosture } from "./procedural-posture";
+
 const clamp = (n: number, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, Math.round(n)));
 
 // ---------------------------------------------------------------------
@@ -333,7 +335,13 @@ const MOTION_RULES: Array<{ when: (s: MotionSignal[]) => boolean; motion: string
     basis: "Defectos procesales acumulados que afectan el debido proceso",
   },
 ];
-export function detectMotions(signals: MotionSignal[]): Array<{ motion: string; basis: string }> {
+export function detectMotions(
+  signals: MotionSignal[],
+  posture?: ProceduralPosture | null,
+): Array<{ motion: string; basis: string }> {
+  if (posture?.is_final_resolution && !posture.remand_ordered) {
+    return [];
+  }
   return MOTION_RULES.filter((r) => r.when(signals)).map(({ motion, basis }) => ({ motion, basis }));
 }
 
@@ -375,6 +383,7 @@ export interface AlgorithmBundleInputs {
   risk?: RiskInputs;
   motionSignals?: MotionSignal[];
   trialEvents?: TrialEvent[];
+  posture?: ProceduralPosture | null;
 }
 export function runAlgorithmBundle(input: AlgorithmBundleInputs) {
   return {
@@ -387,7 +396,7 @@ export function runAlgorithmBundle(input: AlgorithmBundleInputs) {
     chain_of_custody: auditChainOfCustody(input.custody ?? []),
     burden:          input.burden ? evaluateBurden(input.burden.standard, input.burden.elements) : null,
     risk:            input.risk ? assessRisk(input.risk) : null,
-    motions:         detectMotions(input.motionSignals ?? []),
+    motions:         detectMotions(input.motionSignals ?? [], input.posture),
     appeal_issues:   detectAppealIssues(input.trialEvents ?? []),
   };
 }

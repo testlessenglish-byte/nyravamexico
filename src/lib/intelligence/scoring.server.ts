@@ -2,6 +2,7 @@
 // One scoring authority is used regardless of the legacy analysis_mode token.
 
 import type { Finding } from "./types";
+import type { ProceduralPosture } from "./procedural-posture";
 import { dimensionTag, type DimensionKey } from "./dimension-map.server";
 import { excludeRejectedFromScoring } from "./judicial-hierarchy";
 
@@ -511,4 +512,93 @@ export function likelihoodFromScores(strength: number, risk: number): "Low" | "M
   if (net >= 20) return "High";
   if (net <= -20) return "Low";
   return "Moderate";
+}
+
+export type DecomposedRiskDimensions = {
+  legal_precedent_risk: { score: number; factors: string[] };
+  procedural_risk: { score: number; factors: string[] };
+  evidentiary_risk: { score: number; factors: string[] };
+  strategic_enforcement_risk: { score: number; factors: string[] };
+};
+
+export type DecomposedRiskScore = {
+  overall_risk_score: number;
+  band: "low" | "medium" | "high" | "critical";
+  dimensions: DecomposedRiskDimensions;
+  factors: Array<{ label: string; delta: number }>;
+};
+
+export function computeDecomposedRiskScore(
+  findings: readonly Finding[],
+  posture?: ProceduralPosture | null,
+): DecomposedRiskScore {
+  let legalRisk = 0;
+  const legalFactors: string[] = [];
+  let procRisk = 0;
+  const procFactors: string[] = [];
+  let evidRisk = 0;
+  const evidFactors: string[] = [];
+  let stratRisk = 0;
+  const stratFactors: string[] = [];
+
+  for (const f of findings) {
+    const direction = findingScoringDirection(f);
+    const cat = String(f.category ?? "").toLowerCase();
+    const isHolding = f.proposition_type === "holding" || (f as any).audit_classification === "VERIFIED_COURT_HOLDING";
+    const isAdopted = f.adoption_status === "adopted";
+    const sevWeight = SEVERITY_WEIGHT[f.severity] ?? 3;
+    const conf = Math.max(0, Math.min(1, Number(f.confidence ?? 0.8)));
+    const delta = Math.round((sevWeight * conf) / 2);
+
+    // Hard Rule: Adopted court holding with neutral impact NEVER increases risk
+    if (isHolding && isAdopted && direction === "neutral") {
+      continue;
+    }
+
+    if (direction === "weakens" || f.impact_direction === "undermining") {
+      if (cat.includes("constitutional") || cat.includes("precedent") || cat.includes("jurisprudencia") || isHolding) {
+        legalRisk += delta;
+        legalFactors.push(`${f.title} (+${delta})`);
+      } else if (cat.includes("procedural") || cat.includes("violacion_procesal") || cat.includes("cadena_custodia") || cat.includes("deadline")) {
+        procRisk += delta;
+        procFactors.push(`${f.title} (+${delta})`);
+      } else if (cat.includes("evidence") || cat.includes("contradiction") || cat.includes("witness") || cat.includes("missing")) {
+        evidRisk += delta;
+        evidFactors.push(`${f.title} (+${delta})`);
+      } else {
+        stratRisk += delta;
+        stratFactors.push(`${f.title} (+${delta})`);
+      }
+    }
+  }
+
+  // Cap dimensions to [0, 100]
+  legalRisk = Math.min(100, legalRisk);
+  procRisk = Math.min(100, procRisk);
+  evidRisk = Math.min(100, evidRisk);
+  stratRisk = Math.min(100, stratRisk);
+
+  const overall = Math.round(
+    legalRisk * 0.35 + procRisk * 0.25 + evidRisk * 0.25 + stratRisk * 0.15,
+  );
+  const band = overall >= 75 ? "critical" : overall >= 50 ? "high" : overall >= 25 ? "medium" : "low";
+
+  const allFactors: Array<{ label: string; delta: number }> = [
+    ...legalFactors.map((l) => ({ label: `[Legal] ${l}`, delta: 0 })),
+    ...procFactors.map((p) => ({ label: `[Procedural] ${p}`, delta: 0 })),
+    ...evidFactors.map((e) => ({ label: `[Evidentiary] ${e}`, delta: 0 })),
+    ...stratFactors.map((s) => ({ label: `[Strategic] ${s}`, delta: 0 })),
+  ];
+
+  return {
+    overall_risk_score: overall,
+    band,
+    dimensions: {
+      legal_precedent_risk: { score: legalRisk, factors: legalFactors },
+      procedural_risk: { score: procRisk, factors: procFactors },
+      evidentiary_risk: { score: evidRisk, factors: evidFactors },
+      strategic_enforcement_risk: { score: stratRisk, factors: stratFactors },
+    },
+    factors: allFactors,
+  };
 }
