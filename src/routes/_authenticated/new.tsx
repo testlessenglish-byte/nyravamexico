@@ -68,10 +68,6 @@ function NewCasePage() {
       toast.error(t("new.toast.noKey"));
       return;
     }
-    if (!name.trim()) {
-      toast.error(t("new.toast.needName"));
-      return;
-    }
     if (files.length === 0) {
       toast.error(t("new.toast.needFiles"));
       return;
@@ -170,23 +166,35 @@ function NewCasePage() {
         <div className="space-y-4">
           <SectionLabel>{t("new.section.details")}</SectionLabel>
           <div>
-            <label className="text-sm font-medium">{t("new.field.name")}</label>
+            <label className="text-sm font-medium">
+              {locale === "es" ? "Nombre del Caso (Opcional)" : "Case Name (Optional)"}
+            </label>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {locale === "es"
+                ? "Deja en blanco y Nyrava identificará y nombrará el caso a partir de los documentos cargados."
+                : "Leave blank and Nyrava will identify and name the case from the uploaded documents."}
+            </p>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={t("new.field.name.placeholder")}
+              placeholder={locale === "es" ? "ej. ADR 311/2015 — María López (o deja en blanco para auto-detectar)" : "e.g. ADR 311/2015 — María López (or leave blank to auto-detect)"}
               className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
           <div>
             <label className="text-sm font-medium">
-              {t("new.field.description")}{" "}
-              <span className="text-muted-foreground">{t("common.optional")}</span>
+              {locale === "es" ? "Descripción del Caso (Opcional)" : "Case Description (Optional)"}
             </label>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {locale === "es"
+                ? "Deja en blanco y Nyrava generará una descripción a partir de la información verificada del caso."
+                : "Leave blank and Nyrava will generate a description from verified case information."}
+            </p>
             <textarea
               value={desc}
               onChange={(e) => setDesc(e.target.value)}
               rows={2}
+              placeholder={locale === "es" ? "Descripción breve opcional, o deja en blanco para auto-generar" : "Optional brief overview, or leave blank to auto-generate"}
               className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
             />
           </div>

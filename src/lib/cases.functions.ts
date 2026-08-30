@@ -161,6 +161,45 @@ export const createCaseAndUpload = createServerFn({ method: "POST" })
     const { trace, traceSpan, newCorrelationId } = await import("@/lib/pipeline-trace.server");
     const { createInitialCaseConfiguration } = await import("@/lib/intelligence/case-configuration");
 
+    const rawName = String(data.get("name") ?? "").trim();
+    const rawDescription = String(data.get("description") ?? "").trim();
+    const isUserNamed = Boolean(rawName.length > 0 && rawName !== "Untitled Case");
+    const isUserDescribed = Boolean(rawDescription.length > 0);
+
+    const name = isUserNamed ? rawName.slice(0, 200) : "Caso en identificación...";
+    const description = isUserDescribed ? rawDescription.slice(0, 2000) : null;
+
+    const initialCaseIdentity = {
+      original_filename: files[0]?.name ?? null,
+      case_number: null,
+      case_number_normalized: null,
+      case_number_type: null,
+      primary_party_name: null,
+      primary_party_role: null,
+      opposing_party_name: null,
+      court_name: null,
+      tribunal_level: null,
+      procedural_vehicle: procedural_vehicle,
+      effective_materia: case_type,
+      underlying_materia: underlying_materia,
+      jurisdiction: jurisdiction,
+      procedural_posture: null,
+      related_case_numbers: [],
+
+      case_display_name: isUserNamed ? rawName.slice(0, 200) : null,
+      case_display_name_source: (isUserNamed ? "user" : "pending_extraction") as "user" | "pending_extraction",
+      case_display_name_confidence: isUserNamed ? 1.0 : null,
+      case_display_name_locked: isUserNamed,
+      case_identity_verified: false,
+
+      case_description: isUserDescribed ? rawDescription.slice(0, 2000) : null,
+      case_description_source: (isUserDescribed ? "user" : "pending_extraction") as "user" | "pending_extraction",
+      case_description_confidence: isUserDescribed ? 1.0 : null,
+      case_description_locked: isUserDescribed,
+      case_description_generated_at: null,
+    };
+    matter_metadata.case_identity = initialCaseIdentity;
+
     const caseConfiguration = createInitialCaseConfiguration({
       user_selected_case_type: case_type,
       user_selected_jurisdiction: jurisdiction,
@@ -2728,9 +2767,31 @@ export const renameCase = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = await getAuthedContext(context, "Rename");
+    const { data: caseRow } = await supabase
+      .from("cases")
+      .select("matter_metadata")
+      .eq("id", data.caseId)
+      .maybeSingle();
+
+    const mm = ((caseRow as any)?.matter_metadata as Record<string, unknown> | null) ?? {};
+    const existingIdentity = (mm.case_identity as Record<string, unknown> | undefined) ?? {};
+    const updatedIdentity = {
+      ...existingIdentity,
+      case_display_name: data.name,
+      case_display_name_source: "user",
+      case_display_name_confidence: 1.0,
+      case_display_name_locked: true,
+    };
+
     const { error } = await supabase
       .from("cases")
-      .update({ name: data.name })
+      .update({
+        name: data.name,
+        matter_metadata: {
+          ...mm,
+          case_identity: updatedIdentity,
+        },
+      } as any)
       .eq("id", data.caseId);
     if (error) throw new Error(error.message);
     return { ok: true };

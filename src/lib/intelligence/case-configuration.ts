@@ -1,4 +1,4 @@
-﻿// Authoritative Case Configuration & Execution Snapshot Model
+// Authoritative Case Configuration & Execution Snapshot Model
 //
 // Cleanly separates user intent (user_selected_*) from AI detection (detected_*),
 // prevents silent overwrites by classifiers, and provides immutable execution snapshots.
@@ -53,6 +53,9 @@ export interface ExecutionConfiguration {
   underlying_materia?: string | null;
   user_selected_case_type: string | null;
   user_selected_jurisdiction: string | null;
+  case_display_name_at_run?: string | null;
+  case_number_at_run?: string | null;
+  case_description_at_run?: string | null;
   configuration_version: number;
   created_at: string;
 }
@@ -237,6 +240,9 @@ export function createExecutionConfigurationSnapshot(
 ): ExecutionConfiguration {
   const config = getCaseConfiguration(caseRow);
 
+  const mm = (caseRow.matter_metadata as Record<string, unknown> | null | undefined) ?? {};
+  const caseIdentity = (mm.case_identity as Record<string, unknown> | null | undefined) ?? {};
+
   return {
     execution_id: executionId,
     case_id: String(caseRow.id ?? ""),
@@ -248,6 +254,9 @@ export function createExecutionConfigurationSnapshot(
     underlying_materia: config.active_underlying_materia ?? null,
     user_selected_case_type: config.user_selected_case_type,
     user_selected_jurisdiction: config.user_selected_jurisdiction,
+    case_display_name_at_run: (caseRow.name as string) ?? (caseIdentity.case_display_name as string) ?? null,
+    case_number_at_run: (caseIdentity.case_number_normalized as string) ?? (caseIdentity.case_number as string) ?? null,
+    case_description_at_run: (caseRow.description as string) ?? (caseIdentity.case_description as string) ?? null,
     configuration_version: 1,
     created_at: new Date().toISOString(),
   };
