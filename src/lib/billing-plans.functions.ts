@@ -160,12 +160,15 @@ export const adminDeleteBillingPlan = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** Public marketing list of admin-managed plans (no secrets, no quotas). */
+/** Public marketing list of admin-managed plans (no secrets). Includes the
+ *  published allowances so plan cards can show what each plan includes. */
 export type PublicBillingPlan = {
   key: string;
   label: string;
   tagline: string | null;
   features: string[];
+  /** Raw features JSON when admins stored an object (e.g. documents_limit). */
+  featureLimits: Record<string, string | number | boolean | null>;
   price_cents: number;
   currency: string;
   interval: string;
@@ -174,6 +177,12 @@ export type PublicBillingPlan = {
   included_seats: number | null;
   per_seat_price_cents: number | null;
   sort_order: number;
+  ai_requests_monthly: number | null;
+  talk_to_case_monthly: number | null;
+  case_limit: number | null;
+  storage_gb_limit: number | null;
+  team_member_limit: number | null;
+  byok_allowed: boolean;
 };
 
 export const listPublicBillingPlans = createServerFn({ method: "GET" })
@@ -189,6 +198,10 @@ export const listPublicBillingPlans = createServerFn({ method: "GET" })
       features: Array.isArray(p.features)
         ? (p.features as unknown[]).filter((x): x is string => typeof x === "string")
         : [],
+      featureLimits:
+        p.features && !Array.isArray(p.features) && typeof p.features === "object"
+          ? (p.features as Record<string, string | number | boolean | null>)
+          : {},
       price_cents: Number(p.price_cents ?? 0),
       currency: (p.currency as string) ?? "mxn",
       interval: (p.interval as string) ?? "month",
@@ -197,5 +210,11 @@ export const listPublicBillingPlans = createServerFn({ method: "GET" })
       included_seats: p.included_seats ?? null,
       per_seat_price_cents: p.per_seat_price_cents ?? null,
       sort_order: Number(p.sort_order ?? 0),
+      ai_requests_monthly: p.ai_requests_monthly ?? null,
+      talk_to_case_monthly: p.talk_to_case_monthly ?? null,
+      case_limit: p.case_limit ?? null,
+      storage_gb_limit: p.storage_gb_limit === null ? null : Number(p.storage_gb_limit),
+      team_member_limit: p.team_member_limit ?? null,
+      byok_allowed: p.byok_allowed !== false,
     })) as PublicBillingPlan[];
   });
