@@ -74,7 +74,7 @@ export function transformReportContent<T>(input: T, capability: ReportCapability
     const restriction = contentRestriction(v, key, parent, capability, governance);
     if (restriction) {
       if (restriction === "unverifiedAbsencePresent" && typeof v === "string")
-        return v.replace(/no obra en el expediente|no existe/gi, "No identificada en el corpus aportado");
+        return remediateAbsenceLanguage(v).text;
       if (typeof v === "string" && /discovery|missing|gap|evidence|how_to_obtain|why_critical/.test(key))
         return "La documentación no fue localizada en el corpus aportado. Verificar las constancias para reconstruir el historial procesal.";
       return undefined;
