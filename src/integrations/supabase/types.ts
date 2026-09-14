@@ -11408,6 +11408,9 @@ export type Database = {
       list_public_billing_plans: {
         Args: never
         Returns: {
+          ai_requests_monthly: number
+          byok_allowed: boolean
+          case_limit: number
           contact_url: string
           currency: string
           features: Json
@@ -11419,7 +11422,10 @@ export type Database = {
           price_cents: number
           self_serve: boolean
           sort_order: number
+          storage_gb_limit: number
           tagline: string
+          talk_to_case_monthly: number
+          team_member_limit: number
         }[]
       }
       move_social_document: {
