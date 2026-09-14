@@ -267,6 +267,47 @@ export function validateFinalReportContract(payload: FinalReportPayload, capabil
     violation_paths, inspected_nodes, validation_stage: view.render_output ? "after_renderer_transforms" : "after_section_transforms" };
 }
 
+/** REMEDIATE -> REVALIDATE. Rewrites ONLY the string nodes the contract
+ * validator flagged as `unverifiedAbsencePresent` into qualified, scope-bounded
+ * language. Verified/cited absences, quotes and every other node are untouched,
+ * and no other contract rule is affected. */
+export function remediateUnverifiedAbsences<T>(payload: T, capability: ReportCapability, governance: ImmutableReportGovernance): T {
+  const walk = (v: any, key = "", parent: Row = {}): any => {
+    if (typeof v === "string") {
+      return contentRestriction(v, key, parent, capability, governance) === "unverifiedAbsencePresent"
+        ? remediateAbsenceLanguage(v).text : v;
+    }
+    if (Array.isArray(v)) return v.map(x => walk(x, key, parent));
+    if (!v || typeof v !== "object") return v;
+    return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x, k, v)]));
+  };
+  return walk(payload);
+}
+
+/** Remediate an already-rendered output string: only the absence sentences that
+ * are not backed by a verified/cited absence are qualified. */
+function remediateRenderedText(payload: FinalReportPayload, text: string): string {
+  const verified: string[] = [];
+  const collect = (value: any) => {
+    if (Array.isArray(value)) { value.forEach(collect); return; }
+    if (!value || typeof value !== "object") return;
+    for (const [key, child] of Object.entries(value)) {
+      if (key === "render_output") continue;
+      if (typeof child === "string" && absenceText.test(fold(child)) &&
+          (verifiedAbsence(value, child) || key === "quote" && (value.document_id || value.canonical_source_id)))
+        verified.push(fold(child).replace(/[.!?]+$/, ""));
+      else if (child && typeof child === "object") collect(child);
+    }
+  };
+  collect(payload);
+  return text.split(/(?<=[.!?])\s+|\n/).map(sentence => {
+    if (!absenceText.test(fold(sentence))) return sentence;
+    const folded = fold(sentence).replace(/[.!?]+$/, "");
+    if (verified.some(v => folded.includes(v) || v.includes(folded))) return sentence;
+    return remediateAbsenceLanguage(sentence).text;
+  }).join("\n");
+}
+
 function freeze<T>(value: T): T {
   if (value && typeof value === "object" && !Object.isFrozen(value)) {
     Object.values(value).forEach(freeze);
