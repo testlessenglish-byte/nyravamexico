@@ -339,6 +339,9 @@ export function releaseFinalReportPayload(input: CaseExportData): FinalReportPay
 /** All concrete export backends submit their fully transformed output here.
  * This calls the existing contract validator; it is not a second policy. */
 export function releaseRenderedReportOutput(payload: FinalReportPayload, format: string, text: string) {
-  const finalPayload = {...payload, report_presentation:{...payload.report_presentation,render_output:{format,text}}};
+  // Renderer output is assembled after the composition transforms, so an
+  // uncited absence sentence is qualified here before the same validator runs.
+  const remediated = remediateRenderedText(payload, text);
+  const finalPayload = {...payload, report_presentation:{...payload.report_presentation,render_output:{format,text:remediated}}};
   return releaseFinalReportPayload(finalPayload);
 }
