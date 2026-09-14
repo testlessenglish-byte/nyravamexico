@@ -63,6 +63,7 @@ import { Route as AuthenticatedMessagesRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedHealthRouteImport } from './routes/_authenticated/health'
 import { Route as AuthenticatedEvidenceRouteImport } from './routes/_authenticated/evidence'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedChoosePlanRouteImport } from './routes/_authenticated/choose-plan'
 import { Route as AuthenticatedCasesRouteImport } from './routes/_authenticated/cases'
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated/billing'
 import { Route as AuthenticatedAlertsRouteImport } from './routes/_authenticated/alerts'
@@ -366,6 +367,11 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedChoosePlanRoute = AuthenticatedChoosePlanRouteImport.update({
+  id: '/choose-plan',
+  path: '/choose-plan',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedCasesRoute = AuthenticatedCasesRouteImport.update({
   id: '/cases',
   path: '/cases',
@@ -573,6 +579,7 @@ export interface FileRoutesByFullPath {
   '/alerts': typeof AuthenticatedAlertsRoute
   '/billing': typeof AuthenticatedBillingRoute
   '/cases': typeof AuthenticatedCasesRouteWithChildren
+  '/choose-plan': typeof AuthenticatedChoosePlanRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/evidence': typeof AuthenticatedEvidenceRoute
   '/health': typeof AuthenticatedHealthRoute
@@ -657,6 +664,7 @@ export interface FileRoutesByTo {
   '/ai-keys': typeof AuthenticatedAiKeysRoute
   '/alerts': typeof AuthenticatedAlertsRoute
   '/billing': typeof AuthenticatedBillingRoute
+  '/choose-plan': typeof AuthenticatedChoosePlanRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/evidence': typeof AuthenticatedEvidenceRoute
   '/health': typeof AuthenticatedHealthRoute
@@ -745,6 +753,7 @@ export interface FileRoutesById {
   '/_authenticated/alerts': typeof AuthenticatedAlertsRoute
   '/_authenticated/billing': typeof AuthenticatedBillingRoute
   '/_authenticated/cases': typeof AuthenticatedCasesRouteWithChildren
+  '/_authenticated/choose-plan': typeof AuthenticatedChoosePlanRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/evidence': typeof AuthenticatedEvidenceRoute
   '/_authenticated/health': typeof AuthenticatedHealthRoute
@@ -833,6 +842,7 @@ export interface FileRouteTypes {
     | '/alerts'
     | '/billing'
     | '/cases'
+    | '/choose-plan'
     | '/dashboard'
     | '/evidence'
     | '/health'
@@ -917,6 +927,7 @@ export interface FileRouteTypes {
     | '/ai-keys'
     | '/alerts'
     | '/billing'
+    | '/choose-plan'
     | '/dashboard'
     | '/evidence'
     | '/health'
@@ -1004,6 +1015,7 @@ export interface FileRouteTypes {
     | '/_authenticated/alerts'
     | '/_authenticated/billing'
     | '/_authenticated/cases'
+    | '/_authenticated/choose-plan'
     | '/_authenticated/dashboard'
     | '/_authenticated/evidence'
     | '/_authenticated/health'
@@ -1481,6 +1493,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/choose-plan': {
+      id: '/_authenticated/choose-plan'
+      path: '/choose-plan'
+      fullPath: '/choose-plan'
+      preLoaderRoute: typeof AuthenticatedChoosePlanRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/cases': {
       id: '/_authenticated/cases'
       path: '/cases'
@@ -1756,6 +1775,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAlertsRoute: typeof AuthenticatedAlertsRoute
   AuthenticatedBillingRoute: typeof AuthenticatedBillingRoute
   AuthenticatedCasesRoute: typeof AuthenticatedCasesRouteWithChildren
+  AuthenticatedChoosePlanRoute: typeof AuthenticatedChoosePlanRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedEvidenceRoute: typeof AuthenticatedEvidenceRoute
   AuthenticatedHealthRoute: typeof AuthenticatedHealthRoute
@@ -1782,6 +1802,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAlertsRoute: AuthenticatedAlertsRoute,
   AuthenticatedBillingRoute: AuthenticatedBillingRoute,
   AuthenticatedCasesRoute: AuthenticatedCasesRouteWithChildren,
+  AuthenticatedChoosePlanRoute: AuthenticatedChoosePlanRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedEvidenceRoute: AuthenticatedEvidenceRoute,
   AuthenticatedHealthRoute: AuthenticatedHealthRoute,
