@@ -37,11 +37,75 @@ function ChoosePlanPage() {
 
   const statusQ = useQuery({ queryKey: ["billing-status"], queryFn: () => statusFn() });
   const plansQ = useQuery({ queryKey: ["public-billing-plans"], queryFn: () => plansFn() });
-  // Only paid self-serve plans, cheapest first (a MX$0 plan is not a real
-  // trial option, so it is hidden here).
+  // Internal/test plans stay in the database and in Stripe, but never show to
+  // customers here.
+  const isInternalPlan = (p: PublicBillingPlan) =>
+    /(^|[_-])(test|demo|internal|staging)([_-]|$)/i.test(p.key) ||
+    /\b(test|prueba|interno|internal)\b/i.test(p.tagline ?? "");
+  // A plan with no price (or an explicit contact_sales flag) is a custom
+  // Enterprise plan: custom pricing, no trial checkout.
+  const isCustomPlan = (p: PublicBillingPlan) =>
+    (Number(p.price_cents) || 0) <= 0 || p.featureLimits?.["contact_sales"] === true;
+
   const plans: PublicBillingPlan[] = (plansQ.data ?? [])
-    .filter((p) => p.self_serve && (Number(p.price_cents) || 0) > 0)
-    .sort((a, b) => (Number(a.price_cents) || 0) - (Number(b.price_cents) || 0));
+    .filter((p) => !isInternalPlan(p))
+    .sort((a, b) => {
+      const ca = isCustomPlan(a) ? 1 : 0;
+      const cb = isCustomPlan(b) ? 1 : 0;
+      if (ca !== cb) return ca - cb; // custom/enterprise last
+      return (Number(a.price_cents) || 0) - (Number(b.price_cents) || 0);
+    });
+
+  const nfmt = (n: number) => new Intl.NumberFormat(locale === "es" ? "es-MX" : "en-US").format(n);
+  const es = locale === "es";
+
+  /** Bullets built only from the allowances configured in Admin -> Billing. */
+  const planIncludes = (p: PublicBillingPlan): string[] => {
+    const out: string[] = [];
+    if (p.features.length) out.push(...p.features);
+    const lim = p.featureLimits ?? {};
+    const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
+    const seats = p.included_seats ?? null;
+    if (seats)
+      out.push(es ? `${nfmt(seats)} usuario(s) incluido(s)` : `${nfmt(seats)} included user(s)`);
+    if (p.team_member_limit != null)
+      out.push(
+        es
+          ? `Hasta ${nfmt(p.team_member_limit)} miembros del equipo`
+          : `Up to ${nfmt(p.team_member_limit)} team members`,
+      );
+
+    const matters = p.case_limit ?? num(lim["matters_limit"]);
+    if (matters != null)
+      out.push(es ? `${nfmt(matters)} casos` : `${nfmt(matters)} cases`);
+    else if (isCustomPlan(p)) out.push(es ? "Casos ilimitados" : "Unlimited cases");
+
+    const docs = num(lim["documents_limit"]);
+    if (docs != null)
+      out.push(es ? `${nfmt(docs)} documentos` : `${nfmt(docs)} documents`);
+    else if (isCustomPlan(p)) out.push(es ? "Documentos ilimitados" : "Unlimited documents");
+
+    if (p.ai_requests_monthly != null)
+      out.push(
+        es
+          ? `${nfmt(p.ai_requests_monthly)} solicitudes de IA al mes`
+          : `${nfmt(p.ai_requests_monthly)} AI requests / month`,
+      );
+    if (p.talk_to_case_monthly != null)
+      out.push(
+        es
+          ? `${nfmt(p.talk_to_case_monthly)} conversaciones Talk to Case al mes`
+          : `${nfmt(p.talk_to_case_monthly)} Talk to Case conversations / month`,
+      );
+    if (p.storage_gb_limit != null)
+      out.push(es ? `${nfmt(p.storage_gb_limit)} GB de almacenamiento` : `${nfmt(p.storage_gb_limit)} GB storage`);
+    if (p.byok_allowed)
+      out.push(es ? "Usa tus propias llaves de IA (BYOK)" : "Bring your own AI keys (BYOK)");
+    if (isCustomPlan(p))
+      out.push(es ? "Implementación y soporte personalizados" : "Custom deployment & support");
+    return out;
+  };
 
   // Already subscribed/trialing (or an existing account that never needed
   // this step) — don't hold them here.
