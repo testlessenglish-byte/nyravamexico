@@ -12,6 +12,7 @@
 import { scrubUnsupportedLegalFilingSentences } from "./recommendation-grounding";
 import { evidenceGapTopics, scrubEvidenceAbsenceInversion } from "./absence-evidence-guard";
 import { scrubUnsupportedContradictionSentences } from "./contradiction-prose-guard";
+import { remediateAbsenceLanguage } from "../reporting/report-content-policy";
 
 export type RecommendationOwner = "narrative" | "memo" | "intelligence";
 
