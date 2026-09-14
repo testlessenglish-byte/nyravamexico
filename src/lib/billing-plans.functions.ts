@@ -159,3 +159,43 @@ export const adminDeleteBillingPlan = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+/** Public marketing list of admin-managed plans (no secrets, no quotas). */
+export type PublicBillingPlan = {
+  key: string;
+  label: string;
+  tagline: string | null;
+  features: string[];
+  price_cents: number;
+  currency: string;
+  interval: string;
+  self_serve: boolean;
+  contact_url: string | null;
+  included_seats: number | null;
+  per_seat_price_cents: number | null;
+  sort_order: number;
+};
+
+export const listPublicBillingPlans = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const ctx = context as { supabase: Db };
+    const { data, error } = await (ctx.supabase as any).rpc("list_public_billing_plans");
+    if (error) throw new Error(error.message);
+    return ((data ?? []) as any[]).map((p) => ({
+      key: p.key as string,
+      label: (p.label as string) ?? (p.key as string),
+      tagline: (p.tagline as string) ?? null,
+      features: Array.isArray(p.features)
+        ? (p.features as unknown[]).filter((x): x is string => typeof x === "string")
+        : [],
+      price_cents: Number(p.price_cents ?? 0),
+      currency: (p.currency as string) ?? "mxn",
+      interval: (p.interval as string) ?? "month",
+      self_serve: Boolean(p.self_serve),
+      contact_url: (p.contact_url as string) ?? null,
+      included_seats: p.included_seats ?? null,
+      per_seat_price_cents: p.per_seat_price_cents ?? null,
+      sort_order: Number(p.sort_order ?? 0),
+    })) as PublicBillingPlan[];
+  });
