@@ -37,7 +37,11 @@ function ChoosePlanPage() {
 
   const statusQ = useQuery({ queryKey: ["billing-status"], queryFn: () => statusFn() });
   const plansQ = useQuery({ queryKey: ["public-billing-plans"], queryFn: () => plansFn() });
-  const plans: PublicBillingPlan[] = (plansQ.data ?? []).filter((p) => p.self_serve);
+  // Only paid self-serve plans, cheapest first (a MX$0 plan is not a real
+  // trial option, so it is hidden here).
+  const plans: PublicBillingPlan[] = (plansQ.data ?? [])
+    .filter((p) => p.self_serve && (Number(p.price_cents) || 0) > 0)
+    .sort((a, b) => (Number(a.price_cents) || 0) - (Number(b.price_cents) || 0));
 
   // Already subscribed/trialing (or an existing account that never needed
   // this step) — don't hold them here.
