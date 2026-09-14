@@ -669,6 +669,10 @@ function PlanEditor({
                   className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm uppercase"
                   value={draft.currency}
                   onChange={(e) => onChange({ currency: e.target.value.toLowerCase() })}
+                  onBlur={(e) =>
+                    onChange({ currency: normalizeCurrency(e.target.value).toLowerCase() })
+                  }
+                  placeholder="MXN"
                   maxLength={3}
                 />
               </Field>
