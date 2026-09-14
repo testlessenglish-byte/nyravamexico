@@ -319,8 +319,17 @@ function freeze<T>(value: T): T {
 
 export function releaseFinalReportPayload(input: CaseExportData): FinalReportPayload {
   if (input.report?.quality_blocked === true) throw new Error("REPORT_BLOCKED: report failed its release gate");
-  const payload = (input as FinalReportPayload).report_presentation ? input as FinalReportPayload : composeFinalReportPayload(input);
-  const validation = validateFinalReportContract(payload);
+  let payload = (input as FinalReportPayload).report_presentation ? input as FinalReportPayload : composeFinalReportPayload(input);
+  let validation = validateFinalReportContract(payload);
+  // REMEDIATE -> REVALIDATE before BLOCK. An uncited absolute absence sentence
+  // (typically report_writer:missing_evidence) is rewritten into qualified
+  // language and the same validator runs again. Every other violation, and any
+  // absence that survives remediation, still blocks the report.
+  if (!validation.ok && validation.blocking_errors.includes("unverifiedAbsencePresent")) {
+    const view = payload.report_presentation;
+    payload = remediateUnverifiedAbsences(payload, view.capability, view.governance);
+    validation = validateFinalReportContract(payload);
+  }
   if (!validation.ok) throw new Error("REPORT_CONTRACT_BLOCKED: " + validation.blocking_errors.join(", "));
   const decision = resolveFinalReleaseDecision({report:obj(payload.report),contract:validation});
   if (!decision.released) throw new Error("REPORT_BLOCKED: " + decision.errors.join(", "));
