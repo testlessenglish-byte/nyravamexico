@@ -43,6 +43,7 @@ import { useReminderNotifications } from "@/hooks/useReminderNotifications";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { FeedbackButton } from "@/components/FeedbackButton";
 import { getProfileSetupStatus } from "@/lib/account.functions";
+import { getMyBillingStatus } from "@/lib/billing.functions";
 
 import { BackButton } from "@/components/BackButton";
 import { UserMenu } from "@/components/UserMenu";
@@ -242,6 +243,21 @@ function AppLayout() {
     if (pathname === "/profile-setup" || pathname === "/onboarding") return;
     nav({ to: "/profile-setup", replace: true });
   }, [profileStatus, pathname, nav]);
+
+  // Signup trial gate — applies ONLY to accounts created after the trial
+  // flow shipped (see TRIAL_SIGNUP_CUTOFF_ISO in billing.functions.ts).
+  // Existing users, admins and beta testers always get `false` here.
+  const fetchBillingStatus = useServerFn(getMyBillingStatus);
+  const { data: billingStatus } = useQuery({
+    queryKey: ["billing-status"],
+    queryFn: () => fetchBillingStatus(),
+    staleTime: 60000,
+  });
+  useEffect(() => {
+    if (!billingStatus?.needsPlanSelection) return;
+    if (pathname === "/choose-plan" || pathname === "/billing" || pathname === "/onboarding") return;
+    nav({ to: "/choose-plan", replace: true });
+  }, [billingStatus, pathname, nav]);
 
   // Header bell is dedicated to the message/support system (Comentarios +
   // Ayuda y soporte) — NOT case pipeline/finding alerts, which already

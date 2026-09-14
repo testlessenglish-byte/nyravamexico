@@ -122,6 +122,26 @@ export async function consumeFreeCase(userId: string, caseId: string): Promise<v
 // Client-facing endpoints
 // ---------------------------------------------------------------------
 
+// Signup gate: accounts created on or after this timestamp go through
+// "choose plan -> payment -> 7-day trial" before reaching the workspace.
+// Everyone who existed before it is untouched by the trial flow.
+const TRIAL_SIGNUP_CUTOFF_ISO = "2026-09-14T21:00:00Z";
+
+/** True when this user must still pick a plan / fix payment before using the
+ * workspace. Never true for pre-existing accounts, admins or beta testers. */
+async function computeNeedsPlanSelection(
+  userId: string,
+  access: BillingAccess,
+): Promise<boolean> {
+  if (access.reason === "beta_tester") return false; // covers admins too
+  const admin = getAdminClient();
+  const { data: userResp } = await admin.auth.admin.getUserById(userId);
+  const createdAt = userResp?.user?.created_at;
+  if (!createdAt) return false;
+  if (new Date(createdAt).getTime() < new Date(TRIAL_SIGNUP_CUTOFF_ISO).getTime()) return false;
+  return access.status !== "active";
+}
+
 export const getMyBillingStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -152,6 +172,7 @@ export const getMyBillingStatus = createServerFn({ method: "GET" })
       freeCaseUsed: access.freeCaseUsed,
       hasAccess: access.allowed,
       isBetaTester: access.reason === "beta_tester",
+      needsPlanSelection: await computeNeedsPlanSelection(userId, access),
       currentPeriodEnd: data?.current_period_end ?? null,
       cancelAtPeriodEnd: data?.cancel_at_period_end ?? false,
     };
@@ -164,6 +185,9 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       planKey: z.string().min(1),
       origin: z.string().url(),
       provider: z.literal("stripe").optional(),
+      // Signup flow only: start the plan with a 7-day free trial. A payment
+      // method is still required up front; Stripe charges after the trial.
+      trial: z.boolean().optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
@@ -218,14 +242,20 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       mode: "subscription",
       customer_email: payerEmail,
       line_items: [{ price: planRow.stripe_price_id, quantity: 1 }],
-      success_url: `${data.origin}/billing?checkout=success&provider=stripe`,
-      cancel_url: `${data.origin}/billing?checkout=cancelled`,
+      ...(data.trial ? { payment_method_collection: "always" as const } : {}),
+      success_url: data.trial
+        ? `${data.origin}/dashboard?trial=started`
+        : `${data.origin}/billing?checkout=success&provider=stripe`,
+      cancel_url: data.trial
+        ? `${data.origin}/choose-plan?checkout=cancelled`
+        : `${data.origin}/billing?checkout=cancelled`,
       metadata: {
         user_id: userId,
         plan: planRow.key,
         ...(organizationId ? { org_id: organizationId } : {}),
       },
       subscription_data: {
+        ...(data.trial ? { trial_period_days: 7 } : {}),
         metadata: {
           user_id: userId,
           plan: planRow.key,
