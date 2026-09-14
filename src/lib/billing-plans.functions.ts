@@ -168,7 +168,7 @@ export type PublicBillingPlan = {
   tagline: string | null;
   features: string[];
   /** Raw features JSON when admins stored an object (e.g. documents_limit). */
-  featureLimits: Record<string, unknown>;
+  featureLimits: Record<string, string | number | boolean | null>;
   price_cents: number;
   currency: string;
   interval: string;
@@ -200,7 +200,7 @@ export const listPublicBillingPlans = createServerFn({ method: "GET" })
         : [],
       featureLimits:
         p.features && !Array.isArray(p.features) && typeof p.features === "object"
-          ? (p.features as Record<string, unknown>)
+          ? (p.features as Record<string, string | number | boolean | null>)
           : {},
       price_cents: Number(p.price_cents ?? 0),
       currency: (p.currency as string) ?? "mxn",
