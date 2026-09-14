@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createHash } from "node:crypto";
+import { isOrgOwner } from "./org-membership.server";
 
 export interface SubscriberDonationIdentityData {
   id?: string;
@@ -41,25 +42,8 @@ export async function verifyPrimarySubscriber(
   userId: string
 ): Promise<boolean> {
   if (!orgId || !userId) return false;
-
-  const orgRes = await supabase
-    .from("organizations")
-    .select("created_by")
-    .eq("id", orgId)
-    .maybeSingle();
-
-  if (orgRes.data?.created_by === userId) {
-    return true;
-  }
-
-  const memberRes = await supabase
-    .from("organization_members")
-    .select("role")
-    .eq("organization_id", orgId)
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  return memberRes.data?.role === "owner" || memberRes.data?.role === "organization_owner";
+  // Fail-closed: lookup errors throw instead of downgrading to "not owner by default".
+  return isOrgOwner(supabase as unknown as { from: (t: string) => any }, orgId, userId);
 }
 
 /**

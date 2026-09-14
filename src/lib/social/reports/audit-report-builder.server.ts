@@ -1,18 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
+import { isOrgOwner } from "../org-membership.server";
 
 export async function verifyPrimarySubscriber(supabase: any, orgId: string, userId: string): Promise<boolean> {
   if (!orgId || !userId) return false;
 
-  const [orgRes, memberRes] = await Promise.all([
-    supabase.from("organizations").select("created_by").eq("id", orgId).maybeSingle(),
-    supabase.from("organization_members").select("role").eq("organization_id", orgId).eq("user_id", userId).maybeSingle(),
-  ]);
-
-  const isCreator = orgRes.data?.created_by === userId;
-  const role = String(memberRes.data?.role || "").toLowerCase();
-  const isOwner = role === "owner" || role === "organization_owner";
-
-  return Boolean(isCreator || isOwner);
+  // Fail-closed: membership lookup errors throw rather than defaulting to false-positive access.
+  return isOrgOwner(supabase, orgId, userId);
 }
 
 export function generateReportId(): string {
