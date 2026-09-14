@@ -189,38 +189,64 @@ function ChoosePlanPage() {
         </div>
       ) : (
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {plans.map((plan) => (
-            <div
-              key={plan.key}
-              className="flex flex-col rounded-lg border border-border/60 bg-card/60 p-5"
-            >
-              <div className="text-base font-semibold text-foreground">{plan.label}</div>
-              {plan.tagline && (
-                <p className="mt-1 text-xs text-muted-foreground">{plan.tagline}</p>
-              )}
-              <div className="mt-4 text-2xl font-semibold text-foreground">
-                {formatPlanPrice(plan)}
-              </div>
-              <div className="mt-1 text-xs font-medium text-primary">{t("trial.zeroToday")}</div>
-              <ul className="mt-4 flex-1 space-y-2">
-                {plan.features.map((f) => (
-                  <li key={f} className="flex gap-2 text-xs text-muted-foreground">
-                    <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <button
-                type="button"
-                onClick={() => checkout.mutate(plan.key)}
-                disabled={checkout.isPending}
-                className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-primary py-3 text-[12px] font-semibold uppercase tracking-[0.18em] text-primary-foreground transition hover:brightness-110 disabled:opacity-50"
+          {plans.map((plan) => {
+            const custom = isCustomPlan(plan);
+            const popular = plan.key === "pro";
+            return (
+              <div
+                key={plan.key}
+                className={`relative flex flex-col rounded-lg border bg-card/60 p-5 ${
+                  popular ? "border-primary/70 shadow-sm" : "border-border/60"
+                }`}
               >
-                {checkout.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                {t("trial.cta")}
-              </button>
-            </div>
-          ))}
+                {popular && (
+                  <span className="absolute -top-2 right-4 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary-foreground">
+                    {es ? "Más popular" : "Most popular"}
+                  </span>
+                )}
+                <div className="text-base font-semibold text-foreground">{plan.label}</div>
+                {plan.tagline && (
+                  <p className="mt-1 text-xs text-muted-foreground">{plan.tagline}</p>
+                )}
+                <div className="mt-4 text-2xl font-semibold text-foreground">
+                  {custom ? (es ? "Precio personalizado" : "Custom pricing") : formatPlanPrice(plan)}
+                </div>
+                <div className="mt-1 text-xs font-medium text-primary">
+                  {custom
+                    ? es
+                      ? "Para despachos y organizaciones con equipos grandes, límites mayores o implementación y soporte a la medida."
+                      : "For firms and organizations needing larger teams, higher limits, or customized deployment and support."
+                    : t("trial.zeroToday")}
+                </div>
+                <ul className="mt-4 flex-1 space-y-2">
+                  {planIncludes(plan).map((f) => (
+                    <li key={f} className="flex gap-2 text-xs text-muted-foreground">
+                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                {custom ? (
+                  <Link
+                    to="/contact"
+                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-md border border-primary py-3 text-[12px] font-semibold uppercase tracking-[0.18em] text-primary transition hover:bg-primary/10"
+                  >
+                    {es ? "Contactar ventas" : "Contact sales"}
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => checkout.mutate(plan.key)}
+                    disabled={checkout.isPending}
+                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-primary py-3 text-[12px] font-semibold uppercase tracking-[0.18em] text-primary-foreground transition hover:brightness-110 disabled:opacity-50"
+                  >
+                    {checkout.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    {t("trial.cta")}
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
