@@ -10,7 +10,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import type Stripe from "stripe";
-import { isPlanKey } from "@/lib/billing-plans";
+import { isDynamicPlanKey } from "@/lib/billing-plans";
 
 function log(event: string, extra: Record<string, unknown> = {}) {
   console.info(`[stripe-webhook] ${JSON.stringify({ t: new Date().toISOString(), event, ...extra })}`);
@@ -140,7 +140,7 @@ export const Route = createFileRoute("/api/public/hooks/stripe-webhook")({
                 break;
               }
               const organizationPlan = session.metadata?.plan?.trim() || null;
-              const plan = isPlanKey(organizationPlan) ? organizationPlan : null;
+              const plan = isDynamicPlanKey(organizationPlan) ? organizationPlan : null;
               const customerId =
                 typeof session.customer === "string" ? session.customer : (session.customer?.id ?? null);
               const subscriptionId =
@@ -183,7 +183,7 @@ export const Route = createFileRoute("/api/public/hooks/stripe-webhook")({
                 break;
               }
               const organizationPlan = sub.metadata?.plan?.trim() || null;
-              const plan = isPlanKey(organizationPlan) ? organizationPlan : undefined;
+              const plan = isDynamicPlanKey(organizationPlan) ? organizationPlan : undefined;
               const status: Database["public"]["Tables"]["subscriptions"]["Row"]["status"] =
                 sub.status === "active" || sub.status === "trialing"
                   ? "active"

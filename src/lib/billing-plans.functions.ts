@@ -24,7 +24,6 @@ const planInput = z.object({
   currency: z.string().length(3).default("usd"),
   interval: z.enum(["month", "year", "one_time"]).default("month"),
   stripe_price_id: z.string().trim().max(200).nullable().optional(),
-  mercadopago_plan_id: z.string().trim().max(200).nullable().optional(),
   self_serve: z.boolean().default(true),
   contact_url: z.string().trim().max(500).nullable().optional(),
   sort_order: z.number().int().default(0),
@@ -83,6 +82,9 @@ export const adminUpsertBillingPlan = createServerFn({ method: "POST" })
     const row = {
       key: data.key,
       label: data.label,
+      // Legacy NOT NULL columns kept in sync with key/label so inserts succeed.
+      code: data.key,
+      name: data.label,
       tagline: data.tagline,
       features:
         data.features as unknown as Database["public"]["Tables"]["billing_plans"]["Insert"]["features"],
@@ -90,7 +92,6 @@ export const adminUpsertBillingPlan = createServerFn({ method: "POST" })
       currency: data.currency.toLowerCase(),
       interval: data.interval,
       stripe_price_id: data.stripe_price_id?.trim() || null,
-      mercadopago_plan_id: data.mercadopago_plan_id?.trim() || null,
       self_serve: data.self_serve,
       contact_url: data.contact_url?.trim() || null,
       sort_order: data.sort_order,
@@ -157,4 +158,44 @@ export const adminDeleteBillingPlan = createServerFn({ method: "POST" })
     const { error } = await ctx.supabase.from("billing_plans").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+/** Public marketing list of admin-managed plans (no secrets, no quotas). */
+export type PublicBillingPlan = {
+  key: string;
+  label: string;
+  tagline: string | null;
+  features: string[];
+  price_cents: number;
+  currency: string;
+  interval: string;
+  self_serve: boolean;
+  contact_url: string | null;
+  included_seats: number | null;
+  per_seat_price_cents: number | null;
+  sort_order: number;
+};
+
+export const listPublicBillingPlans = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const ctx = context as { supabase: Db };
+    const { data, error } = await (ctx.supabase as any).rpc("list_public_billing_plans");
+    if (error) throw new Error(error.message);
+    return ((data ?? []) as any[]).map((p) => ({
+      key: p.key as string,
+      label: (p.label as string) ?? (p.key as string),
+      tagline: (p.tagline as string) ?? null,
+      features: Array.isArray(p.features)
+        ? (p.features as unknown[]).filter((x): x is string => typeof x === "string")
+        : [],
+      price_cents: Number(p.price_cents ?? 0),
+      currency: (p.currency as string) ?? "mxn",
+      interval: (p.interval as string) ?? "month",
+      self_serve: Boolean(p.self_serve),
+      contact_url: (p.contact_url as string) ?? null,
+      included_seats: p.included_seats ?? null,
+      per_seat_price_cents: p.per_seat_price_cents ?? null,
+      sort_order: Number(p.sort_order ?? 0),
+    })) as PublicBillingPlan[];
   });

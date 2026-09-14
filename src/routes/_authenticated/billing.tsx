@@ -15,7 +15,7 @@ import {
   createCheckoutSession,
   cancelMySubscription,
 } from "@/lib/billing.functions";
-import { BILLING_PLANS, type PlanKey } from "@/lib/billing-plans";
+import { listPublicBillingPlans, type PublicBillingPlan } from "@/lib/billing-plans.functions";
 import { useI18n } from "@/i18n";
 
 export const Route = createFileRoute("/_authenticated/billing")({
@@ -45,6 +45,36 @@ function BillingPage() {
   const statusFn = useServerFn(getMyBillingStatus);
   const checkoutFn = useServerFn(createCheckoutSession);
   const cancelFn = useServerFn(cancelMySubscription);
+  const plansFn = useServerFn(listPublicBillingPlans);
+
+  const plansQ = useQuery({ queryKey: ["public-billing-plans"], queryFn: () => plansFn() });
+  const plans: PublicBillingPlan[] = plansQ.data ?? [];
+
+  const formatPlanPrice = (plan: PublicBillingPlan) => {
+    const code = (plan.currency || "mxn").toUpperCase();
+    const amount = (Number(plan.price_cents) || 0) / 100;
+    let money: string;
+    try {
+      money = new Intl.NumberFormat(code === "MXN" ? "en-US" : undefined, {
+        style: "currency",
+        currency: code,
+        minimumFractionDigits: 2,
+      }).format(amount);
+    } catch {
+      money = `$${amount.toFixed(2)}`;
+    }
+    const suffix =
+      plan.interval === "year"
+        ? locale === "es"
+          ? "/año"
+          : "/yr"
+        : plan.interval === "one_time"
+          ? ""
+          : locale === "es"
+            ? "/mes"
+            : "/mo";
+    return `${money}${suffix}`;
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ["billing-status"],
@@ -52,7 +82,7 @@ function BillingPage() {
   });
 
   const checkout = useMutation({
-    mutationFn: (input: { planKey: PlanKey; provider: "mercadopago" | "stripe" }) =>
+    mutationFn: (input: { planKey: string; provider: "stripe" }) =>
       checkoutFn({
         data: { planKey: input.planKey, provider: input.provider, origin: window.location.origin },
       }),
@@ -106,7 +136,9 @@ function BillingPage() {
         ) : (
           <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2">
             <div className="text-lg font-semibold text-foreground">
-              {data?.plan ? BILLING_PLANS[data.plan as PlanKey]?.label : t("billing.plan.none")}
+              {data?.plan
+                ? (plans.find((p) => p.key === data.plan)?.label ?? data.plan)
+                : t("billing.plan.none")}
             </div>
             <span className="rounded-full border border-border/60 px-2.5 py-0.5 text-xs text-muted-foreground">
               {statusLabel}
@@ -150,7 +182,7 @@ function BillingPage() {
       </section>
 
       <div className="mt-8 grid gap-4 md:grid-cols-3">
-        {(Object.values(BILLING_PLANS) as (typeof BILLING_PLANS)[PlanKey][]).map((plan) => {
+        {plans.map((plan) => {
           const isCurrent = data?.plan === plan.key;
           return (
             <div
@@ -161,6 +193,9 @@ function BillingPage() {
             >
               <div className="font-display text-lg font-semibold text-foreground">{plan.label}</div>
               <p className="mt-1 text-sm text-muted-foreground">{plan.tagline}</p>
+              <div className="mt-2 font-display text-2xl font-semibold text-foreground">
+                {formatPlanPrice(plan)}
+              </div>
               <ul className="mt-4 flex-1 space-y-2 text-sm">
                 {plan.features.map((f) => (
                   <li key={f} className="flex items-start gap-2">
@@ -173,29 +208,18 @@ function BillingPage() {
                 <div className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary">
                   <ShieldCheck className="h-4 w-4" /> {t("billing.currentPlan")}
                 </div>
-              ) : plan.selfServe ? (
+              ) : plan.self_serve ? (
                 <div className="mt-5 grid gap-2">
-                  {data?.providers?.mercadopago && (
+                  {data?.providers?.stripe ? (
                     <button
-                      onClick={() => checkout.mutate({ planKey: plan.key, provider: "mercadopago" })}
+                      onClick={() => checkout.mutate({ planKey: plan.key, provider: "stripe" })}
                       disabled={checkout.isPending}
                       className="inline-flex items-center justify-center gap-2 rounded bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
                     >
                       {checkout.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                      {locale === "es" ? "Pagar con Mercado Pago" : "Pay with Mercado Pago"}
-                    </button>
-                  )}
-                  {data?.providers?.stripe && (
-                    <button
-                      onClick={() => checkout.mutate({ planKey: plan.key, provider: "stripe" })}
-                      disabled={checkout.isPending}
-                      className="inline-flex items-center justify-center gap-2 rounded border border-primary/40 bg-card px-4 py-2 text-sm font-semibold text-foreground hover:bg-primary/5 disabled:opacity-50"
-                    >
-                      {checkout.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                       {locale === "es" ? "Pagar con Stripe" : "Pay with Stripe"}
                     </button>
-                  )}
-                  {!data?.providers?.mercadopago && !data?.providers?.stripe && (
+                  ) : (
                     <p className="text-center text-xs text-muted-foreground">
                       {locale === "es"
                         ? "Pago en línea temporalmente no disponible."
@@ -203,6 +227,7 @@ function BillingPage() {
                     </p>
                   )}
                 </div>
+
               ) : (
                 <a
                   href="mailto:soporte@mexico.nyrava.com"

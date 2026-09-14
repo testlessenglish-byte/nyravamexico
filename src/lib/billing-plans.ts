@@ -2,13 +2,10 @@
 // client-rendered pricing page and the server-side checkout/webhook logic,
 // so adding or renaming a plan only has to happen here.
 //
-// Actual prices live in Mercado Pago (not here) — each self-serve plan
-// points at a Mercado Pago Preapproval Plan id, configured per-plan from
-// Admin -> Billing Plans (mercadopago_plan_id column on billing_plans),
-// so changing a price in Mercado Pago never requires a code deploy.
-// `mpPlanEnvVar` is a legacy env-var fallback (see billing.functions.ts) for
-// setups that haven't moved the id into the admin-managed billing_plans row
-// yet — new deployments should just set it in Admin -> Billing Plans.
+// Actual prices live in Stripe (not here) — each self-serve plan points at a
+// Stripe Price id, configured per-plan from Admin -> Billing Plans
+// (stripe_price_id column on billing_plans), so changing a price in Stripe
+// never requires a code deploy.
 export type PlanKey = "solo" | "firm" | "enterprise";
 
 export type PlanConfig = {
@@ -16,10 +13,8 @@ export type PlanConfig = {
   label: string;
   tagline: string;
   features: string[];
-  /** True if this plan is purchasable via Mercado Pago checkout. False = "Contact us" (enterprise). */
+  /** True if this plan is purchasable via Stripe checkout. False = "Contact us" (enterprise). */
   selfServe: boolean;
-  /** Env var name holding a fallback Mercado Pago Preapproval Plan id. Only set when selfServe is true. */
-  mpPlanEnvVar?: string;
 };
 
 export const BILLING_PLANS: Record<PlanKey, PlanConfig> = {
@@ -36,7 +31,6 @@ export const BILLING_PLANS: Record<PlanKey, PlanConfig> = {
       "Email support",
     ],
     selfServe: true,
-    mpPlanEnvVar: "MERCADOPAGO_PLAN_SOLO",
   },
   firm: {
     key: "firm",
@@ -51,7 +45,6 @@ export const BILLING_PLANS: Record<PlanKey, PlanConfig> = {
       "Priority support",
     ],
     selfServe: true,
-    mpPlanEnvVar: "MERCADOPAGO_PLAN_FIRM",
   },
   enterprise: {
     key: "enterprise",
@@ -67,6 +60,11 @@ export const BILLING_PLANS: Record<PlanKey, PlanConfig> = {
     selfServe: false,
   },
 };
+
+/** Accepts any admin-defined plan key stored in billing_plans (e.g. "solo_test"). */
+export function isDynamicPlanKey(v: unknown): v is string {
+  return typeof v === "string" && /^[a-z0-9_-]{1,64}$/i.test(v);
+}
 
 export function isPlanKey(v: unknown): v is PlanKey {
   return v === "solo" || v === "firm" || v === "enterprise";

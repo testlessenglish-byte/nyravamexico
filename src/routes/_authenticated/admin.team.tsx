@@ -388,9 +388,10 @@ function SuperAdminSeatOverride({
         <Crown className="h-4 w-4 text-amber-500" /> Super Admin · Manual seat overrides
       </div>
       <p className="mb-4 text-xs text-muted-foreground">
-        Mercado Pago isn't wired up yet, so every firm defaults to 1 seat (Solo) until you set them
-        here. Use this to grant Firm (10) or Enterprise (50+) seat pools per contract. Mercado Pago
-        webhooks will overwrite these once they're live.
+        Every firm defaults to 1 seat (Solo) until you set them here. Use this to grant Firm (10)
+        or Enterprise (50+) seat pools per contract. Stripe webhooks will overwrite these for
+        firms that subscribe online.
+
       </p>
       {firmsQ.isLoading ? (
         <div className="text-sm text-muted-foreground">Loading firms…</div>

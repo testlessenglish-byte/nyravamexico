@@ -1,4 +1,4 @@
-// Subscription billing — status reads for the UI, Mercado Pago checkout/
+// Subscription billing — status reads for the UI, Stripe checkout/
 // cancellation, and the internal free-case gating helpers used by
 // createCaseAndUpload (cases.functions.ts).
 //
@@ -6,14 +6,15 @@
 // (see getAdminClient below), scoped by a server-verified userId — never by
 // a client-supplied one. RLS on the table grants `authenticated` SELECT
 // only, so a normal user-scoped client could never write here even if it
-// tried; the admin client is what makes free-case consumption and Mercado
-// Pago linkage possible at all. See the migration file for the full rationale.
+// tried; the admin client is what makes free-case consumption and Stripe
+// linkage possible at all. See the migration file for the full rationale.
 import { createServerFn } from "@tanstack/react-start";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { BILLING_PLANS, isPlanKey, type PlanKey } from "./billing-plans";
+import { isPlanKey, type PlanKey } from "./billing-plans";
+
 
 type Db = SupabaseClient<Database>;
 type SubRow = Database["public"]["Tables"]["subscriptions"]["Row"];
@@ -140,15 +141,12 @@ export const getMyBillingStatus = createServerFn({ method: "GET" })
     );
     return {
       providers: {
-        mercadopago:
-          providerFlags.mercadopago !== false &&
-          Boolean(process.env.MERCADOPAGO_ACCESS_TOKEN) &&
-          Boolean(process.env.MERCADOPAGO_WEBHOOK_SECRET),
         stripe:
-          providerFlags.stripe === true &&
+          providerFlags.stripe !== false &&
           Boolean(process.env.STRIPE_SECRET_KEY) &&
           Boolean(process.env.STRIPE_WEBHOOK_SECRET),
       },
+
       plan: access.plan,
       status: access.status,
       freeCaseUsed: access.freeCaseUsed,
@@ -165,7 +163,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     z.object({
       planKey: z.string().min(1),
       origin: z.string().url(),
-      provider: z.enum(["mercadopago", "stripe"]).optional(),
+      provider: z.literal("stripe").optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
@@ -184,7 +182,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     // Look up the admin-managed plan row for this key.
     const { data: planRow, error: planErr } = await admin
       .from("billing_plans")
-      .select("key,label,mercadopago_plan_id,stripe_price_id,self_serve,active")
+      .select("key,label,stripe_price_id,self_serve,active")
       .eq("key", data.planKey)
       .maybeSingle();
     if (planErr) throw new Error(planErr.message);
@@ -196,102 +194,53 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       .from("billing_provider_settings")
       .select("provider,enabled");
     if (providerError) throw new Error(providerError.message);
-    const enabled = new Set(
-      (providerRows ?? []).filter((r: { enabled: boolean }) => r.enabled)
-        .map((r: { provider: string }) => r.provider),
-    );
-    const provider =
-      data.provider ??
-      (enabled.has("mercadopago") ? "mercadopago" : enabled.has("stripe") ? "stripe" : null);
-    if (!provider || !enabled.has(provider)) {
-      throw new Error("The selected payment provider is currently disabled.");
+    const stripeRow = (providerRows ?? []).find(
+      (r: { provider: string }) => r.provider === "stripe",
+    ) as { enabled: boolean } | undefined;
+    if (stripeRow && stripeRow.enabled === false) {
+      throw new Error("Stripe payments are currently disabled.");
     }
-    if (
-      provider === "stripe" &&
-      (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET)
-    ) {
+    if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
       throw new Error("Stripe requires both STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET before checkout can be enabled.");
-    }
-    if (
-      provider === "mercadopago" &&
-      (!process.env.MERCADOPAGO_ACCESS_TOKEN || !process.env.MERCADOPAGO_WEBHOOK_SECRET)
-    ) {
-      throw new Error("Mercado Pago requires both its access token and webhook secret before checkout can be enabled.");
     }
 
     const { data: userResp } = await admin.auth.admin.getUserById(userId);
     const payerEmail = userResp?.user?.email;
     if (!payerEmail) throw new Error("Your account has no email on file — cannot start checkout.");
 
-    if (provider === "stripe") {
-      if (!planRow.stripe_price_id) {
-        throw new Error(
-          `Stripe checkout is not configured for ${planRow.label} — set its Stripe Price ID in Admin → Billing Plans.`,
-        );
-      }
-      const { getStripe } = await import("./stripe.server");
-      const session = await getStripe().checkout.sessions.create({
-        mode: "subscription",
-        customer_email: payerEmail,
-        line_items: [{ price: planRow.stripe_price_id, quantity: 1 }],
-        success_url: `${data.origin}/billing?checkout=success&provider=stripe`,
-        cancel_url: `${data.origin}/billing?checkout=cancelled`,
+    if (!planRow.stripe_price_id) {
+      throw new Error(
+        `Stripe checkout is not configured for ${planRow.label} — set its Stripe Price ID in Admin → Billing Plans.`,
+      );
+    }
+    const { getStripe } = await import("./stripe.server");
+    const session = await getStripe().checkout.sessions.create({
+      mode: "subscription",
+      customer_email: payerEmail,
+      line_items: [{ price: planRow.stripe_price_id, quantity: 1 }],
+      success_url: `${data.origin}/billing?checkout=success&provider=stripe`,
+      cancel_url: `${data.origin}/billing?checkout=cancelled`,
+      metadata: {
+        user_id: userId,
+        plan: planRow.key,
+        ...(organizationId ? { org_id: organizationId } : {}),
+      },
+      subscription_data: {
         metadata: {
           user_id: userId,
           plan: planRow.key,
           ...(organizationId ? { org_id: organizationId } : {}),
         },
-        subscription_data: {
-          metadata: {
-            user_id: userId,
-            plan: planRow.key,
-            ...(organizationId ? { org_id: organizationId } : {}),
-          },
-        },
-      });
-      if (!session.url) throw new Error("Stripe did not return a checkout URL.");
-      return { url: session.url, provider };
-    }
-
-    // Prefer the DB-configured Mercado Pago plan id; retain legacy env fallbacks.
-    let preapprovalPlanId = planRow.mercadopago_plan_id ?? null;
-    if (!preapprovalPlanId && isPlanKey(planRow.key)) {
-      const envVar = BILLING_PLANS[planRow.key].mpPlanEnvVar;
-      if (envVar) preapprovalPlanId = process.env[envVar] ?? null;
-    }
-    if (!preapprovalPlanId) {
-      throw new Error(
-        `Mercado Pago checkout is not configured for ${planRow.label} — set its Plan ID in Admin → Billing Plans.`,
-      );
-    }
-    const { createPreapproval } = await import("./mercadopago.server");
-    const preapproval = await createPreapproval({
-      preapprovalPlanId,
-      payerEmail,
-      externalReference: userId,
-      backUrl: `${data.origin}/billing?checkout=success&provider=mercadopago`,
-    });
-    await admin.from("subscriptions").upsert(
-      {
-        user_id: userId,
-        mercadopago_preapproval_id: preapproval.id,
-        mercadopago_payer_email: payerEmail,
-        plan: isPlanKey(planRow.key) ? planRow.key : null,
-        // The checkout response is not an authorization boundary. Only the
-        // independently signed webhook may activate organization access.
-        status: "incomplete",
       },
-      { onConflict: "user_id" },
-    );
-    if (!preapproval.init_point) throw new Error("Mercado Pago did not return a checkout URL.");
-    return { url: preapproval.init_point, provider };
+    });
+    if (!session.url) throw new Error("Stripe did not return a checkout URL.");
+    return { url: session.url, provider: "stripe" as const };
   });
 
-/** Mercado Pago has no hosted self-service billing portal the way Stripe
- * does — this cancels the subscription directly instead of redirecting the
- * user somewhere else to do it. Kept as its own endpoint (rather than
- * folded into createCheckoutSession) so the client can show a clear
- * confirm-before-cancel dialog. */
+
+/** Cancels the Stripe subscription at period end. Kept as its own endpoint
+ * (rather than folded into createCheckoutSession) so the client can show a
+ * clear confirm-before-cancel dialog. */
 export const cancelMySubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -299,7 +248,7 @@ export const cancelMySubscription = createServerFn({ method: "POST" })
     const admin = getAdminClient();
     const { data: sub } = await admin
       .from("subscriptions")
-      .select("mercadopago_preapproval_id,stripe_subscription_id")
+      .select("stripe_subscription_id")
       .eq("user_id", userId)
       .maybeSingle();
     if (sub?.stripe_subscription_id) {
@@ -312,16 +261,9 @@ export const cancelMySubscription = createServerFn({ method: "POST" })
         .eq("user_id", userId);
       return { ok: true, provider: "stripe", atPeriodEnd: true };
     }
-    if (sub?.mercadopago_preapproval_id) {
-      const { cancelPreapproval } = await import("./mercadopago.server");
-      await cancelPreapproval(sub.mercadopago_preapproval_id);
-      await admin.from("subscriptions")
-        .update({ status: "canceled", cancel_at_period_end: false })
-        .eq("user_id", userId);
-      return { ok: true, provider: "mercadopago", atPeriodEnd: false };
-    }
     throw new Error("No active subscription on file to cancel.");
   });
+
 
 // ---------------------------------------------------------------------
 // Admin: beta testers + subscriptions visibility
@@ -369,9 +311,9 @@ export type AdminUserRow = {
   beta_granted_at: string | null;
   free_case_used: boolean;
   stripe_customer_id: string | null;
-  mercadopago_preapproval_id: string | null;
   current_period_end: string | null;
 };
+
 
 /** Every user joined with their subscription/beta status. Backs both the
  * admin Subscriptions view and the Beta Testers view — same underlying
@@ -473,10 +415,10 @@ export const adminRemoveBetaTester = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** Recent webhook deliveries (Mercado Pago going forward; historical Stripe
- * rows remain visible too), for the admin Billing page's config panel —
- * proves the webhook is actually reaching the app, not just that an env
- * var is set. */
+/** Recent Stripe webhook deliveries, for the admin Billing page's config
+ * panel — proves the webhook is actually reaching the app, not just that an
+ * env var is set. */
+
 export const adminListWebhookEvents = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -503,21 +445,11 @@ export const adminGetBillingProviderStatus = createServerFn({ method: "GET" })
       .select("provider,enabled,updated_at");
     if (error) throw new Error(error.message);
     const flags = Object.fromEntries((rows ?? []).map((r: { provider: string; enabled: boolean }) => [r.provider, r.enabled]));
-    const mpToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
-    const mpSecret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
     const stripeKey = process.env.STRIPE_SECRET_KEY;
     const stripeSecret = process.env.STRIPE_WEBHOOK_SECRET;
     return {
-      mercadopago: {
-        enabled: flags.mercadopago !== false,
-        hasSecretKey: Boolean(mpToken),
-        keyMode: mpToken?.includes("APP_USR") ? "production" : mpToken ? "test" : null,
-        hasWebhookSecret: Boolean(mpSecret),
-        webhookSecretLast4: mpSecret ? mpSecret.slice(-4) : null,
-        webhookUrl: "/api/public/hooks/mercadopago-webhook",
-      },
       stripe: {
-        enabled: flags.stripe === true,
+        enabled: flags.stripe !== false,
         hasSecretKey: Boolean(stripeKey),
         keyMode: stripeKey?.startsWith("sk_live_") ? "production" : stripeKey ? "test" : null,
         hasWebhookSecret: Boolean(stripeSecret),
@@ -530,8 +462,9 @@ export const adminGetBillingProviderStatus = createServerFn({ method: "GET" })
 export const adminSetBillingProviderEnabled = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
-    z.object({ provider: z.enum(["mercadopago", "stripe"]), enabled: z.boolean() }).parse(d),
+    z.object({ provider: z.literal("stripe"), enabled: z.boolean() }).parse(d),
   )
+
   .handler(async ({ data, context }) => {
     const ctx = context as { supabase: Db; userId: string };
     await requireAdmin(ctx);
@@ -546,20 +479,7 @@ export const adminSetBillingProviderEnabled = createServerFn({ method: "POST" })
     return { ok: true, ...data };
   });
 
-/** Backward-compatible Mercado Pago status used by older admin bundles. */
-export const adminGetMercadoPagoConfigStatus = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const ctx = context as { supabase: Db; userId: string };
-    await requireAdmin(ctx);
-    const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
-    const webhookSecret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
-    return {
-      hasAccessToken: Boolean(accessToken),
-      accessTokenMode: accessToken?.includes("APP_USR") ? "production" : accessToken ? "test" : null,
-      hasWebhookSecret: Boolean(webhookSecret),
-      webhookSecretLast4: webhookSecret ? webhookSecret.slice(-4) : null,
-    };
-  });
+
+
 
 export { isPlanKey };

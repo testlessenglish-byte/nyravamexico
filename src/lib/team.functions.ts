@@ -5,7 +5,7 @@
 //
 // Seat model: a firm's seat pool comes from whichever user holds the paying
 // subscription for that firm (firms.owner_user_id / plan_key / seat_limit,
-// set by the Mercado Pago webhook). "Seats used" = active members + pending
+// set by the Stripe webhook). "Seats used" = active members + pending
 // invites. See supabase/migrations/20260723060000_firm_seats_and_invites.sql
 // for the full data model and plan_seat_limit() defaults.
 import { createServerFn } from "@tanstack/react-start";
@@ -316,7 +316,7 @@ export const adminSetFirmSeatLimit = createServerFn({ method: "POST" })
   });
 
 // ============== Super Admin: list all firms with seat usage ==============
-// Powers the manual seat-override panel used before Mercado Pago is wired up.
+// Powers the manual seat-override panel for contract-negotiated seat pools.
 export const listFirmsWithSeats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
