@@ -210,5 +210,11 @@ export const listPublicBillingPlans = createServerFn({ method: "GET" })
       included_seats: p.included_seats ?? null,
       per_seat_price_cents: p.per_seat_price_cents ?? null,
       sort_order: Number(p.sort_order ?? 0),
+      ai_requests_monthly: p.ai_requests_monthly ?? null,
+      talk_to_case_monthly: p.talk_to_case_monthly ?? null,
+      case_limit: p.case_limit ?? null,
+      storage_gb_limit: p.storage_gb_limit === null ? null : Number(p.storage_gb_limit),
+      team_member_limit: p.team_member_limit ?? null,
+      byok_allowed: p.byok_allowed !== false,
     })) as PublicBillingPlan[];
   });
