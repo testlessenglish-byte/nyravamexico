@@ -11391,6 +11391,7 @@ export type Database = {
             }
             Returns: Json
           }
+      is_active_org_member: { Args: { check_org_id: string }; Returns: boolean }
       is_admin_tier: { Args: { _user_id: string }; Returns: boolean }
       is_case_manager: { Args: { _user_id: string }; Returns: boolean }
       is_member_of_firm: {
@@ -11398,6 +11399,7 @@ export type Database = {
         Returns: boolean
       }
       is_org_member: { Args: { _org: string; _user: string }; Returns: boolean }
+      is_org_support_admin: { Args: { check_org_id: string }; Returns: boolean }
       is_primary_subscriber: {
         Args: { check_org_id: string }
         Returns: boolean
