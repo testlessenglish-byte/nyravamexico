@@ -1788,9 +1788,9 @@ export const getSocialCommunitySupportWorkspace = createServerFn({ method: "POST
     fail(caseRow.error);
     const sc = caseRow.data;
 
-    // Check membership and role
-    const memberRow = await supabase.from("organization_members").select("role").eq("organization_id", sc.org_id).eq("user_id", userId).maybeSingle();
-    const userRole = memberRow.data?.role || "case_manager";
+    // Check membership and role (fail-closed: no active membership => no role)
+    const { getOrgMembershipRole } = await import("@/lib/social/org-membership.server");
+    const userRole = await getOrgMembershipRole(supabase, sc.org_id, userId);
     const { isSubscriberOrAdmin, buildPublicSafeDraft } = await import("@/lib/social/community-support.server");
     const isSubscriber = isSubscriberOrAdmin(userRole);
 
@@ -1848,6 +1848,7 @@ export const createCommunitySupportRequest = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = ctx(context);
     const { isSubscriberOrAdmin, generatePublicSlug } = await import("@/lib/social/community-support.server");
+    const { getOrgMembershipRole, getPrimaryOrgIdForUser } = await import("@/lib/social/org-membership.server");
 
     let orgId: string;
     if (data.caseId) {
@@ -1855,13 +1856,14 @@ export const createCommunitySupportRequest = createServerFn({ method: "POST" })
       fail(caseRow.error);
       orgId = caseRow.data.org_id;
     } else {
-      const memberRow = await supabase.from("organization_members").select("organization_id").eq("user_id", userId).limit(1).single();
-      fail(memberRow.error);
-      orgId = memberRow.data.organization_id;
+      const resolvedOrgId = await getPrimaryOrgIdForUser(supabase, userId);
+      if (!resolvedOrgId) {
+        throw new Error("No perteneces a ninguna organización activa / You do not belong to an active organization");
+      }
+      orgId = resolvedOrgId;
     }
 
-    const memberRow = await supabase.from("organization_members").select("role").eq("organization_id", orgId).eq("user_id", userId).maybeSingle();
-    const userRole = memberRow.data?.role || "case_manager";
+    const userRole = await getOrgMembershipRole(supabase, orgId, userId);
     const isSubscriber = isSubscriberOrAdmin(userRole);
 
     const lifecycleStatus = isSubscriber ? "approved" : "pending_approval";
@@ -1933,8 +1935,9 @@ export const approveAndPublishCommunityCampaign = createServerFn({ method: "POST
     fail(campaignRow.error);
     const c = campaignRow.data;
 
-    const memberRow = await supabase.from("organization_members").select("role").eq("organization_id", c.org_id).eq("user_id", userId).maybeSingle();
-    if (!isSubscriberOrAdmin(memberRow.data?.role)) {
+    const { getOrgMembershipRole } = await import("@/lib/social/org-membership.server");
+    const callerRole = await getOrgMembershipRole(supabase, c.org_id, userId);
+    if (!isSubscriberOrAdmin(callerRole)) {
       throw new Error("Solo los administradores o titulares de la cuenta pueden aprobar y publicar campañas / Only account owners or administrators can publish campaigns");
     }
 
@@ -1985,8 +1988,9 @@ export const updateCommunityCampaignStatus = createServerFn({ method: "POST" })
     fail(campaignRow.error);
     const c = campaignRow.data;
 
-    const memberRow = await supabase.from("organization_members").select("role").eq("organization_id", c.org_id).eq("user_id", userId).maybeSingle();
-    if (!isSubscriberOrAdmin(memberRow.data?.role)) {
+    const { getOrgMembershipRole } = await import("@/lib/social/org-membership.server");
+    const callerRole = await getOrgMembershipRole(supabase, c.org_id, userId);
+    if (!isSubscriberOrAdmin(callerRole)) {
       throw new Error("Permiso denegado / Permission denied: subscriber/admin only");
     }
 
@@ -2019,8 +2023,9 @@ export const saveSubscriberFundraisingProfile = createServerFn({ method: "POST" 
     const { supabase, userId } = ctx(context);
     const { isSubscriberOrAdmin } = await import("@/lib/social/community-support.server");
 
-    const memberRow = await supabase.from("organization_members").select("role").eq("organization_id", data.orgId).eq("user_id", userId).maybeSingle();
-    if (!isSubscriberOrAdmin(memberRow.data?.role)) {
+    const { getOrgMembershipRole } = await import("@/lib/social/org-membership.server");
+    const callerRole = await getOrgMembershipRole(supabase, data.orgId, userId);
+    if (!isSubscriberOrAdmin(callerRole)) {
       throw new Error("Solo el titular o administrador puede editar los datos fiscales y de recaudación / Only subscriber or admin can edit fundraising profile");
     }
 
