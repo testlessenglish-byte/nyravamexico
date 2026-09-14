@@ -151,15 +151,25 @@ function emptyDraft(nextSort: number): Draft {
 // so the number an admin types is always the number a customer would see.
 // ---------------------------------------------------------------------
 
+/** Normalizes common mistyped codes to valid ISO-4217 (e.g. MEX -> MXN). */
+function normalizeCurrency(currency: string): string {
+  const c = (currency || "usd").trim().toUpperCase();
+  if (c === "MEX" || c === "MX" || c === "MXP") return "MXN";
+  if (c === "US" || c === "USDS") return "USD";
+  return c;
+}
+
 function formatMoney(cents: number, currency: string): string {
+  const code = normalizeCurrency(currency);
+  const amount = (Number(cents) || 0) / 100;
   try {
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat(code === "MXN" ? "es-MX" : undefined, {
       style: "currency",
-      currency: (currency || "usd").toUpperCase(),
+      currency: code,
       minimumFractionDigits: 2,
-    }).format((cents || 0) / 100);
+    }).format(amount);
   } catch {
-    return `$${((cents || 0) / 100).toFixed(2)}`;
+    return `$${amount.toFixed(2)}`;
   }
 }
 
@@ -205,7 +215,7 @@ function AdminBillingPage() {
           tagline: d.tagline,
           features,
           price_cents: Math.round(d.price_cents),
-          currency: d.currency,
+          currency: normalizeCurrency(d.currency).toLowerCase(),
           interval: d.interval,
           stripe_price_id: d.stripe_price_id.trim() || null,
           mercadopago_plan_id: d.mercadopago_plan_id.trim() || null,
@@ -382,22 +392,37 @@ function PriceCentsInput({
   cents: number;
   onChange: (cents: number) => void;
 }) {
-  const dollars = Math.round(cents || 0) / 100;
+  // Keep a free-text buffer so partial entries ("", "50.", "0.0") survive
+  // typing; the canonical value stays in cents on the draft.
+  const toText = (c: number) => (Math.round(Number(c) || 0) / 100).toFixed(2);
+  const [text, setText] = useState<string>(() => toText(cents));
+
+  useEffect(() => {
+    const parsed = Math.round((parseFloat(text.replace(",", ".")) || 0) * 100);
+    if (parsed !== Math.round(Number(cents) || 0)) setText(toText(cents));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cents]);
+
   return (
     <div className="relative">
       <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
         $
       </span>
       <input
-        type="number"
-        min={0}
-        step="0.01"
+        type="text"
+        inputMode="decimal"
+        placeholder="0.00"
         className="w-full rounded-md border border-border bg-background py-2 pl-6 pr-3 text-sm tabular-nums"
-        value={dollars}
+        value={text}
+        onFocus={(e) => e.currentTarget.select()}
         onChange={(e) => {
-          const v = Number(e.target.value);
+          const raw = e.target.value.replace(",", ".");
+          if (raw !== "" && !/^\d*\.?\d{0,2}$/.test(raw)) return;
+          setText(raw);
+          const v = parseFloat(raw);
           onChange(Number.isFinite(v) ? Math.round(v * 100) : 0);
         }}
+        onBlur={() => setText(toText(cents))}
       />
     </div>
   );
@@ -644,6 +669,10 @@ function PlanEditor({
                   className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm uppercase"
                   value={draft.currency}
                   onChange={(e) => onChange({ currency: e.target.value.toLowerCase() })}
+                  onBlur={(e) =>
+                    onChange({ currency: normalizeCurrency(e.target.value).toLowerCase() })
+                  }
+                  placeholder="MXN"
                   maxLength={3}
                 />
               </Field>
