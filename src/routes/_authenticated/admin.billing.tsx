@@ -215,7 +215,7 @@ function AdminBillingPage() {
           tagline: d.tagline,
           features,
           price_cents: Math.round(d.price_cents),
-          currency: d.currency,
+          currency: normalizeCurrency(d.currency).toLowerCase(),
           interval: d.interval,
           stripe_price_id: d.stripe_price_id.trim() || null,
           mercadopago_plan_id: d.mercadopago_plan_id.trim() || null,
