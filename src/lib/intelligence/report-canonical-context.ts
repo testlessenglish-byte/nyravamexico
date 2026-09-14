@@ -162,7 +162,9 @@ export function sanitizeNarrativeProse(
   if (typeof prose.missing_evidence_report === "string") {
     const filing = scrubUnsupportedLegalFilingSentences(prose.missing_evidence_report);
     filingSentencesRemoved += filing.removed;
-    prose.missing_evidence_report = filing.text;
+    // The missing-evidence section never asserts an absolute absence: its own
+    // search scope cannot prove it. Qualify the wording at the source.
+    prose.missing_evidence_report = remediateAbsenceLanguage(filing.text).text;
   }
 
   return {
