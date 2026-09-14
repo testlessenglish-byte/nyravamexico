@@ -300,12 +300,13 @@ function remediateRenderedText(payload: FinalReportPayload, text: string): strin
     }
   };
   collect(payload);
-  return text.split(/(?<=[.!?])\s+|\n/).map(sentence => {
-    if (!absenceText.test(fold(sentence))) return sentence;
-    const folded = fold(sentence).replace(/[.!?]+$/, "");
-    if (verified.some(v => folded.includes(v) || v.includes(folded))) return sentence;
-    return remediateAbsenceLanguage(sentence).text;
-  }).join("\n");
+  // Split keeping the original separators so the rendered layout is preserved.
+  return text.split(/([.!?]+\s+|\n+)/).map(chunk => {
+    if (!absenceText.test(fold(chunk))) return chunk;
+    const folded = fold(chunk).replace(/[.!?]+$/, "");
+    if (verified.some(v => folded.includes(v) || v.includes(folded))) return chunk;
+    return remediateAbsenceLanguage(chunk).text;
+  }).join("");
 }
 
 function freeze<T>(value: T): T {
