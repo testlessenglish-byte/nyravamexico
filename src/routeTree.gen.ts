@@ -93,7 +93,6 @@ import { Route as ApiPublicHooksStripeWebhookRouteImport } from './routes/api/pu
 import { Route as ApiPublicHooksResourceContactRefreshRouteImport } from './routes/api/public/hooks/resource-contact-refresh'
 import { Route as ApiPublicHooksRemindersWorkerRouteImport } from './routes/api/public/hooks/reminders-worker'
 import { Route as ApiPublicHooksPipelineWorkerRouteImport } from './routes/api/public/hooks/pipeline-worker'
-import { Route as ApiPublicHooksMercadopagoWebhookRouteImport } from './routes/api/public/hooks/mercadopago-webhook'
 import { Route as ApiPublicHooksLegalIngestWorkerRouteImport } from './routes/api/public/hooks/legal-ingest-worker'
 
 const TrustRoute = TrustRouteImport.update({
@@ -532,12 +531,6 @@ const ApiPublicHooksPipelineWorkerRoute =
     path: '/api/public/hooks/pipeline-worker',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicHooksMercadopagoWebhookRoute =
-  ApiPublicHooksMercadopagoWebhookRouteImport.update({
-    id: '/api/public/hooks/mercadopago-webhook',
-    path: '/api/public/hooks/mercadopago-webhook',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const ApiPublicHooksLegalIngestWorkerRoute =
   ApiPublicHooksLegalIngestWorkerRouteImport.update({
     id: '/api/public/hooks/legal-ingest-worker',
@@ -623,7 +616,6 @@ export interface FileRoutesByFullPath {
   '/api/voice/transcribe': typeof ApiVoiceTranscribeRoute
   '/cases/': typeof AuthenticatedCasesIndexRoute
   '/api/public/hooks/legal-ingest-worker': typeof ApiPublicHooksLegalIngestWorkerRoute
-  '/api/public/hooks/mercadopago-webhook': typeof ApiPublicHooksMercadopagoWebhookRoute
   '/api/public/hooks/pipeline-worker': typeof ApiPublicHooksPipelineWorkerRoute
   '/api/public/hooks/reminders-worker': typeof ApiPublicHooksRemindersWorkerRoute
   '/api/public/hooks/resource-contact-refresh': typeof ApiPublicHooksResourceContactRefreshRoute
@@ -708,7 +700,6 @@ export interface FileRoutesByTo {
   '/api/voice/transcribe': typeof ApiVoiceTranscribeRoute
   '/cases': typeof AuthenticatedCasesIndexRoute
   '/api/public/hooks/legal-ingest-worker': typeof ApiPublicHooksLegalIngestWorkerRoute
-  '/api/public/hooks/mercadopago-webhook': typeof ApiPublicHooksMercadopagoWebhookRoute
   '/api/public/hooks/pipeline-worker': typeof ApiPublicHooksPipelineWorkerRoute
   '/api/public/hooks/reminders-worker': typeof ApiPublicHooksRemindersWorkerRoute
   '/api/public/hooks/resource-contact-refresh': typeof ApiPublicHooksResourceContactRefreshRoute
@@ -797,7 +788,6 @@ export interface FileRoutesById {
   '/api/voice/transcribe': typeof ApiVoiceTranscribeRoute
   '/_authenticated/cases/': typeof AuthenticatedCasesIndexRoute
   '/api/public/hooks/legal-ingest-worker': typeof ApiPublicHooksLegalIngestWorkerRoute
-  '/api/public/hooks/mercadopago-webhook': typeof ApiPublicHooksMercadopagoWebhookRoute
   '/api/public/hooks/pipeline-worker': typeof ApiPublicHooksPipelineWorkerRoute
   '/api/public/hooks/reminders-worker': typeof ApiPublicHooksRemindersWorkerRoute
   '/api/public/hooks/resource-contact-refresh': typeof ApiPublicHooksResourceContactRefreshRoute
@@ -886,7 +876,6 @@ export interface FileRouteTypes {
     | '/api/voice/transcribe'
     | '/cases/'
     | '/api/public/hooks/legal-ingest-worker'
-    | '/api/public/hooks/mercadopago-webhook'
     | '/api/public/hooks/pipeline-worker'
     | '/api/public/hooks/reminders-worker'
     | '/api/public/hooks/resource-contact-refresh'
@@ -971,7 +960,6 @@ export interface FileRouteTypes {
     | '/api/voice/transcribe'
     | '/cases'
     | '/api/public/hooks/legal-ingest-worker'
-    | '/api/public/hooks/mercadopago-webhook'
     | '/api/public/hooks/pipeline-worker'
     | '/api/public/hooks/reminders-worker'
     | '/api/public/hooks/resource-contact-refresh'
@@ -1059,7 +1047,6 @@ export interface FileRouteTypes {
     | '/api/voice/transcribe'
     | '/_authenticated/cases/'
     | '/api/public/hooks/legal-ingest-worker'
-    | '/api/public/hooks/mercadopago-webhook'
     | '/api/public/hooks/pipeline-worker'
     | '/api/public/hooks/reminders-worker'
     | '/api/public/hooks/resource-contact-refresh'
@@ -1105,7 +1092,6 @@ export interface RootRouteChildren {
   ApiVoiceSpeakRoute: typeof ApiVoiceSpeakRoute
   ApiVoiceTranscribeRoute: typeof ApiVoiceTranscribeRoute
   ApiPublicHooksLegalIngestWorkerRoute: typeof ApiPublicHooksLegalIngestWorkerRoute
-  ApiPublicHooksMercadopagoWebhookRoute: typeof ApiPublicHooksMercadopagoWebhookRoute
   ApiPublicHooksPipelineWorkerRoute: typeof ApiPublicHooksPipelineWorkerRoute
   ApiPublicHooksRemindersWorkerRoute: typeof ApiPublicHooksRemindersWorkerRoute
   ApiPublicHooksResourceContactRefreshRoute: typeof ApiPublicHooksResourceContactRefreshRoute
@@ -1705,13 +1691,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksPipelineWorkerRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/hooks/mercadopago-webhook': {
-      id: '/api/public/hooks/mercadopago-webhook'
-      path: '/api/public/hooks/mercadopago-webhook'
-      fullPath: '/api/public/hooks/mercadopago-webhook'
-      preLoaderRoute: typeof ApiPublicHooksMercadopagoWebhookRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/public/hooks/legal-ingest-worker': {
       id: '/api/public/hooks/legal-ingest-worker'
       path: '/api/public/hooks/legal-ingest-worker'
@@ -1879,7 +1858,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiVoiceSpeakRoute: ApiVoiceSpeakRoute,
   ApiVoiceTranscribeRoute: ApiVoiceTranscribeRoute,
   ApiPublicHooksLegalIngestWorkerRoute: ApiPublicHooksLegalIngestWorkerRoute,
-  ApiPublicHooksMercadopagoWebhookRoute: ApiPublicHooksMercadopagoWebhookRoute,
   ApiPublicHooksPipelineWorkerRoute: ApiPublicHooksPipelineWorkerRoute,
   ApiPublicHooksRemindersWorkerRoute: ApiPublicHooksRemindersWorkerRoute,
   ApiPublicHooksResourceContactRefreshRoute:

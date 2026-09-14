@@ -24,7 +24,6 @@ const planInput = z.object({
   currency: z.string().length(3).default("usd"),
   interval: z.enum(["month", "year", "one_time"]).default("month"),
   stripe_price_id: z.string().trim().max(200).nullable().optional(),
-  mercadopago_plan_id: z.string().trim().max(200).nullable().optional(),
   self_serve: z.boolean().default(true),
   contact_url: z.string().trim().max(500).nullable().optional(),
   sort_order: z.number().int().default(0),
@@ -83,6 +82,9 @@ export const adminUpsertBillingPlan = createServerFn({ method: "POST" })
     const row = {
       key: data.key,
       label: data.label,
+      // Legacy NOT NULL columns kept in sync with key/label so inserts succeed.
+      code: data.key,
+      name: data.label,
       tagline: data.tagline,
       features:
         data.features as unknown as Database["public"]["Tables"]["billing_plans"]["Insert"]["features"],
@@ -90,7 +92,6 @@ export const adminUpsertBillingPlan = createServerFn({ method: "POST" })
       currency: data.currency.toLowerCase(),
       interval: data.interval,
       stripe_price_id: data.stripe_price_id?.trim() || null,
-      mercadopago_plan_id: data.mercadopago_plan_id?.trim() || null,
       self_serve: data.self_serve,
       contact_url: data.contact_url?.trim() || null,
       sort_order: data.sort_order,

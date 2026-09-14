@@ -1,6 +1,7 @@
-// Admin billing plans — CRUD for subscription tiers. Prices/features/Mercado
-// Pago plan IDs are all editable here so support can add or reprice plans
+// Admin billing plans — CRUD for subscription tiers. Prices/features/Stripe
+// price IDs are all editable here so support can add or reprice plans
 // without a code deploy.
+
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -56,7 +57,6 @@ type Draft = {
   currency: string;
   interval: "month" | "year" | "one_time";
   stripe_price_id: string;
-  mercadopago_plan_id: string;
   self_serve: boolean;
   contact_url: string;
   sort_order: number;
@@ -96,7 +96,6 @@ function toDraft(p: BillingPlanRow): Draft {
     currency: p.currency,
     interval: (p.interval as Draft["interval"]) ?? "month",
     stripe_price_id: p.stripe_price_id ?? "",
-    mercadopago_plan_id: p.mercadopago_plan_id ?? "",
     self_serve: p.self_serve,
     contact_url: p.contact_url ?? "",
     sort_order: p.sort_order,
@@ -127,7 +126,6 @@ function emptyDraft(nextSort: number): Draft {
     currency: "usd",
     interval: "month",
     stripe_price_id: "",
-    mercadopago_plan_id: "",
     self_serve: true,
     contact_url: "",
     sort_order: nextSort,
@@ -218,7 +216,6 @@ function AdminBillingPage() {
           currency: normalizeCurrency(d.currency).toLowerCase(),
           interval: d.interval,
           stripe_price_id: d.stripe_price_id.trim() || null,
-          mercadopago_plan_id: d.mercadopago_plan_id.trim() || null,
           self_serve: d.self_serve,
           contact_url: d.contact_url.trim() || null,
           sort_order: Math.round(d.sort_order),
@@ -309,7 +306,7 @@ function AdminBillingPage() {
       </div>
 
       <div className="mt-8">
-        <MercadoPagoConfigPanel />
+        <PaymentProvidersPanel />
       </div>
 
       {plansQ.isLoading && (
@@ -726,7 +723,7 @@ function PlanEditor({
                     className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-xs opacity-60"
                     value={draft.per_seat_stripe_price_id}
                     onChange={(e) => onChange({ per_seat_stripe_price_id: e.target.value })}
-                    placeholder="Unused since the move to Mercado Pago"
+                    placeholder="price_1N... (optional per-seat Stripe price)"
                   />
                 </Field>
               </div>
@@ -802,14 +799,15 @@ function PlanEditor({
           <div>
             <GroupLabel icon={CreditCard}>{t("admin.billing.group.checkout")}</GroupLabel>
             <div className="grid grid-cols-1 gap-4">
-              <Field label={t("admin.billing.field.mpPlanId")}>
+              <Field label={t("admin.billing.field.stripePriceId")}>
                 <input
                   className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-xs"
-                  value={draft.mercadopago_plan_id}
-                  onChange={(e) => onChange({ mercadopago_plan_id: e.target.value })}
-                  placeholder="2c9380847...  (from POST /preapproval_plan)"
+                  value={draft.stripe_price_id}
+                  onChange={(e) => onChange({ stripe_price_id: e.target.value })}
+                  placeholder="price_1N..."
                 />
               </Field>
+
               <Field label={t("admin.billing.field.contactUrl")}>
                 <input
                   className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
@@ -893,97 +891,6 @@ function StatusChip({ ok, label, detail }: { ok: boolean; label: string; detail?
   );
 }
 
-/** Self-service "finish wiring up Mercado Pago" panel. Mercado Pago has no
- * API to register a webhook the way Stripe does — the URL + signing secret
- * are configured once in Mercado Pago's OWN dashboard (Your integrations ->
- * your app -> Webhooks), not something this app can create for you. This
- * panel exists so that's a 30-second copy-paste job instead of a hunt: the
- * exact URL with a copy button, the exact events to subscribe to, and a
- * direct link to where you do it. */
-function WebhookSetupBox() {
-  const { t } = useI18n();
-  // Read the real domain client-side only (SSR has no window) — starts blank
-  // and fills in on mount so this never causes a hydration mismatch.
-  const [origin, setOrigin] = useState("");
-  useEffect(() => {
-    setOrigin(window.location.origin);
-  }, []);
-
-  const webhookPath = "/api/public/hooks/mercadopago-webhook";
-  const webhookUrl = origin ? `${origin}${webhookPath}` : webhookPath;
-
-  const copy = (text: string) => {
-    navigator.clipboard.writeText(text).then(
-      () => toast.success(t("admin.billing.webhook.copied")),
-      () => toast.error(t("admin.billing.webhook.copyFailed")),
-    );
-  };
-
-  return (
-    <div className="mb-4 rounded-lg border border-border/60 bg-secondary/20 p-4">
-      <div className="mb-3 flex items-center gap-2">
-        <Webhook className="h-4 w-4 text-muted-foreground" />
-        <h3 className="text-sm font-semibold">{t("admin.billing.webhook.setupTitle")}</h3>
-      </div>
-
-      <div className="mb-3 flex items-center gap-2">
-        <code className="min-w-0 flex-1 truncate rounded-md border border-border bg-background px-3 py-2 font-mono text-xs">
-          {webhookUrl}
-        </code>
-        <button
-          onClick={() => copy(webhookUrl)}
-          className="flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-xs font-medium hover:bg-muted"
-        >
-          <Copy className="h-3.5 w-3.5" /> {t("admin.billing.webhook.copyUrl")}
-        </button>
-      </div>
-
-      <ol className="mb-3 list-decimal space-y-1.5 pl-4 text-xs text-muted-foreground">
-        <li>
-          {t("admin.billing.webhook.step1")}{" "}
-          <a
-            href="https://www.mercadopago.com.mx/developers/panel/webhooks"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 text-foreground underline underline-offset-2 hover:text-primary"
-          >
-            {t("admin.billing.webhook.step1Link")} <ExternalLink className="h-3 w-3" />
-          </a>
-        </li>
-        <li>{t("admin.billing.webhook.step2")}</li>
-        <li>
-          {t("admin.billing.webhook.step3Pre")}{" "}
-          <code className="rounded bg-background px-1 py-0.5 font-mono">
-            subscription_preapproval
-          </code>{" "}
-          {t("admin.billing.webhook.step3And")}{" "}
-          <code className="rounded bg-background px-1 py-0.5 font-mono">
-            subscription_authorized_payment
-          </code>
-          .
-        </li>
-        <li>
-          {t("admin.billing.webhook.step4Pre")}{" "}
-          <strong>{t("admin.billing.webhook.signatureSecret")}</strong>{" "}
-          {t("admin.billing.webhook.step4Post")}{" "}
-          <code className="rounded bg-background px-1 py-0.5 font-mono">
-            MERCADOPAGO_WEBHOOK_SECRET
-          </code>
-          {t("admin.billing.webhook.step4End")}
-        </li>
-      </ol>
-
-      <p className="text-xs text-muted-foreground">
-        {t("admin.billing.webhook.alsoSetPre")}{" "}
-        <code className="rounded bg-background px-1 py-0.5 font-mono">
-          MERCADOPAGO_ACCESS_TOKEN
-        </code>{" "}
-        {t("admin.billing.webhook.alsoSetPost")}
-      </p>
-    </div>
-  );
-}
-
 function fmtWhen(s: string) {
   return new Date(s).toLocaleString(undefined, {
     month: "short",
@@ -994,7 +901,7 @@ function fmtWhen(s: string) {
 }
 
 /** Independent, server-enforced provider controls. Secret values never reach this page. */
-function MercadoPagoConfigPanel() {
+function PaymentProvidersPanel() {
   const { locale } = useI18n();
   const qc = useQueryClient();
   const statusFn = useServerFn(adminGetBillingProviderStatus);
@@ -1010,7 +917,7 @@ function MercadoPagoConfigPanel() {
     refetchInterval: 15000,
   });
   const toggle = useMutation({
-    mutationFn: (input: { provider: "mercadopago" | "stripe"; enabled: boolean }) =>
+    mutationFn: (input: { provider: "stripe"; enabled: boolean }) =>
       toggleFn({ data: input }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["admin-billing-provider-status"] });
@@ -1026,15 +933,6 @@ function MercadoPagoConfigPanel() {
   };
   const providers = statusQ.data
     ? [
-        {
-          id: "mercadopago" as const,
-          name: "Mercado Pago",
-          status: statusQ.data.mercadopago,
-          secretLabel: "MERCADOPAGO_ACCESS_TOKEN",
-          webhookLabel: "MERCADOPAGO_WEBHOOK_SECRET",
-          dashboard: "https://www.mercadopago.com.mx/developers/panel/webhooks",
-          events: "subscription_preapproval, subscription_authorized_payment",
-        },
         {
           id: "stripe" as const,
           name: "Stripe",
@@ -1057,8 +955,8 @@ function MercadoPagoConfigPanel() {
           </h2>
           <p className="text-xs text-muted-foreground">
             {locale === "es"
-              ? "Stripe y Mercado Pago se configuran y activan de forma independiente."
-              : "Stripe and Mercado Pago are configured and enabled independently."}
+              ? "Los pagos se procesan con Stripe."
+              : "Payments are processed with Stripe."}
           </p>
         </div>
         <button
@@ -1079,7 +977,7 @@ function MercadoPagoConfigPanel() {
         </div>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4">
         {providers.map((provider) => {
           const configured = provider.status.hasSecretKey && provider.status.hasWebhookSecret;
           return (

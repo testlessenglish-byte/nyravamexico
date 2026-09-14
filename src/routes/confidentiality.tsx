@@ -161,8 +161,9 @@ function ConfidentialityPage() {
             before storage.
           </li>
           <li>
-            The Mercado Pago webhook verifies every payload with an HMAC signature scheme; the
+            The Stripe webhook verifies every payload with a signed-signature scheme; the
             background pipeline worker requires a constant-time-compared shared secret.
+
           </li>
           <li>
             Internal database trigger functions were revoked from anonymous and signed-in execution

@@ -382,8 +382,9 @@ function TrustCenter() {
             before storage; a workspace admin cannot read another workspace's keys.
           </li>
           <li>
-            The Mercado Pago webhook endpoint verifies every payload with an HMAC signature scheme;
-            the background pipeline worker requires a constant-time-compared shared secret.
+            The Stripe webhook endpoint verifies every payload with a signed-signature scheme; the
+            background pipeline worker requires a constant-time-compared shared secret.
+
           </li>
           <li>
             Case-file uploads live in a private storage bucket scoped to the uploader's user ID;

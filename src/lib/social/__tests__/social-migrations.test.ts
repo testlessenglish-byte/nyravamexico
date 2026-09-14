@@ -24,7 +24,6 @@ const managerCaseDelete=migration("20260824193000_social_case_manager_delete.sql
 const caseMultifileUploads=migration("20260824203000_social_case_multifile_uploads.sql");
 const documentsHubSource=readFileSync(join(process.cwd(),"src","components","social","SocialDocumentsHub.tsx"),"utf8");
 const stripeWebhookSource=readFileSync(join(process.cwd(),"src","routes","api","public","hooks","stripe-webhook.ts"),"utf8");
-const mercadoPagoWebhookSource=readFileSync(join(process.cwd(),"src","routes","api","public","hooks","mercadopago-webhook.ts"),"utf8");
 const billingServerSource=readFileSync(join(process.cwd(),"src","lib","billing.functions.ts"),"utf8");
 const serverSource=readFileSync(join(process.cwd(),"src","lib","social.functions.ts"),"utf8");
 const socialTypesSource=readFileSync(join(process.cwd(),"src","lib","social","types.ts"),"utf8");
@@ -305,8 +304,8 @@ describe("social-care migration security coverage",()=>{
     expect(organizationAccount).toContain("Invitation email does not match the signed-in account");
     expect(organizationAccount).toContain("extensions.digest(p_token,'sha256')");
   });
-  it("controls Stripe and Mercado Pago independently while keeping one enabled",()=>{
-    expect(billing).toContain("'mercadopago','stripe'");
+  it("keeps the Stripe billing provider control in place",()=>{
+    expect(billing).toContain("'stripe'");
     expect(billing).toContain("prevent_disabling_all_billing_providers");
     expect(billing).toContain("billing_provider_events");
   });
@@ -328,18 +327,15 @@ describe("social-care migration security coverage",()=>{
     expect(subscriptionEntitlements).toContain("on conflict(provider,provider_event_id) do nothing");
     expect(subscriptionEntitlements).not.toContain("create table if not exists public.organizations");
   });
-  it("activates organization access only after verified Stripe or Mercado Pago webhooks",()=>{
+  it("activates organization access only after verified Stripe webhooks",()=>{
     expect(stripeWebhookSource.indexOf("constructEvent")).toBeLessThan(
       stripeWebhookSource.indexOf("provisionOrganizationSubscription(admin"),
     );
-    expect(mercadoPagoWebhookSource.indexOf("if (!verified)")).toBeLessThan(
-      mercadoPagoWebhookSource.indexOf("provisionOrganizationSubscription(admin"),
-    );
-    for(const source of [stripeWebhookSource,mercadoPagoWebhookSource]){
+    for(const source of [stripeWebhookSource]){
       expect(source).toContain('"provision_organization_subscription_from_webhook"');
       expect(source).toContain("p_payload_hash");
     }
-    expect(billingServerSource).toContain("Only the");
+    expect(billingServerSource).toContain("billing_provider_settings");
     expect(billingServerSource).toContain('status: "incomplete"');
     expect(billingServerSource).toContain("org_id: organizationId");
   });

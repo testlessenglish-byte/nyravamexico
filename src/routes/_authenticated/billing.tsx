@@ -52,7 +52,7 @@ function BillingPage() {
   });
 
   const checkout = useMutation({
-    mutationFn: (input: { planKey: PlanKey; provider: "mercadopago" | "stripe" }) =>
+    mutationFn: (input: { planKey: PlanKey; provider: "stripe" }) =>
       checkoutFn({
         data: { planKey: input.planKey, provider: input.provider, origin: window.location.origin },
       }),
@@ -175,27 +175,16 @@ function BillingPage() {
                 </div>
               ) : plan.selfServe ? (
                 <div className="mt-5 grid gap-2">
-                  {data?.providers?.mercadopago && (
+                  {data?.providers?.stripe ? (
                     <button
-                      onClick={() => checkout.mutate({ planKey: plan.key, provider: "mercadopago" })}
+                      onClick={() => checkout.mutate({ planKey: plan.key, provider: "stripe" })}
                       disabled={checkout.isPending}
                       className="inline-flex items-center justify-center gap-2 rounded bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
                     >
                       {checkout.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                      {locale === "es" ? "Pagar con Mercado Pago" : "Pay with Mercado Pago"}
-                    </button>
-                  )}
-                  {data?.providers?.stripe && (
-                    <button
-                      onClick={() => checkout.mutate({ planKey: plan.key, provider: "stripe" })}
-                      disabled={checkout.isPending}
-                      className="inline-flex items-center justify-center gap-2 rounded border border-primary/40 bg-card px-4 py-2 text-sm font-semibold text-foreground hover:bg-primary/5 disabled:opacity-50"
-                    >
-                      {checkout.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                       {locale === "es" ? "Pagar con Stripe" : "Pay with Stripe"}
                     </button>
-                  )}
-                  {!data?.providers?.mercadopago && !data?.providers?.stripe && (
+                  ) : (
                     <p className="text-center text-xs text-muted-foreground">
                       {locale === "es"
                         ? "Pago en línea temporalmente no disponible."
@@ -203,6 +192,7 @@ function BillingPage() {
                     </p>
                   )}
                 </div>
+
               ) : (
                 <a
                   href="mailto:soporte@mexico.nyrava.com"
