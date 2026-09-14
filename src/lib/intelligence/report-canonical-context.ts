@@ -12,6 +12,7 @@
 import { scrubUnsupportedLegalFilingSentences } from "./recommendation-grounding";
 import { evidenceGapTopics, scrubEvidenceAbsenceInversion } from "./absence-evidence-guard";
 import { scrubUnsupportedContradictionSentences } from "./contradiction-prose-guard";
+import { remediateAbsenceLanguage } from "../reporting/report-content-policy";
 
 export type RecommendationOwner = "narrative" | "memo" | "intelligence";
 
@@ -162,7 +163,9 @@ export function sanitizeNarrativeProse(
   if (typeof prose.missing_evidence_report === "string") {
     const filing = scrubUnsupportedLegalFilingSentences(prose.missing_evidence_report);
     filingSentencesRemoved += filing.removed;
-    prose.missing_evidence_report = filing.text;
+    // The missing-evidence section never asserts an absolute absence: its own
+    // search scope cannot prove it. Qualify the wording at the source.
+    prose.missing_evidence_report = remediateAbsenceLanguage(filing.text).text;
   }
 
   return {

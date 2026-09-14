@@ -27,6 +27,30 @@ export function verifiedAbsence(row: Record<string, any>, text: string): boolean
     Array.isArray(refs) && refs.some(ref => ref.quote && fold(text).includes(fold(ref.quote)) &&
       (ref.document_id || ref.canonical_source_id)));
 }
+/** Absolute absence wording → qualified, scope-bounded wording. This does not
+ * relax citation integrity: an absence statement that IS verified/cited never
+ * reaches this helper, and a substantive factual claim is untouched. */
+const ABSENCE_REWRITES: Array<[RegExp, string]> = [
+  [/\bno obra(?:n)? en el expediente\b/gi, "no fue identificado en las constancias analizadas"],
+  [/\bno consta(?:n)? en el expediente\b/gi, "no fue identificado en las constancias analizadas"],
+  [/\bno existen?\s+(prueba|evidencia|constancia|elemento)(s?)\b/gi, "no se identificó en el material analizado $1$2"],
+  [/\bno existe(?:n)?\b/gi, "el material analizado no acredita"],
+  [/\bno hay (?:prueba|evidencia|constancia)s?\b/gi, "no se identificó evidencia en el material analizado"],
+  [/\bno se encontr[oó]\b/gi, "no se identificó en las fuentes analizadas"],
+  [/\bthere (?:is|are) no evidence(?: of)?\b/gi, "the materials reviewed do not establish"],
+  [/\bno evidence exists\b/gi, "no supporting evidence was identified in the reviewed materials"],
+  [/\bno authority was found\b/gi, "no supporting authority was identified in the sources analyzed"],
+  [/\bthe record contains no\b/gi, "the available record does not establish the presence of"],
+  [/\bno violation exists\b/gi, "the available record does not establish a violation"],
+];
+
+export function remediateAbsenceLanguage(text: string): { text: string; rewritten: boolean } {
+  if (typeof text !== "string" || !text) return { text, rewritten: false };
+  let out = text;
+  for (const [rx, replacement] of ABSENCE_REWRITES) out = out.replace(rx, replacement);
+  return { text: out, rewritten: out !== text };
+}
+
 export function contentRestriction(value: any, key: string, parent: Record<string, any>,
   capability: ReportCapability, governance: ImmutableReportGovernance): string | null {
   const row = record(value);
@@ -50,7 +74,7 @@ export function transformReportContent<T>(input: T, capability: ReportCapability
     const restriction = contentRestriction(v, key, parent, capability, governance);
     if (restriction) {
       if (restriction === "unverifiedAbsencePresent" && typeof v === "string")
-        return v.replace(/no obra en el expediente|no existe/gi, "No identificada en el corpus aportado");
+        return remediateAbsenceLanguage(v).text;
       if (typeof v === "string" && /discovery|missing|gap|evidence|how_to_obtain|why_critical/.test(key))
         return "La documentación no fue localizada en el corpus aportado. Verificar las constancias para reconstruir el historial procesal.";
       return undefined;

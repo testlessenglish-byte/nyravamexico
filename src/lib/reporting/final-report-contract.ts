@@ -7,7 +7,7 @@ import { validateReincidenciaEvidence } from "../intelligence/reincidencia-evide
 import { buildFindingWorkProduct, buildCaseSnapshot, buildExecutiveQuestions } from "./attorney-workproduct";
 import { canonicalSourceCount, resolveReportSourceRefs } from "./report-sources";
 import { isDocumentaryVerification, resolveReportCapability, type ReportCapability } from "./report-permissions";
-import { contentRestriction, transformReportContent, fold, absenceText, verifiedAbsence } from "./report-content-policy";
+import { contentRestriction, transformReportContent, fold, absenceText, verifiedAbsence, remediateAbsenceLanguage } from "./report-content-policy";
 import { resolveFinalReleaseDecision } from "./final-release-decision";
 
 type Row = Record<string, any>;
@@ -267,6 +267,48 @@ export function validateFinalReportContract(payload: FinalReportPayload, capabil
     violation_paths, inspected_nodes, validation_stage: view.render_output ? "after_renderer_transforms" : "after_section_transforms" };
 }
 
+/** REMEDIATE -> REVALIDATE. Rewrites ONLY the string nodes the contract
+ * validator flagged as `unverifiedAbsencePresent` into qualified, scope-bounded
+ * language. Verified/cited absences, quotes and every other node are untouched,
+ * and no other contract rule is affected. */
+export function remediateUnverifiedAbsences<T>(payload: T, capability: ReportCapability, governance: ImmutableReportGovernance): T {
+  const walk = (v: any, key = "", parent: Row = {}): any => {
+    if (typeof v === "string") {
+      return contentRestriction(v, key, parent, capability, governance) === "unverifiedAbsencePresent"
+        ? remediateAbsenceLanguage(v).text : v;
+    }
+    if (Array.isArray(v)) return v.map(x => walk(x, key, parent));
+    if (!v || typeof v !== "object") return v;
+    return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x, k, v)]));
+  };
+  return walk(payload);
+}
+
+/** Remediate an already-rendered output string: only the absence sentences that
+ * are not backed by a verified/cited absence are qualified. */
+function remediateRenderedText(payload: FinalReportPayload, text: string): string {
+  const verified: string[] = [];
+  const collect = (value: any) => {
+    if (Array.isArray(value)) { value.forEach(collect); return; }
+    if (!value || typeof value !== "object") return;
+    for (const [key, child] of Object.entries(value)) {
+      if (key === "render_output") continue;
+      if (typeof child === "string" && absenceText.test(fold(child)) &&
+          (verifiedAbsence(value, child) || key === "quote" && (value.document_id || value.canonical_source_id)))
+        verified.push(fold(child).replace(/[.!?]+$/, ""));
+      else if (child && typeof child === "object") collect(child);
+    }
+  };
+  collect(payload);
+  // Split keeping the original separators so the rendered layout is preserved.
+  return text.split(/([.!?]+\s+|\n+)/).map(chunk => {
+    if (!absenceText.test(fold(chunk))) return chunk;
+    const folded = fold(chunk).replace(/[.!?]+$/, "");
+    if (verified.some(v => folded.includes(v) || v.includes(folded))) return chunk;
+    return remediateAbsenceLanguage(chunk).text;
+  }).join("");
+}
+
 function freeze<T>(value: T): T {
   if (value && typeof value === "object" && !Object.isFrozen(value)) {
     Object.values(value).forEach(freeze);
@@ -277,8 +319,17 @@ function freeze<T>(value: T): T {
 
 export function releaseFinalReportPayload(input: CaseExportData): FinalReportPayload {
   if (input.report?.quality_blocked === true) throw new Error("REPORT_BLOCKED: report failed its release gate");
-  const payload = (input as FinalReportPayload).report_presentation ? input as FinalReportPayload : composeFinalReportPayload(input);
-  const validation = validateFinalReportContract(payload);
+  let payload = (input as FinalReportPayload).report_presentation ? input as FinalReportPayload : composeFinalReportPayload(input);
+  let validation = validateFinalReportContract(payload);
+  // REMEDIATE -> REVALIDATE before BLOCK. An uncited absolute absence sentence
+  // (typically report_writer:missing_evidence) is rewritten into qualified
+  // language and the same validator runs again. Every other violation, and any
+  // absence that survives remediation, still blocks the report.
+  if (!validation.ok && validation.blocking_errors.includes("unverifiedAbsencePresent")) {
+    const view = payload.report_presentation;
+    payload = remediateUnverifiedAbsences(payload, view.capability, view.governance);
+    validation = validateFinalReportContract(payload);
+  }
   if (!validation.ok) throw new Error("REPORT_CONTRACT_BLOCKED: " + validation.blocking_errors.join(", "));
   const decision = resolveFinalReleaseDecision({report:obj(payload.report),contract:validation});
   if (!decision.released) throw new Error("REPORT_BLOCKED: " + decision.errors.join(", "));
@@ -288,6 +339,9 @@ export function releaseFinalReportPayload(input: CaseExportData): FinalReportPay
 /** All concrete export backends submit their fully transformed output here.
  * This calls the existing contract validator; it is not a second policy. */
 export function releaseRenderedReportOutput(payload: FinalReportPayload, format: string, text: string) {
-  const finalPayload = {...payload, report_presentation:{...payload.report_presentation,render_output:{format,text}}};
+  // Renderer output is assembled after the composition transforms, so an
+  // uncited absence sentence is qualified here before the same validator runs.
+  const remediated = remediateRenderedText(payload, text);
+  const finalPayload = {...payload, report_presentation:{...payload.report_presentation,render_output:{format,text:remediated}}};
   return releaseFinalReportPayload(finalPayload);
 }
