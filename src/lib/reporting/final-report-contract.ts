@@ -7,7 +7,7 @@ import { validateReincidenciaEvidence } from "../intelligence/reincidencia-evide
 import { buildFindingWorkProduct, buildCaseSnapshot, buildExecutiveQuestions } from "./attorney-workproduct";
 import { canonicalSourceCount, resolveReportSourceRefs } from "./report-sources";
 import { isDocumentaryVerification, resolveReportCapability, type ReportCapability } from "./report-permissions";
-import { contentRestriction, transformReportContent, fold, absenceText, verifiedAbsence } from "./report-content-policy";
+import { contentRestriction, transformReportContent, fold, absenceText, verifiedAbsence, remediateAbsenceLanguage } from "./report-content-policy";
 import { resolveFinalReleaseDecision } from "./final-release-decision";
 
 type Row = Record<string, any>;
