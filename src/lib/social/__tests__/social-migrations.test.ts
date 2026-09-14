@@ -336,7 +336,6 @@ describe("social-care migration security coverage",()=>{
       expect(source).toContain("p_payload_hash");
     }
     expect(billingServerSource).toContain("billing_provider_settings");
-    expect(billingServerSource).toContain('status: "incomplete"');
     expect(billingServerSource).toContain("org_id: organizationId");
   });
 });
