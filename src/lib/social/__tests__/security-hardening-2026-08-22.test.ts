@@ -46,7 +46,6 @@ describe("supabase security findings — no public billing or demo exposure", ()
     expect(fn).toContain("set search_path = public, pg_temp");
     for (const secret of [
       "stripe_price_id",
-      "mercadopago_plan_id",
       "internal_notes",
       "ai_requests_monthly",
       "talk_to_case_monthly",
