@@ -33,7 +33,7 @@ export function verifiedAbsence(row: Record<string, any>, text: string): boolean
 const ABSENCE_REWRITES: Array<[RegExp, string]> = [
   [/\bno obra(?:n)? en el expediente\b/gi, "no fue identificado en las constancias analizadas"],
   [/\bno consta(?:n)? en el expediente\b/gi, "no fue identificado en las constancias analizadas"],
-  [/\bno existe(?:n)? (?:prueba|evidencia|constancia|elemento)/gi, "no se identificó en el material analizado $&".replace(" $&", "") + " que acredite"],
+  [/\bno existen?\s+(prueba|evidencia|constancia|elemento)(s?)\b/gi, "no se identificó en el material analizado $1$2"],
   [/\bno existe(?:n)?\b/gi, "el material analizado no acredita"],
   [/\bno hay (?:prueba|evidencia|constancia)s?\b/gi, "no se identificó evidencia en el material analizado"],
   [/\bno se encontr[oó]\b/gi, "no se identificó en las fuentes analizadas"],
