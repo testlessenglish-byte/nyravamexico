@@ -117,7 +117,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { rel: "icon", href: "/favicon.ico?v=4", type: "image/x-icon" },
       { rel: "icon", href: "/favicon.png?v=4", type: "image/png" },
-      { rel: "apple-touch-icon", href: "/icon-192.png?v=3" },
+      { rel: "apple-touch-icon", href: "/icon-192.png?v=4" },
       { rel: "manifest", href: "/manifest.webmanifest" },
     ],
   }),
