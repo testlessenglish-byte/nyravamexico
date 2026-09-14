@@ -198,6 +198,10 @@ export const listPublicBillingPlans = createServerFn({ method: "GET" })
       features: Array.isArray(p.features)
         ? (p.features as unknown[]).filter((x): x is string => typeof x === "string")
         : [],
+      featureLimits:
+        p.features && !Array.isArray(p.features) && typeof p.features === "object"
+          ? (p.features as Record<string, unknown>)
+          : {},
       price_cents: Number(p.price_cents ?? 0),
       currency: (p.currency as string) ?? "mxn",
       interval: (p.interval as string) ?? "month",
