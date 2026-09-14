@@ -161,7 +161,7 @@ function formatMoney(cents: number, currency: string): string {
   const code = normalizeCurrency(currency);
   const amount = (Number(cents) || 0) / 100;
   try {
-    return new Intl.NumberFormat(code === "MXN" ? "es-MX" : undefined, {
+    return new Intl.NumberFormat(code === "MXN" ? "en-US" : undefined, {
       style: "currency",
       currency: code,
       minimumFractionDigits: 2,

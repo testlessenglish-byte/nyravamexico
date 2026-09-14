@@ -55,7 +55,7 @@ function BillingPage() {
     const amount = (Number(plan.price_cents) || 0) / 100;
     let money: string;
     try {
-      money = new Intl.NumberFormat(code === "MXN" ? "es-MX" : undefined, {
+      money = new Intl.NumberFormat(code === "MXN" ? "en-US" : undefined, {
         style: "currency",
         currency: code,
         minimumFractionDigits: 2,
