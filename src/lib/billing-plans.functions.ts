@@ -160,12 +160,15 @@ export const adminDeleteBillingPlan = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** Public marketing list of admin-managed plans (no secrets, no quotas). */
+/** Public marketing list of admin-managed plans (no secrets). Includes the
+ *  published allowances so plan cards can show what each plan includes. */
 export type PublicBillingPlan = {
   key: string;
   label: string;
   tagline: string | null;
   features: string[];
+  /** Raw features JSON when admins stored an object (e.g. documents_limit). */
+  featureLimits: Record<string, unknown>;
   price_cents: number;
   currency: string;
   interval: string;
@@ -174,6 +177,12 @@ export type PublicBillingPlan = {
   included_seats: number | null;
   per_seat_price_cents: number | null;
   sort_order: number;
+  ai_requests_monthly: number | null;
+  talk_to_case_monthly: number | null;
+  case_limit: number | null;
+  storage_gb_limit: number | null;
+  team_member_limit: number | null;
+  byok_allowed: boolean;
 };
 
 export const listPublicBillingPlans = createServerFn({ method: "GET" })
