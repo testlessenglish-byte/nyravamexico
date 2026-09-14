@@ -151,15 +151,25 @@ function emptyDraft(nextSort: number): Draft {
 // so the number an admin types is always the number a customer would see.
 // ---------------------------------------------------------------------
 
+/** Normalizes common mistyped codes to valid ISO-4217 (e.g. MEX -> MXN). */
+function normalizeCurrency(currency: string): string {
+  const c = (currency || "usd").trim().toUpperCase();
+  if (c === "MEX" || c === "MX" || c === "MXP") return "MXN";
+  if (c === "US" || c === "USDS") return "USD";
+  return c;
+}
+
 function formatMoney(cents: number, currency: string): string {
+  const code = normalizeCurrency(currency);
+  const amount = (Number(cents) || 0) / 100;
   try {
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat(code === "MXN" ? "es-MX" : undefined, {
       style: "currency",
-      currency: (currency || "usd").toUpperCase(),
+      currency: code,
       minimumFractionDigits: 2,
-    }).format((cents || 0) / 100);
+    }).format(amount);
   } catch {
-    return `$${((cents || 0) / 100).toFixed(2)}`;
+    return `$${amount.toFixed(2)}`;
   }
 }
 
