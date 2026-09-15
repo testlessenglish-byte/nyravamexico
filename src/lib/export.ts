@@ -809,8 +809,8 @@ export class PdfBuilder {
   }) {
     const { pageW, pageH, margin } = this;
     
-    // Background: Deep purple
-    const BG_PURPLE: [number, number, number] = [28, 14, 60]; 
+    // Background: Deep purple (lightened slightly per feedback)
+    const BG_PURPLE: [number, number, number] = [40, 24, 80]; 
     const GOLD: [number, number, number] = [217, 185, 120];
     const WHITE: [number, number, number] = [255, 255, 255];
     

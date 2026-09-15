@@ -9,6 +9,7 @@ export interface AuditReportData {
   requester_role: string;
   requested_at: string;
   reason: string;
+  scope?: string;
   classification: "internal" | "confidential" | "restricted" | "external_distribution";
   findings: Array<{
     category: string;
