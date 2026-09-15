@@ -52,7 +52,7 @@ export function CaseDynamicText({
       )}
       <div className="relative">
         <p className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
-          {displayText}
+          {presentStoredText(displayText ?? "", locale)}
           {isTranslating && (
             <span className="ml-2 inline-flex items-center text-xs text-muted-foreground">
               <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />
