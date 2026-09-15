@@ -2,68 +2,77 @@ import { rt } from "../../report-i18n";
 import { PdfBuilder } from "../../export";
 import { translateLegalTerm } from "../../pdf/enum-translation";
 
+import { localizedEnum } from "@/lib/social/social-i18n";
+
 export interface AuditReportData {
   reportId: string;
-  case_id: string;
-  requester_name: string;
-  requester_role: string;
-  requested_at: string;
-  reason: string;
-  scope?: string;
-  [key: string]: any;
+  scope: "individual_case" | "organization_wide" | "community_support" | "financial_activity" | "services_outcomes" | "full_audit";
+  periodLabel: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  language: "es" | "en";
   classification: "internal" | "confidential" | "restricted" | "external_distribution";
-  findings: Array<{
-    category: string;
-    description: string;
-    severity: "low" | "medium" | "high" | "critical";
-  }>;
+  generatedAt: string;
+  organizationName: string;
+  caseRecord?: any;
+  person?: any;
+  summary: any;
+  activities: any[];
+  assessments: any[];
+  plans: any[];
+  interventions: any[];
+  referrals: any[];
+  documents: any[];
+  consents: any[];
+  tasks: any[];
+  campaigns: any[];
+  offers: any[];
   checksum: string;
 }
 
-export function generateAuditReportPdf(data: AuditReportData, locale: "en" | "es" = "en"): Uint8Array {
-  const isEs = locale === "es";
+export function generateAuditReportPdf(data: AuditReportData): Uint8Array {
+  const isEs = data.language === "es";
 
-  // Use the centralized PdfBuilder
-  const b = new PdfBuilder("Audit Report", data.case_id.slice(0, 8));
+  const b = new PdfBuilder("Audit Report", data.reportId);
 
   const classLabel = {
-    internal: isEs ? "USO INTERNO" : "INTERNAL USE ONLY",
+    internal: isEs ? "INTERNO / NO PÚBLICO" : "INTERNAL / NON-PUBLIC",
     confidential: isEs ? "CONFIDENCIAL" : "CONFIDENTIAL",
     restricted: isEs ? "RESTRINGIDO" : "RESTRICTED",
     external_distribution: isEs ? "DISTRIBUCIÓN EXTERNA" : "EXTERNAL DISTRIBUTION",
   }[data.classification];
 
+  const mainTitle = data.scope === "individual_case"
+    ? (isEs ? "INFORME DE EXPEDIENTE Y RENDICIÓN DE CUENTAS" : "CASE ACCOUNTABILITY & AUDIT REPORT")
+    : (isEs ? "INFORME INSTITUCIONAL Y AUDITORÍA GENERAL" : "ORGANIZATIONAL ACCOUNTABILITY & AUDIT REPORT");
+
   b.premiumCover({
-    reportTitle: isEs ? "INFORME DE AUDITORÍA" : "AUDIT REPORT",
-    caseName: `Audit for Case: ${data.case_id}`,
-    client: undefined,
-    proceeding: undefined,
-    matterType: undefined,
+    reportTitle: mainTitle,
+    caseName: data.organizationName,
+    client: data.person ? data.person.given_name : undefined,
+    proceeding: data.scope,
+    matterType: "Auditoría Social",
     court: undefined,
     jurisdiction: undefined,
-    matterId: data.case_id,
+    matterId: data.reportId,
     classification: classLabel,
-    date: new Date(data.requested_at).toLocaleDateString(isEs ? "es-MX" : "en-US"),
+    date: new Date(data.generatedAt).toLocaleDateString(isEs ? "es-MX" : "en-US"),
     engineVersion: undefined,
     certification: "verified",
   });
 
-  b.h1(isEs ? "Registro de Auditoría" : "Audit Log");
-  b.text(`${isEs ? "Solicitante:" : "Requester:"} ${data.requester_name} (${data.requester_role})`, { bold: true });
-  b.text(`${isEs ? "Motivo:" : "Reason:"} ${data.reason}`);
+  b.h1(isEs ? "Parámetros del Informe" : "Report Parameters");
+  b.text(`${isEs ? "ID de Informe:" : "Report ID:"} ${data.reportId}`, { bold: true });
+  b.text(`${isEs ? "Organización:" : "Organization:"} ${data.organizationName}`);
+  b.text(`${isEs ? "Fecha de Emisión:" : "Generated At:"} ${new Date(data.generatedAt).toLocaleString()}`);
+  b.text(`${isEs ? "Período:" : "Period:"} ${data.periodLabel}`);
   b.text(`${isEs ? "Suma de control:" : "Checksum:"} ${data.checksum}`);
   b.divider();
 
-  if (data.findings && data.findings.length > 0) {
-    b.h2(isEs ? "Hallazgos de Auditoría" : "Audit Findings");
-    const rows = data.findings.map((f) => [
-      f.severity.toUpperCase(),
-      translateLegalTerm(f.category),
-      f.description
-    ]);
-    b.table([[isEs ? "Severidad" : "Severity", isEs ? "Categoría" : "Category", isEs ? "Descripción" : "Description"]], rows, { columnStyles: {0: {'cellWidth': 60}, 1: {'cellWidth': 100}, 2: {'cellWidth': 300}} });
-  } else {
-    b.text(isEs ? "No se registraron hallazgos durante esta auditoría." : "No findings recorded during this audit.");
+  if (data.scope === "individual_case" && data.caseRecord) {
+    b.h2(isEs ? "Detalles del Expediente" : "Case Record Details");
+    b.text(`${isEs ? "Estatus:" : "Status:"} ${data.caseRecord.status}`);
+    b.text(`${isEs ? "Prioridad:" : "Priority:"} ${data.caseRecord.priority}`);
   }
 
   // Inject the checksum into the footer
