@@ -810,7 +810,7 @@ export class PdfBuilder {
     const { pageW, pageH, margin } = this;
     
     // Background: Deep purple (lightened slightly per feedback)
-    const BG_PURPLE: [number, number, number] = [40, 24, 80]; 
+    const BG_PURPLE: [number, number, number] = [91, 33, 182]; 
     const GOLD: [number, number, number] = [217, 185, 120];
     const WHITE: [number, number, number] = [255, 255, 255];
     
@@ -880,17 +880,29 @@ export class PdfBuilder {
     ty += 30;
     this.doc.setFont("times", "bold");
     this.doc.setFontSize(24);
-    this.doc.text(opts.caseName || "ADR 3265/2023", cx, ty, { align: "center" });
+    const caseNameLines = this.doc.splitTextToSize(opts.caseName || "ADR 3265/2023", pageW - margin * 2) as string[];
+    for (const line of caseNameLines) {
+      this.doc.text(line, cx, ty, { align: "center" });
+      ty += 28;
+    }
     
-    ty += 30;
+    ty += 2;
     this.doc.setFont("times", "normal");
     this.doc.setFontSize(20);
-    this.doc.text(opts.proceeding || "Amparo Directo en Revisión", cx, ty, { align: "center" });
+    const proceedingLines = this.doc.splitTextToSize(opts.proceeding || "Amparo Directo en Revisión", pageW - margin * 2) as string[];
+    for (const line of proceedingLines) {
+      this.doc.text(line, cx, ty, { align: "center" });
+      ty += 24;
+    }
 
-    ty += 28;
+    ty += 4;
     this.doc.setFont("times", "normal");
     this.doc.setFontSize(16);
-    this.doc.text(opts.court || "Suprema Corte de Justicia de la Nación", cx, ty, { align: "center" });
+    const courtLines = this.doc.splitTextToSize(opts.court || "Suprema Corte de Justicia de la Nación", pageW - margin * 2) as string[];
+    for (const line of courtLines) {
+      this.doc.text(line, cx, ty, { align: "center" });
+      ty += 20;
+    }
 
     // Metadata table
     ty += 60;
