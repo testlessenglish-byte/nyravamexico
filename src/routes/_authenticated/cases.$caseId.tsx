@@ -50,6 +50,14 @@ import { AttorneyAssistancePanel } from "@/components/AttorneyAssistancePanel";
 import { LivePipelinePanel } from "@/components/LivePipelinePanel";
 import { CommandCenterDashboard } from "@/components/CommandCenterDashboard";
 import { useI18n } from "@/i18n";
+
+// Bilingual literal helper. CUR_LOCALE is refreshed by Workspace on every
+// render, so nested components (and event callbacks) read the active locale
+// without threading a prop through the whole tree.
+let CUR_LOCALE: "es" | "en" = "es";
+function L(es: string, en: string): string {
+  return CUR_LOCALE === "es" ? es : en;
+}
 import { scoreBand } from "@/lib/score-bands";
 import { MatterMetadataCard } from "@/components/MatterMetadataCard";
 import { PipelinePanel } from "@/components/PipelinePanel";
@@ -236,7 +244,8 @@ const VALID_TABS = new Set<Tab>([
 ]);
 
 function Workspace() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  CUR_LOCALE = locale;
   const { caseId } = Route.useParams();
   const exportCaseId = useRef(caseId);
   useEffect(() => { exportCaseId.current = caseId; }, [caseId]);
@@ -313,16 +322,16 @@ function Workspace() {
             | "independent",
         },
       }),
-    onMutate: () => toast.info("Strategy synthesis started…"),
+    onMutate: () => toast.info(L("Síntesis de estrategia iniciada…", "Strategy synthesis started…")),
     onSuccess: () => {
-      toast.success("Strategy complete");
+      toast.success(L("Estrategia completada", "Strategy complete"));
       invalidate();
     },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Strategy failed"),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : L("Falló la síntesis de estrategia", "Strategy failed")),
   });
 
-  if (isLoading) return <div className="p-10 text-muted-foreground">Loading…</div>;
-  if (!data?.case) return <div className="p-10">Case not found.</div>;
+  if (isLoading) return <div className="p-10 text-muted-foreground">{L("Cargando…", "Loading…")}</div>;
+  if (!data?.case) return <div className="p-10">{L("Caso no encontrado.", "Case not found.")}</div>;
 
   const c = data.case;
   const docs = data.documents;
@@ -986,13 +995,13 @@ function CaseSettingsCard({
       // just stale — so this needs a distinctly stronger message than the
       // generic "re-run to apply" mode-change wording.
       if (result?.caseTypeChanged) {
-        toast.success("Case type updated — prior analysis was cleared. Re-run engines to generate a fresh report.");
+        toast.success(L("Materia actualizada — se borró el análisis previo. Vuelve a ejecutar los motores para generar un informe nuevo.", "Case type updated — prior analysis was cleared. Re-run engines to generate a fresh report."));
       } else {
-        toast.success("Case settings updated. Re-run engines to apply.");
+        toast.success(L("Configuración del caso actualizada. Vuelve a ejecutar los motores para aplicarla.", "Case settings updated. Re-run engines to apply."));
       }
       invalidate();
     },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to update settings"),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : L("No se pudo actualizar la configuración", "Failed to update settings")),
   });
 
   const dirty = ct !== (caseType ?? "") || mode !== (analysisMode || "balanced");
@@ -1000,13 +1009,13 @@ function CaseSettingsCard({
 
   return (
     <div className="rounded-xl border border-border bg-card p-4">
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Case Settings</h2>
+      <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{L("Configuración del caso", "Case Settings")}</h2>
       <p className="mt-1 text-xs text-muted-foreground">
-        Editable after upload. Re-run engines to apply changes to existing findings.
+        {L("Editable después de la carga. Vuelve a ejecutar los motores para aplicar los cambios a los hallazgos existentes.", "Editable after upload. Re-run engines to apply changes to existing findings.")}
       </p>
 
       <div className="mt-3 space-y-1.5">
-        <label className="text-xs font-medium text-foreground/80">Case type</label>
+        <label className="text-xs font-medium text-foreground/80">{L("Materia", "Case type")}</label>
         <select
           value={ct}
           onChange={(e) => setCt(e.target.value)}
@@ -1015,7 +1024,7 @@ function CaseSettingsCard({
         >
           {!ct && (
             <option value="" disabled>
-              Unclassified — select the practice area
+              {L("Sin clasificar — selecciona la materia", "Unclassified — select the practice area")}
             </option>
           )}
           {CASE_TYPE_SELECT_OPTIONS.map((opt) => (
@@ -1027,12 +1036,12 @@ function CaseSettingsCard({
       </div>
 
       <div className="mt-4 space-y-1.5">
-        <label className="text-xs font-medium text-foreground/80">Analysis mode</label>
+        <label className="text-xs font-medium text-foreground/80">{L("Modo de análisis", "Analysis mode")}</label>
         <div className="grid gap-1.5">
           {[
-            { v: "strict", label: "Strict Evidence", desc: "Only direct evidence." },
-            { v: "balanced", label: "Balanced", desc: "Direct + evidence-based inferences." },
-            { v: "exploratory", label: "Exploratory", desc: "Includes AI theories, labeled." },
+            { v: "strict", label: L("Evidencia estricta", "Strict Evidence"), desc: L("Solo evidencia directa.", "Only direct evidence.") },
+            { v: "balanced", label: L("Equilibrado", "Balanced"), desc: L("Evidencia directa + inferencias sustentadas.", "Direct + evidence-based inferences.") },
+            { v: "exploratory", label: L("Exploratorio", "Exploratory"), desc: L("Incluye teorías de IA, etiquetadas.", "Includes AI theories, labeled.") },
           ].map((opt) => (
             <button
               key={opt.v}
@@ -1588,12 +1597,12 @@ function IntelTab({ docs, caseId, invalidate }: { docs: Doc[]; caseId: string; i
             type="button"
             disabled={retryAllBusy}
             onClick={async () => {
-              if (!confirm(`Retry extraction for all ${failedCount} failed document(s)?`)) return;
+              if (!confirm(L(`¿Reintentar la extracción de los ${failedCount} documento(s) fallidos?`, `Retry extraction for all ${failedCount} failed document(s)?`))) return;
               setRetryAllBusy(true);
               try {
                 await retryDocumentExtraction({ data: { caseId } });
                 await invalidate();
-                toast.success("Extraction retry started for all failed documents");
+                toast.success(L("Se reinició la extracción de todos los documentos fallidos", "Extraction retry started for all failed documents"));
               } catch (err) {
                 toast.error(String(err));
               } finally {
@@ -1602,7 +1611,7 @@ function IntelTab({ docs, caseId, invalidate }: { docs: Doc[]; caseId: string; i
             }}
             className="inline-flex items-center gap-1 rounded bg-primary/90 px-2 py-1 text-[10px] font-medium text-primary-foreground hover:bg-primary disabled:opacity-50"
           >
-            <RotateCcw size={10} /> Retry all failed
+            <RotateCcw size={10} /> {L("Reintentar todos los fallidos", "Retry all failed")}
           </button>
         </div>
       )}
@@ -1650,12 +1659,12 @@ function IntelTab({ docs, caseId, invalidate }: { docs: Doc[]; caseId: string; i
                       disabled={busyDocId === d.id || retryAllBusy}
                       onClick={async (e) => {
                         e.stopPropagation();
-                        if (!confirm(`Retry extraction for "${d.filename}"?`)) return;
+                        if (!confirm(L(`¿Reintentar la extracción de "${d.filename}"?`, `Retry extraction for "${d.filename}"?`))) return;
                         setBusyDocId(d.id);
                         try {
                           await retryDocumentExtraction({ data: { caseId } });
                           await invalidate();
-                          toast.success("Extraction retry started");
+                          toast.success(L("Extracción reiniciada", "Extraction retry started"));
                         } catch (err) {
                           toast.error(String(err));
                         } finally {
@@ -1664,7 +1673,7 @@ function IntelTab({ docs, caseId, invalidate }: { docs: Doc[]; caseId: string; i
                       }}
                       className="inline-flex items-center gap-1 rounded bg-primary/90 px-2 py-1 text-[10px] font-medium text-primary-foreground hover:bg-primary disabled:opacity-50"
                     >
-                      <RotateCcw size={10} /> Retry extraction
+                      <RotateCcw size={10} /> {L("Reintentar extracción", "Retry extraction")}
                     </button>
                   )}
                   {d.status === "extracted" && (
@@ -1675,7 +1684,10 @@ function IntelTab({ docs, caseId, invalidate }: { docs: Doc[]; caseId: string; i
                         e.stopPropagation();
                         if (
                           !confirm(
-                            `Rollback extraction for "${d.filename}"? This will clear all extracted data and reset to pending.`,
+                            L(
+                              `¿Revertir la extracción de "${d.filename}"? Se borrarán todos los datos extraídos y volverá a estado pendiente.`,
+                              `Rollback extraction for "${d.filename}"? This will clear all extracted data and reset to pending.`,
+                            ),
                           )
                         )
                           return;
@@ -1685,7 +1697,7 @@ function IntelTab({ docs, caseId, invalidate }: { docs: Doc[]; caseId: string; i
                             data: { caseId, documentIds: [d.id] },
                           });
                           await invalidate();
-                          toast.success("Extraction rolled back");
+                          toast.success(L("Extracción revertida", "Extraction rolled back"));
                         } catch (err) {
                           toast.error(String(err));
                         } finally {
@@ -1694,17 +1706,17 @@ function IntelTab({ docs, caseId, invalidate }: { docs: Doc[]; caseId: string; i
                       }}
                       className="inline-flex items-center gap-1 rounded bg-muted px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted/80 disabled:opacity-50"
                     >
-                      <Undo2 size={10} /> Rollback extraction
+                      <Undo2 size={10} /> {L("Revertir extracción", "Rollback extraction")}
                     </button>
                   )}
                 </div>
-                <Section title="Metadata">
+                <Section title={L("Metadatos", "Metadata")}>
                   <Pre v={d.metadata} />
                 </Section>
-                <Section title="Entities">
+                <Section title={L("Entidades", "Entities")}>
                   <Pre v={d.entities} />
                 </Section>
-                <Section title="Extracted text">
+                <Section title={L("Texto extraído", "Extracted text")}>
                   <DocumentTextSection documentId={d.id} />
                 </Section>
               </div>
@@ -1757,14 +1769,14 @@ function AddEvidenceBlock({ caseId, invalidate }: { caseId: string; invalidate: 
       );
 
       if (rerunScope === "new_documents_only") {
-        toast.success("New documents extracted. Existing analysis and report were left unchanged.");
+        toast.success(L("Documentos nuevos extraídos. El análisis y el informe existentes no se modificaron.", "New documents extracted. Existing analysis and report were left unchanged."));
         return;
       }
 
       setProgress(
         rerunScope === "full_case"
-          ? "Queueing full-case analysis…"
-          : "Queueing affected analysis from analyzers…",
+          ? L("Encolando análisis completo del caso…", "Queueing full-case analysis…")
+          : L("Encolando el análisis afectado desde los analizadores…", "Queueing affected analysis from analyzers…"),
       );
       const queued = await queueFn({
         data: { caseId, startFrom: (res?.startFrom ?? "analyzers") as "analyzers" },
@@ -1809,16 +1821,17 @@ function AddEvidenceBlock({ caseId, invalidate }: { caseId: string; invalidate: 
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold">Add Evidence</h3>
+          <h3 className="text-sm font-semibold">{L("Agregar pruebas", "Add Evidence")}</h3>
           <p className="text-xs text-muted-foreground">
-            Upload one or more documents. Only new files are extracted; whole-case engines (timeline, contradictions,
-            witnesses, evidence map, scoring) rerun automatically and a new report version is generated with a "What's
-            Changed" diff.
+            {L(
+              "Sube uno o más documentos. Solo se extraen los archivos nuevos; los motores de todo el caso (cronología, contradicciones, testigos, mapa de pruebas, puntuación) se ejecutan de nuevo automáticamente y se genera una versión del informe con el comparativo de cambios.",
+              "Upload one or more documents. Only new files are extracted; whole-case engines (timeline, contradictions, witnesses, evidence map, scoring) rerun automatically and a new report version is generated with a \"What's Changed\" diff.",
+            )}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <label className="sr-only" htmlFor="evidence-rerun-scope">
-            Analysis scope
+            {L("Alcance del análisis", "Analysis scope")}
           </label>
           <select
             id="evidence-rerun-scope"
@@ -1831,9 +1844,9 @@ function AddEvidenceBlock({ caseId, invalidate }: { caseId: string; invalidate: 
             }
             className="rounded border border-border bg-background px-2 py-1.5 text-xs"
           >
-            <option value="new_documents_only">Extract new documents only</option>
-            <option value="affected_analysis">Re-run affected analysis</option>
-            <option value="full_case">Full case re-analysis</option>
+            <option value="new_documents_only">{L("Solo extraer documentos nuevos", "Extract new documents only")}</option>
+            <option value="affected_analysis">{L("Volver a ejecutar el análisis afectado", "Re-run affected analysis")}</option>
+            <option value="full_case">{L("Reanálisis completo del caso", "Full case re-analysis")}</option>
           </select>
           <input
             ref={fileRef}
@@ -1908,7 +1921,7 @@ function AgentsTab({ agents }: { agents: Agent[] }) {
             </span>
           </div>
           {typeof a.confidence === "number" && (
-            <div className="mt-1 text-xs text-muted-foreground">Confidence: {Math.round(a.confidence * 100)}%</div>
+            <div className="mt-1 text-xs text-muted-foreground">{L("Confianza", "Confidence")}: {Math.round(a.confidence * 100)}%</div>
           )}
           {a.summary && <p className="mt-3 text-sm leading-relaxed text-foreground/90">{a.summary}</p>}
           {a.error && (
@@ -1919,7 +1932,7 @@ function AgentsTab({ agents }: { agents: Agent[] }) {
           {a.findings != null && (
             <details className="mt-3">
               <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-                View findings
+                {L("Ver hallazgos", "View findings")}
               </summary>
               <Pre v={a.findings} className="mt-2" />
             </details>
@@ -1935,20 +1948,20 @@ function AgentsTab({ agents }: { agents: Agent[] }) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function TheoriesTab({ theories }: { theories: any[] }) {
-  if (theories.length === 0) return <Empty msg="No theories yet. Run Theories of the Case." />;
+  if (theories.length === 0) return <Empty msg={L("Aún no hay teorías. Ejecuta Teorías del Caso.", "No theories yet. Run Theories of the Case.")} />;
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {theories.map((t) => (
         <div key={t.id} className="rounded-lg border border-border bg-card p-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-base font-semibold capitalize">{t.theory_type} theory</h3>
-            <span className="text-xs text-muted-foreground">Confidence {Math.round((t.confidence ?? 0) * 100)}%</span>
+            <h3 className="text-base font-semibold capitalize">{t.theory_type} {L("teoría", "theory")}</h3>
+            <span className="text-xs text-muted-foreground">{L("Confianza", "Confidence")} {Math.round((t.confidence ?? 0) * 100)}%</span>
           </div>
           <p className="mt-3 text-sm text-foreground/90">{t.narrative}</p>
-          <ListSection title="Supporting evidence" items={t.supporting_evidence} />
-          <ListSection title="Contradicting evidence" items={t.contradicting_evidence} />
-          <ListSection title="Missing evidence" items={t.missing_evidence} />
-          <ListSection title="Key assumptions" items={t.key_assumptions} />
+          <ListSection title={L("Pruebas de apoyo", "Supporting evidence")} items={t.supporting_evidence} />
+          <ListSection title={L("Pruebas contradictorias", "Contradicting evidence")} items={t.contradicting_evidence} />
+          <ListSection title={L("Pruebas faltantes", "Missing evidence")} items={t.missing_evidence} />
+          <ListSection title={L("Supuestos clave", "Key assumptions")} items={t.key_assumptions} />
           {t.risk && <FieldRow label="Risk" v={t.risk} />}
         </div>
       ))}
@@ -1988,13 +2001,13 @@ function OpportunitiesTab({ opps, ranAt }: { opps: any[]; ranAt?: string | null 
             <span className="text-xs text-muted-foreground">{Math.round((o.confidence ?? 0) * 100)}%</span>
           </div>
           <p className="mt-2 text-sm text-foreground/90">{o.description}</p>
-          <ListSection title="Recommended motions" items={o.recommended_motions} />
-          <ListSection title="Recommended questions" items={o.recommended_questions} />
-          <ListSection title="Recommended investigations" items={o.recommended_investigations} />
+          <ListSection title={L("Promociones recomendadas", "Recommended motions")} items={o.recommended_motions} />
+          <ListSection title={L("Preguntas recomendadas", "Recommended questions")} items={o.recommended_questions} />
+          <ListSection title={L("Investigaciones recomendadas", "Recommended investigations")} items={o.recommended_investigations} />
           {o.counter_response && (
             <div className="mt-3 rounded border border-warning/30 bg-warning/5 p-3">
               <div className="text-[10px] font-semibold uppercase tracking-wider text-warning">
-                Prosecution recovery
+                {L("Réplica de la fiscalía", "Prosecution recovery")}
               </div>
               <p className="mt-1 text-sm text-foreground/90">{o.counter_response}</p>
             </div>
@@ -2050,13 +2063,13 @@ function WitnessesTab({ witnesses, ranAt }: { witnesses: any[]; ranAt?: string |
             </div>
           </summary>
           <div className="border-t border-border px-4 py-3">
-            <ListSection title="Cross-examination" items={w.cross_exam_questions} />
-            <ListSection title="Impeachment" items={w.impeachment_questions} />
-            <ListSection title="Follow-up" items={w.follow_up_questions} />
+            <ListSection title={L("Contrainterrogatorio", "Cross-examination")} items={w.cross_exam_questions} />
+            <ListSection title={L("Impugnación", "Impeachment")} items={w.impeachment_questions} />
+            <ListSection title={L("Seguimiento", "Follow-up")} items={w.follow_up_questions} />
             {w.rationale && Object.keys(w.rationale).length > 0 && (
               <div className="mt-3">
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Rationale
+                  {L("Fundamento", "Rationale")}
                 </div>
                 <Pre v={w.rationale} className="mt-1" />
               </div>
@@ -2279,8 +2292,8 @@ function ScorecardTab({ s }: { s: Score | null | undefined }) {
     appeal_risk: "Appeal risk",
   };
   const dims: { k: string; label: string; inverse?: boolean }[] = [
-    { k: "overall_confidence", label: "Overall confidence" },
-    { k: "case_quality", label: "Case quality" },
+    { k: "overall_confidence", label: L("Confianza general", "Overall confidence") },
+    { k: "case_quality", label: L("Calidad del caso", "Case quality") },
     ...(detKeys.length
       ? detKeys.map((k) => ({
           k,
@@ -2336,7 +2349,7 @@ function ScorecardTab({ s }: { s: Score | null | undefined }) {
                   {b.reasoning && <p className="text-foreground/90">{b.reasoning}</p>}
                   {b.positive?.length > 0 && (
                     <div>
-                      <div className="text-[10px] font-semibold uppercase tracking-wider text-success">Positive</div>
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-success">{L("Positivo", "Positive")}</div>
                       <ul className="mt-0.5 list-disc pl-5">
                         {b.positive.map((p, i) => (
                           <li key={i}>{p.label}</li>
@@ -2347,7 +2360,7 @@ function ScorecardTab({ s }: { s: Score | null | undefined }) {
                   {b.negative?.length > 0 && (
                     <div>
                       <div className="text-[10px] font-semibold uppercase tracking-wider text-destructive">
-                        Negative
+                        {L("Negativo", "Negative")}
                       </div>
                       <ul className="mt-0.5 list-disc pl-5">
                         {b.negative.map((p, i) => (
@@ -2364,7 +2377,7 @@ function ScorecardTab({ s }: { s: Score | null | undefined }) {
       </div>
       {s.methodology && (
         <div className="rounded-lg border border-border bg-card p-4">
-          <h3 className="text-sm font-semibold">Methodology</h3>
+          <h3 className="text-sm font-semibold">{L("Metodología", "Methodology")}</h3>
           <p className="mt-2 whitespace-pre-wrap text-sm text-foreground/90">{s.methodology}</p>
         </div>
       )}
@@ -2450,14 +2463,14 @@ function ChatTab({ caseId }: { caseId: string }) {
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
           <MessageSquare className="h-4 w-4 text-accent" />
-          <h3 className="text-sm font-semibold">Case AI · grounded in this case's intelligence</h3>
+          <h3 className="text-sm font-semibold">{L("IA del caso · fundamentada en la inteligencia de este expediente", "Case AI · grounded in this case's intelligence")}</h3>
         </div>
         <button
           onClick={() => clear.mutate()}
           disabled={history.length === 0}
           className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
         >
-          <Trash2 className="h-3 w-3" /> Clear
+          <Trash2 className="h-3 w-3" /> {L("Limpiar", "Clear")}
         </button>
       </div>
 
@@ -2465,8 +2478,10 @@ function ChatTab({ caseId }: { caseId: string }) {
         {history.length === 0 && (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Ask anything about this case. Every answer is grounded in the unified findings, theories, opportunities,
-              witnesses, and trial prep produced for this case.
+              {L(
+                "Pregunta lo que necesites sobre este caso. Cada respuesta se fundamenta en los hallazgos unificados, teorías, oportunidades, testigos y preparación de juicio generados para este expediente.",
+                "Ask anything about this case. Every answer is grounded in the unified findings, theories, opportunities, witnesses, and trial prep produced for this case.",
+              )}
             </p>
             <div className="flex flex-wrap gap-2">
               {suggestions.map((s) => (
@@ -2500,7 +2515,7 @@ function ChatTab({ caseId }: { caseId: string }) {
         {ask.isPending && (
           <div className="flex justify-start">
             <div className="text-sm text-muted-foreground">
-              <Loader2 className="inline h-3.5 w-3.5 animate-spin" /> Thinking…
+              <Loader2 className="inline h-3.5 w-3.5 animate-spin" /> {L("Pensando…", "Thinking…")}
             </div>
           </div>
         )}
@@ -2518,7 +2533,7 @@ function ChatTab({ caseId }: { caseId: string }) {
                 submit();
               }
             }}
-            placeholder="Ask the Case AI…"
+            placeholder={L("Pregunta a la IA del caso…", "Ask the Case AI…")}
             rows={2}
             className="min-h-[44px] flex-1 resize-none rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
           />
@@ -2758,16 +2773,16 @@ function ReportHistoryPanel({ caseId, currentVersion }: { caseId: string; curren
   const rows = versions ?? [];
   if (rows.length === 0) return null;
   return (
-    <Panel title="Version History" subtitle={`${rows.length} immutable snapshot${rows.length === 1 ? "" : "s"}`}>
+    <Panel title={L("Historial de versiones", "Version History")} subtitle={`${rows.length} immutable snapshot${rows.length === 1 ? "" : "s"}`}>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="text-xs uppercase tracking-wider text-muted-foreground">
             <tr className="border-b border-border">
-              <th className="py-2 pr-3 text-left">Version</th>
-              <th className="py-2 pr-3 text-left">Created</th>
+              <th className="py-2 pr-3 text-left">{L("Versión", "Version")}</th>
+              <th className="py-2 pr-3 text-left">{L("Creado", "Created")}</th>
               <th className="py-2 pr-3 text-right">Docs</th>
-              <th className="py-2 pr-3 text-right">Findings</th>
-              <th className="py-2 pr-3 text-right">Contradictions</th>
+              <th className="py-2 pr-3 text-right">{L("Hallazgos", "Findings")}</th>
+              <th className="py-2 pr-3 text-right">{L("Contradicciones", "Contradictions")}</th>
               <th className="py-2 pr-3 text-right">ESS</th>
               <th className="py-2 pr-3 text-right">Score</th>
               <th className="py-2 pr-3 text-left">Hash</th>
@@ -2792,8 +2807,10 @@ function ReportHistoryPanel({ caseId, currentVersion }: { caseId: string; curren
         </table>
       </div>
       <p className="mt-2 text-xs text-muted-foreground">
-        Snapshots are immutable: the database revokes UPDATE/DELETE on report_versions. The hash column is a SHA-256
-        over the canonical report content — identical hashes mean identical reports.
+        {L(
+          "Las instantáneas son inmutables: la base de datos revoca UPDATE/DELETE sobre report_versions. La columna hash es un SHA-256 del contenido canónico del informe — hashes idénticos significan informes idénticos.",
+          "Snapshots are immutable: the database revokes UPDATE/DELETE on report_versions. The hash column is a SHA-256 over the canonical report content — identical hashes mean identical reports.",
+        )}
       </p>
     </Panel>
   );
@@ -2950,22 +2967,24 @@ function ReportTab({
           <p className="mt-1">{narrativeStatus.banner}</p>
           {narrativeStatus.partially_failed && (narrativeStatus.salvaged_sections?.length ?? 0) > 0 && (
             <p className="mt-1 text-xs opacity-80">
-              Recovered sections: {narrativeStatus.salvaged_sections!.join(", ")}
+              {L("Secciones recuperadas", "Recovered sections")}: {narrativeStatus.salvaged_sections!.join(", ")}
             </p>
           )}
         </div>
       )}
       {qualityBlocked && (
         <div className="rounded-lg border border-red-500/50 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          <div className="font-semibold">Quality Gate Failed — Report Flagged as Draft</div>
+          <div className="font-semibold">{L("Control de calidad no superado — informe marcado como borrador", "Quality Gate Failed — Report Flagged as Draft")}</div>
           <ul className="mt-1 list-disc pl-5">
             {qualityBlockReasons.map((reason, i) => (
               <li key={i}>{reason}</li>
             ))}
           </ul>
           <p className="mt-2 text-xs opacity-80">
-            Resolve the issues above (re-run extraction on failed documents, or re-run analyzers/agents so every finding
-            carries a doc + page + quote citation) before treating this report as final.
+            {L(
+              "Resuelve los puntos anteriores (vuelve a extraer los documentos fallidos o ejecuta de nuevo analizadores/agentes para que cada hallazgo tenga cita con documento, página y fragmento) antes de tratar este informe como definitivo.",
+              "Resolve the issues above (re-run extraction on failed documents, or re-run analyzers/agents so every finding carries a doc + page + quote citation) before treating this report as final.",
+            )}
           </p>
         </div>
       )}
@@ -2973,29 +2992,29 @@ function ReportTab({
       {changeLog && (
         <Panel
           title={`What's Changed — v${changeLog.previous_version ?? "?"} → v${changeLog.current_version ?? version ?? "?"}`}
-          subtitle="Quantitative diff against the snapshot captured before the last Add Evidence run"
+          subtitle={L("Comparativo cuantitativo contra la instantánea previa a la última carga de pruebas", "Quantitative diff against the snapshot captured before the last Add Evidence run")}
         >
           <ul className="grid gap-2 text-sm sm:grid-cols-2">
             <li className="rounded border border-border bg-card p-3">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">Case Strength</div>
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">{L("Fuerza del caso", "Case Strength")}</div>
               <div>
                 {changeLog.score_delta?.strength?.prev ?? "—"} → {changeLog.score_delta?.strength?.now ?? "—"}
               </div>
             </li>
             <li className="rounded border border-border bg-card p-3">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">Risk Score</div>
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">{L("Índice de riesgo", "Risk Score")}</div>
               <div>
                 {changeLog.score_delta?.risk?.prev ?? "—"} → {changeLog.score_delta?.risk?.now ?? "—"}
               </div>
             </li>
             <li className="rounded border border-border bg-card p-3">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">Contradictions</div>
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">{L("Contradicciones", "Contradictions")}</div>
               <div>
                 {changeLog.contradictions?.prev ?? 0} → {changeLog.contradictions?.now ?? 0}
               </div>
             </li>
             <li className="rounded border border-border bg-card p-3">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">Totals (current)</div>
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">{L("Totales (actual)", "Totals (current)")}</div>
               <div>
                 {changeLog.documents_total ?? 0} docs · {changeLog.findings_total ?? 0} findings ·{" "}
                 {changeLog.witnesses_total ?? 0} witnesses
@@ -3052,14 +3071,14 @@ function ReportTab({
         </div>
       )}
       {disputedIssues.length > 0 && (
-        <Panel title="Disputed Issues Between Parties" subtitle="Party positions, not factual contradictions">
+        <Panel title={L("Puntos controvertidos entre las partes", "Disputed Issues Between Parties")} subtitle={L("Posiciones de las partes, no contradicciones fácticas", "Party positions, not factual contradictions")}>
           <ul className="space-y-2">
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             {(disputedIssues as any[]).map((d, i) => (
               <li key={i} className="rounded-md border border-border bg-card p-3 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   <ClaimBadge hint="analysis" />
-                  <span className="font-medium">{rStr(d?.title, "Disputed issue")}</span>
+                  <span className="font-medium">{rStr(d?.title, L("Punto controvertido", "Disputed issue"))}</span>
                 </div>
                 {d?.description && <div className="mt-1 text-foreground/80">{rStr(d.description)}</div>}
               </li>
@@ -3069,13 +3088,13 @@ function ReportTab({
       )}
       {(strength != null || risk != null) && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <ScoreCard label="Case Strength" value={strength} tone="good" />
-          <ScoreCard label="Risk Score" value={risk} tone="risk" />
+          <ScoreCard label={L("Fuerza del caso", "Case Strength")} value={strength} tone="good" />
+          <ScoreCard label={L("Índice de riesgo", "Risk Score")} value={risk} tone="risk" />
         </div>
       )}
 
       {nextActions.length > 0 && (
-        <Panel title="Recommended Next Actions" subtitle="Prioritized">
+        <Panel title={L("Siguientes acciones recomendadas", "Recommended Next Actions")} subtitle={L("Priorizadas", "Prioritized")}>
           <ol className="space-y-2">
             {nextActions.map((a, i) => (
               <li key={i} className="rounded-md border border-border bg-card p-3">
@@ -3083,7 +3102,7 @@ function ReportTab({
                   <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-accent/20 text-xs font-semibold text-accent">
                     {a?.order ?? i + 1}
                   </span>
-                  <span className="font-medium">{rStr(a?.action, "Action")}</span>
+                  <span className="font-medium">{rStr(a?.action, L("Acción", "Action"))}</span>
                   {a?.owner && (
                     <span className="rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
                       {rStr(a.owner)}
@@ -3099,20 +3118,20 @@ function ReportTab({
       )}
 
       {motions.length > 0 && (
-        <Panel title="Motion Opportunities">
+        <Panel title={L("Oportunidades de promoción", "Motion Opportunities")}>
           <div className="space-y-3">
             {motions.map((m, i) => (
               <div key={i} className="rounded-md border border-border bg-card p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <ClaimBadge hint="strategy" />
-                  <span className="font-semibold">{rStr(m?.motion, "Motion")}</span>
+                  <span className="font-semibold">{rStr(m?.motion, L("Promoción", "Motion"))}</span>
                   <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                    likelihood: {rStr(m?.likelihood_of_success, "?")}
+                    {L("probabilidad", "likelihood")}: {rStr(m?.likelihood_of_success, "?")}
                   </span>
                 </div>
                 {m?.basis && (
                   <div className="mt-1 text-sm">
-                    <span className="text-muted-foreground">Basis: </span>
+                    <span className="text-muted-foreground">{L("Fundamento", "Basis")}: </span>
                     {rStr(m.basis)}
                   </div>
                 )}
@@ -3145,30 +3164,30 @@ function ReportTab({
       )}
 
       {contradictions.length > 0 && (
-        <Panel title="Contradictions" subtitle="With legal impact">
+        <Panel title={L("Contradicciones", "Contradictions")} subtitle={L("Con impacto jurídico", "With legal impact")}>
           <div className="space-y-3">
             {contradictions.map((c, i) => (
               <div key={i} className="rounded-md border border-border bg-card p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <ClaimBadge hint="fact" />
                   <SevBadge s={rStr(c?.severity)} />
-                  <span className="font-semibold">{rStr(c?.title, "Contradiction")}</span>
+                  <span className="font-semibold">{rStr(c?.title, L("Contradicción", "Contradiction"))}</span>
                   {c?.side_helped && (
                     <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                      helps {rStr(c.side_helped)}
+                      {L("favorece a", "helps")} {rStr(c.side_helped)}
                     </span>
                   )}
                 </div>
                 {c?.description && <div className="mt-1 text-sm">{rStr(c.description)}</div>}
                 {c?.legal_impact && (
                   <div className="mt-1 text-sm">
-                    <span className="text-muted-foreground">Legal impact: </span>
+                    <span className="text-muted-foreground">{L("Impacto jurídico", "Legal impact")}: </span>
                     {rStr(c.legal_impact)}
                   </div>
                 )}
                 {c?.recommended_use && (
                   <div className="mt-1 text-sm">
-                    <span className="text-muted-foreground">Use: </span>
+                    <span className="text-muted-foreground">{L("Uso", "Use")}: </span>
                     {rStr(c.recommended_use)}
                   </div>
                 )}
@@ -3203,13 +3222,13 @@ function ReportTab({
                 {m?.why_critical && <div className="mt-1 text-sm">{rStr(m.why_critical)}</div>}
                 {m?.how_to_obtain && (
                   <div className="mt-1 text-sm">
-                    <span className="text-muted-foreground">How to obtain: </span>
+                    <span className="text-muted-foreground">{L("Cómo obtenerla", "How to obtain")}: </span>
                     {rStr(m.how_to_obtain)}
                   </div>
                 )}
                 {m?.recommended_motion && (
                   <div className="mt-1 text-sm">
-                    <span className="text-muted-foreground">Motion: </span>
+                    <span className="text-muted-foreground">{L("Promoción", "Motion")}: </span>
                     {rStr(m.recommended_motion)}
                   </div>
                 )}
@@ -3235,19 +3254,19 @@ function ReportTab({
                 {c?.issue && <div className="mt-1 text-sm">{rStr(c.issue)}</div>}
                 {c?.legal_standard && (
                   <div className="mt-1 text-sm">
-                    <span className="text-muted-foreground">Standard: </span>
+                    <span className="text-muted-foreground">{L("Estándar", "Standard")}: </span>
                     {rStr(c.legal_standard)}
                   </div>
                 )}
                 {c?.likely_outcome && (
                   <div className="mt-1 text-sm">
-                    <span className="text-muted-foreground">Probability estimate: </span>
+                    <span className="text-muted-foreground">{L("Estimación de probabilidad", "Probability estimate")}: </span>
                     {rStr(c.likely_outcome)}
                   </div>
                 )}
                 {c?.remedy_sought && (
                   <div className="mt-1 text-sm">
-                    <span className="text-muted-foreground">Remedy: </span>
+                    <span className="text-muted-foreground">{L("Pretensión", "Remedy")}: </span>
                     {rStr(c.remedy_sought)}
                   </div>
                 )}
@@ -3265,11 +3284,11 @@ function ReportTab({
       )}
 
       {crossExam.length > 0 && (
-        <Panel title="Cross-Examination Plan">
+        <Panel title={L("Plan de contrainterrogatorio", "Cross-Examination Plan")}>
           <div className="space-y-3">
             {crossExam.map((w, i) => (
               <div key={i} className="rounded-md border border-border bg-card p-3">
-                <div className="font-semibold">{rStr(w?.witness, "Witness")}</div>
+                <div className="font-semibold">{rStr(w?.witness, L("Testigo", "Witness"))}</div>
                 {w?.objective && <div className="text-xs text-muted-foreground">{rStr(w.objective)}</div>}
                 {rArr(w?.lines).map((ln, j) => (
                   <div key={j} className="mt-2 rounded border border-border bg-secondary/30 p-2">
@@ -3285,7 +3304,7 @@ function ReportTab({
                     </ol>
                     {ln?.impeachment_with && (
                       <div className="mt-1 text-xs">
-                        <span className="text-muted-foreground">Impeach with: </span>
+                        <span className="text-muted-foreground">{L("Impugnar con", "Impeach with")}: </span>
                         {rStr(ln.impeachment_with)}
                       </div>
                     )}
@@ -3303,7 +3322,7 @@ function ReportTab({
       )}
 
       {strategy.length > 0 && (
-        <Panel title="Strategy Recommendations">
+        <Panel title={L("Recomendaciones estratégicas", "Strategy Recommendations")}>
           <div className="space-y-2">
             {strategy.map((s, i) => (
               <div key={i} className="rounded-md border border-border bg-card p-3">
@@ -3319,7 +3338,7 @@ function ReportTab({
                 {s?.rationale && <div className="mt-1 text-sm">{rStr(s.rationale)}</div>}
                 {s?.expected_impact && (
                   <div className="mt-1 text-sm">
-                    <span className="text-muted-foreground">Impact: </span>
+                    <span className="text-muted-foreground">{L("Impacto", "Impact")}: </span>
                     {rStr(s.expected_impact)}
                   </div>
                 )}
@@ -3330,16 +3349,16 @@ function ReportTab({
       )}
 
       {evidenceIndex.length > 0 && (
-        <Panel title="Evidence Source Index">
+        <Panel title={L("Índice de fuentes de prueba", "Evidence Source Index")}>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead className="text-left text-muted-foreground">
                 <tr>
-                  <th className="p-2">Doc</th>
-                  <th className="p-2">File</th>
-                  <th className="p-2">Role</th>
-                  <th className="p-2">Key pages</th>
-                  <th className="p-2">Summary</th>
+                  <th className="p-2">{L("Doc.", "Doc")}</th>
+                  <th className="p-2">{L("Archivo", "File")}</th>
+                  <th className="p-2">{L("Rol", "Role")}</th>
+                  <th className="p-2">{L("Páginas clave", "Key pages")}</th>
+                  <th className="p-2">{L("Resumen", "Summary")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -3371,7 +3390,7 @@ function ReportTab({
       )}
 
       {citations.length > 0 && (
-        <Panel title="All Citations" subtitle={`${citations.length} source references`}>
+        <Panel title={L("Todas las citas", "All Citations")} subtitle={L(`${citations.length} referencias de origen`, `${citations.length} source references`)}>
           <div className="flex flex-wrap gap-2">
             {citations.map((c, i) => (
               <Cite key={i} c={c} />
@@ -3493,21 +3512,21 @@ function InlineCancelButton({ caseId, invalidate }: { caseId: string; invalidate
     mutationFn: () => cancel({ data: { caseId } }),
     onSuccess: () => {
       setRequested(true);
-      toast.info("Cancel requested — aborting in-flight request");
+      toast.info(L("Cancelación solicitada — abortando la petición en curso", "Cancel requested — aborting in-flight request"));
       invalidate();
     },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Cancel failed"),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : L("No se pudo cancelar", "Cancel failed")),
   });
   const fm = useMutation({
     mutationFn: () => force({ data: { caseId } }),
     onSuccess: () => {
       // Explicit stop is the only thing that kills the background loop.
       stopDrivingPipeline(caseId);
-      toast.success("Job force-stopped. You can restart any step now.");
+      toast.success(L("Proceso detenido por la fuerza. Ya puedes reiniciar cualquier paso.", "Job force-stopped. You can restart any step now."));
       setRequested(false);
       invalidate();
     },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Force-stop failed"),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : L("No se pudo detener por la fuerza", "Force-stop failed")),
   });
   return (
     <div className="ml-2 inline-flex items-center gap-1">
@@ -3516,16 +3535,16 @@ function InlineCancelButton({ caseId, invalidate }: { caseId: string; invalidate
         disabled={m.isPending || requested}
         className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs font-medium hover:bg-secondary disabled:opacity-50"
       >
-        <Trash2 className="h-3 w-3" /> {requested ? "Cancelling…" : "Cancel"}
+        <Trash2 className="h-3 w-3" /> {requested ? L("Cancelando…", "Cancelling…") : L("Cancelar", "Cancel")}
       </button>
       {requested && (
         <button
           onClick={() => fm.mutate()}
           disabled={fm.isPending}
           className="inline-flex items-center gap-1 rounded-md border border-destructive bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive hover:bg-destructive/20 disabled:opacity-50"
-          title="Hard-stop the job if it doesn't respond to a graceful cancel"
+          title={L("Detén el proceso por la fuerza si no responde a la cancelación normal", "Hard-stop the job if it doesn't respond to a graceful cancel")}
         >
-          Force stop
+          {L("Detener por la fuerza", "Force stop")}
         </button>
       )}
     </div>
@@ -3653,10 +3672,13 @@ function AttackSurfaceTab({ surface }: { surface: any }) {
   if (surface.skipped) {
     return (
       <div className="rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 p-6 text-sm">
-        <div className="font-semibold text-amber-400">Skipped — Not Applicable</div>
+        <div className="font-semibold text-amber-400">{L("Omitido — no aplicable", "Skipped — Not Applicable")}</div>
         <div className="mt-1 text-muted-foreground">
           {surface.reason ??
-            "Attack Surface categories are criminal-procedure specific and not applicable to this case type."}
+            L(
+              "Las categorías de superficie de ataque son propias del procedimiento penal y no aplican a esta materia.",
+              "Attack Surface categories are criminal-procedure specific and not applicable to this case type.",
+            )}
         </div>
       </div>
     );
