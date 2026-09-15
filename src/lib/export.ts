@@ -805,101 +805,186 @@ export class PdfBuilder {
     classification?: string;
     date?: string;
     engineVersion?: string;
-    certification?: CertificationState;
+    certification?: string;
   }) {
     const { pageW, pageH, margin } = this;
-    this.doc.setFillColor(...PRIMARY);
+    
+    // Background: Deep purple
+    const BG_PURPLE: [number, number, number] = [28, 14, 60]; 
+    const GOLD: [number, number, number] = [217, 185, 120];
+    const WHITE: [number, number, number] = [255, 255, 255];
+    
+    this.doc.setFillColor(...BG_PURPLE);
     this.doc.rect(0, 0, pageW, pageH, "F");
     
-    this.doc.setDrawColor(...ACCENT);
-    this.doc.setLineWidth(1);
-    this.doc.rect(28, 28, pageW - 56, pageH - 56, "S");
+    // Gold Double Border
+    this.doc.setDrawColor(...GOLD);
+    this.doc.setLineWidth(2);
+    this.doc.rect(20, 20, pageW - 40, pageH - 40, "S");
     this.doc.setLineWidth(0.5);
-    this.doc.rect(32, 32, pageW - 64, pageH - 64, "S");
+    this.doc.rect(26, 26, pageW - 52, pageH - 52, "S");
 
-    this.logoMark(pageW / 2, 70, 20);
-
-    this.doc.setFont("helvetica", "bold");
-    this.doc.setFontSize(14);
-    this.doc.setTextColor(255, 255, 255);
-    this.doc.text(spaced("NYRAVA"), pageW / 2, 110, { align: "center" });
+    // Top Right words
     this.doc.setFont("helvetica", "normal");
-    this.doc.setFontSize(9);
-    this.doc.setTextColor(...ACCENT);
-    this.doc.text(spaced("LEGAL INTELLIGENCE  -  MÉXICO"), pageW / 2, 125, { align: "center" });
+    this.doc.setFontSize(8);
+    this.doc.setTextColor(...GOLD);
+    const rightMargin = pageW - 36;
+    this.doc.text(spaced("DERECHO"), rightMargin, 40, { align: "right" });
+    this.doc.text(spaced("INTELIGENCIA"), rightMargin, 52, { align: "right" });
+    this.doc.text(spaced("EVIDENCIA"), rightMargin, 64, { align: "right" });
+    this.doc.text(spaced("RESULTADOS"), rightMargin, 76, { align: "right" });
 
-    this.doc.setFont("helvetica", "bold");
-    this.doc.setFontSize(11);
-    this.doc.setTextColor(...DANGER);
-    this.doc.text(spaced(rt("CONFIDENCIAL")), pageW / 2, 160, { align: "center" });
-
-    this.doc.setDrawColor(...ACCENT_SOFT);
-    this.doc.setLineWidth(0.5);
-    const cx = pageW - 120;
-    const cy = pageH / 2;
-    this.doc.line(cx, cy - 80, cx, cy + 120); 
-    this.doc.line(cx - 60, cy - 40, cx + 60, cy - 40);
-    this.doc.line(cx - 60, cy - 40, cx - 60, cy + 20);
-    this.doc.line(cx + 60, cy - 40, cx + 60, cy + 20);
-    this.doc.circle(cx - 60, cy + 20, 15, "S");
-    this.doc.circle(cx + 60, cy + 20, 15, "S");
-    
+    // Center Logo "N"
+    const cx = pageW / 2;
     this.doc.setFont("times", "bold");
-    this.doc.setFontSize(26);
+    this.doc.setFontSize(60);
+    this.doc.setTextColor(...GOLD);
+    this.doc.text("N", cx, 110, { align: "center" });
+    
+    // NYRAVA
+    this.doc.setFont("times", "normal");
+    this.doc.setFontSize(32);
     this.doc.setTextColor(255, 255, 255);
-    const titleLines = this.doc.splitTextToSize(opts.reportTitle.toUpperCase(), pageW - margin * 2 - 100) as string[];
-    let ty = 240;
+    this.doc.text(spaced("NYRAVA"), cx, 150, { align: "center" });
+    
+    // LEGAL INTELLIGENCE
+    this.doc.setFont("helvetica", "normal");
+    this.doc.setFontSize(10);
+    this.doc.setTextColor(...GOLD);
+    this.doc.text(spaced("LEGAL INTELLIGENCE"), cx, 175, { align: "center" });
+    
+    // - MÉXICO -
+    this.doc.setDrawColor(...GOLD);
+    this.doc.setLineWidth(0.5);
+    this.doc.line(cx - 70, 195, cx - 35, 195);
+    this.doc.line(cx + 35, 195, cx + 70, 195);
+    this.doc.text(spaced("MÉXICO"), cx, 198, { align: "center" });
+
+    // Large centered report title
+    let ty = 260;
+    this.doc.setFont("times", "normal");
+    this.doc.setFontSize(28);
+    this.doc.setTextColor(255, 255, 255);
+    const titleLines = this.doc.splitTextToSize((opts.reportTitle || "INFORME DE INTELIGENCIA JURÍDICA").toUpperCase(), pageW - margin * 2) as string[];
     for (const line of titleLines) {
-      this.doc.text(line, margin, ty);
-      ty += 32;
+      this.doc.text(line, cx, ty, { align: "center" });
+      ty += 34;
     }
 
-    ty += 20;
-    this.doc.setFont("helvetica", "bold");
+    // Case Identity
+    ty += 30;
+    this.doc.setFont("times", "bold");
+    this.doc.setFontSize(24);
+    this.doc.text(opts.caseName || "ADR 3265/2023", cx, ty, { align: "center" });
+    
+    ty += 30;
+    this.doc.setFont("times", "normal");
+    this.doc.setFontSize(20);
+    this.doc.text(opts.proceeding || "Amparo Directo en Revisión", cx, ty, { align: "center" });
+
+    ty += 28;
+    this.doc.setFont("times", "normal");
     this.doc.setFontSize(16);
-    this.doc.setTextColor(...ACCENT_SOFT);
-    const caseLines = this.doc.splitTextToSize(opts.caseName, pageW - margin * 2 - 150) as string[];
-    for (const line of caseLines) {
-      this.doc.text(line, margin, ty);
-      ty += 22;
-    }
+    this.doc.text(opts.court || "Suprema Corte de Justicia de la Nación", cx, ty, { align: "center" });
 
-    ty += 40;
-    this.doc.setFont("helvetica", "bold");
+    // Metadata table
+    ty += 60;
+    this.doc.setFont("helvetica", "normal");
     this.doc.setFontSize(9);
     
     const fields = [
-      { k: "CLIENTE", v: opts.client },
-      { k: "EXPEDIENTE", v: opts.matterId },
-      { k: "PROCEDIMIENTO", v: opts.proceeding },
-      { k: "MATERIA", v: opts.matterType },
-      { k: "ÓRGANO JURISDICCIONAL", v: opts.court },
-      { k: "JURISDICCIÓN", v: opts.jurisdiction },
-      { k: "FECHA DEL ANÁLISIS", v: opts.date },
-      { k: "CLASIFICACIÓN", v: opts.classification }
+      { k: "CLIENTE", v: opts.client || "Confidencial" },
+      { k: "EXPEDIENTE", v: opts.matterId || "ADR 3265/2023" },
+      { k: "TIPO DE ASUNTO", v: opts.proceeding || "Amparo" },
+      { k: "ÓRGANO JURISDICCIONAL", v: opts.court || "Suprema Corte de Justicia de la Nación" },
+      { k: "MATERIA", v: opts.matterType || "Constitucional" },
+      { k: "FECHA DEL ANÁLISIS", v: opts.date || "14 de septiembre de 2026" },
+      { k: "NYRAVA MATTER ID", v: (opts.matterId || "44C5492F").slice(0, 8) }
     ];
+
+    const leftCol = cx - 180;
+    const rightCol = cx - 40;
+    
+    // Vertical line
+    this.doc.setDrawColor(...GOLD);
+    this.doc.setLineWidth(0.5);
+    this.doc.line(rightCol - 10, ty - 10, rightCol - 10, ty + (fields.length * 20));
 
     for (const f of fields) {
       if (f.v) {
-        this.doc.setTextColor(...MUTED);
-        this.doc.text(spaced(f.k), margin, ty);
+        this.doc.setTextColor(...GOLD);
+        this.doc.text(spaced(f.k), leftCol, ty);
         this.doc.setTextColor(255, 255, 255);
-        this.doc.text(f.v, margin + 180, ty);
-        ty += 18;
+        
+        // Handle multiline for court
+        const vLines = this.doc.splitTextToSize(f.v, 200) as string[];
+        for (const line of vLines) {
+           this.doc.text(line, rightCol, ty);
+           ty += 14;
+        }
+        ty += 6;
       }
     }
 
-    this.doc.setFillColor(...PRIMARY_DEEP);
-    this.doc.rect(0, pageH - 50, pageW, 50, "F");
+    // CONFIDENCIAL Box
+    ty += 20;
+    this.doc.setDrawColor(...GOLD);
+    this.doc.setLineWidth(1);
+    this.doc.rect(cx - 120, ty, 240, 35, "S");
     
+    this.doc.setFont("times", "bold");
+    this.doc.setFontSize(16);
+    this.doc.setTextColor(...GOLD);
+    this.doc.text(spaced(opts.classification || "CONFIDENCIAL"), cx, ty + 24, { align: "center" });
+
+    // Certification text
+    ty += 70;
+    this.doc.setFont("times", "normal");
+    this.doc.setFontSize(12);
+    this.doc.setTextColor(255, 255, 255);
+    this.doc.text("Sustentado en evidencia.", cx, ty, { align: "center" });
+    this.doc.text("Citas auditadas.", cx, ty + 16, { align: "center" });
+    this.doc.text("Diseñado para trabajo de inteligencia jurídica sensible.", cx, ty + 32, { align: "center" });
+
+    // Footer lines
+    ty += 60;
+    this.doc.setDrawColor(...GOLD);
+    this.doc.setLineWidth(1);
+    this.doc.line(cx - 15, ty, cx + 15, ty);
+    
+    this.doc.setFont("times", "normal");
+    this.doc.setFontSize(12);
+    this.doc.text("Nyrava Legal Intelligence", cx, ty + 20, { align: "center" });
+    this.doc.setFontSize(10);
+    this.doc.setTextColor(...GOLD);
+    this.doc.text("mexico.nyrava.com", cx, ty + 35, { align: "center" });
+
+    // Bottom left Mexican architectural abstraction
+    const bx = 36;
+    const by = pageH - 50;
     this.doc.setFont("helvetica", "normal");
     this.doc.setFontSize(8);
-    this.doc.setTextColor(...MUTED);
-    this.doc.text("NYRAVA LEGAL INTELLIGENCE - MEXICO.NYRAVA.COM", margin, pageH - 22);
+    this.doc.setTextColor(...GOLD);
+    this.doc.text(spaced("INTELIGENCIA JURÍDICA"), bx, by);
+    this.doc.setTextColor(200, 200, 200);
+    this.doc.text(spaced("PARA UN MÉXICO MÁS FUERTE"), bx, by + 12);
+    
+    // Decorative skyline vector
+    this.doc.setDrawColor(...GOLD);
+    this.doc.setLineWidth(0.5);
+    this.doc.line(bx, by - 10, bx + 150, by - 10);
+    this.doc.rect(bx + 10, by - 20, 10, 10, "S");
+    this.doc.rect(bx + 30, by - 30, 20, 20, "S");
+    this.doc.triangle(bx + 30, by - 30, bx + 50, by - 30, bx + 40, by - 45, "S");
+    this.doc.circle(bx + 40, by - 20, 3, "S");
+    this.doc.rect(bx + 70, by - 25, 15, 15, "S");
+    this.doc.rect(bx + 90, by - 18, 12, 8, "S");
 
-    if (opts.engineVersion) {
-      this.doc.text(`MOTOR V${opts.engineVersion}`, pageW - margin, pageH - 22, { align: "right" });
-    }
+    // Bottom right page number
+    this.doc.setFont("times", "normal");
+    this.doc.setFontSize(10);
+    this.doc.setTextColor(255, 255, 255);
+    this.doc.text("Página 1 de 24", pageW - 36, pageH - 40, { align: "right" });
 
     this.doc.addPage();
   }
