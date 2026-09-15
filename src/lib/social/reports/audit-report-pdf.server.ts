@@ -3,7 +3,7 @@ import { PdfBuilder } from "../../export";
 import { translateLegalTerm } from "../../pdf/enum-translation";
 
 export interface AuditReportData {
-  report_id: string;
+  reportId: string;
   case_id: string;
   requester_name: string;
   requester_role: string;
@@ -18,7 +18,7 @@ export interface AuditReportData {
   checksum: string;
 }
 
-export async function generateAuditReportPdf(data: AuditReportData, locale: "en" | "es" = "en"): Promise<Uint8Array> {
+export function generateAuditReportPdf(data: AuditReportData, locale: "en" | "es" = "en"): Uint8Array {
   const isEs = locale === "es";
 
   // Use the centralized PdfBuilder
