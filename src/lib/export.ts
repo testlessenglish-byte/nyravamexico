@@ -1,3 +1,5 @@
+import { translateLegalTerm } from "./pdf/enum-translation";
+import { resolveReportIdentity } from "./pdf/identity-resolver";
 import { prepareCaseJsonExport } from "./reporting/case-json-export";
 
 // Client-side download helpers for case exports.
@@ -583,7 +585,7 @@ const SECTION_KICKERS: Record<string, string> = {
   "Centro de Acción — Recomendaciones Prioritarias": "Acción",
 };
 
-class PdfBuilder {
+export class PdfBuilder {
   doc: Pdf;
   renderedText: string[] = [];
   finalPayload?: FinalReportPayload;
@@ -616,7 +618,9 @@ class PdfBuilder {
 
   constructor(caseName: string, matterId?: string) {
     this.matterId = matterId || caseName;
-    this.doc = new jsPDF({ unit: "pt", format: "letter" }) as Pdf;
+    // @ts-ignore
+    const JSPDF = typeof jsPDF === "function" ? jsPDF : jsPDF.jsPDF;
+    this.doc = new JSPDF({ unit: "pt", format: "letter" }) as Pdf;
     this.pageW = this.doc.internal.pageSize.getWidth();
     this.pageH = this.doc.internal.pageSize.getHeight();
     this.y = this.margin;
@@ -790,171 +794,114 @@ class PdfBuilder {
   // case title in a serif face, work-product tag, and a footer metadata
   // bar. Caller must pageBreak() before rendering anything else.
   premiumCover(opts: {
+    reportTitle: string;
     caseName: string;
-    description?: string;
-    engineVersion?: string;
+    client?: string;
+    proceeding?: string;
+    matterType?: string;
+    court?: string;
+    jurisdiction?: string;
     matterId?: string;
+    classification?: string;
+    date?: string;
+    engineVersion?: string;
     certification?: CertificationState;
   }) {
     const { pageW, pageH, margin } = this;
-    // Full-bleed forest-green field with deeper bands at the head and foot
-    // so the composition has weight top and bottom instead of floating.
     this.doc.setFillColor(...PRIMARY);
     this.doc.rect(0, 0, pageW, pageH, "F");
-    this.doc.setFillColor(...PRIMARY_DEEP);
-    this.doc.rect(0, 0, pageW, 85, "F");
-    this.doc.rect(0, pageH - 75, pageW, 75, "F");
-
-    // Inset hairline frame — replaces the two stray horizontal rules.
-    this.doc.setDrawColor(...ACCENT_SOFT);
-    this.doc.setLineWidth(0.55);
+    
+    this.doc.setDrawColor(...ACCENT);
+    this.doc.setLineWidth(1);
     this.doc.rect(28, 28, pageW - 56, pageH - 56, "S");
+    this.doc.setLineWidth(0.5);
+    this.doc.rect(32, 32, pageW - 64, pageH - 64, "S");
 
-    // Centered wordmark
+    this.logoMark(pageW / 2, 70, 20);
+
     this.doc.setFont("helvetica", "bold");
-    this.doc.setFontSize(13);
-    this.doc.setTextColor(...ACCENT_SOFT);
-    this.doc.text("N Y R A V A", pageW / 2, 44, { align: "center" });
-    this.doc.setFont("helvetica", "normal");
-    this.doc.setFontSize(7.2);
-    this.doc.text("L E G A L   I N T E L L I G E N C E   O S", pageW / 2, 58, { align: "center" });
-
-    if (opts.engineVersion) {
-      this.doc.setFont("helvetica", "normal");
-      this.doc.setFontSize(7.5);
-      this.doc.setTextColor(...ACCENT_SOFT);
-      this.doc.text(`ENGINE ${opts.engineVersion}`, pageW - margin, 44, { align: "right" });
-    }
-
-    // Crest — the visual anchor of the page, ring-free and aspect-correct.
-    this.trustBadge(pageW / 2, pageH * 0.34, 186);
-
-    // Eyebrow label
-    this.doc.setFont("helvetica", "bold");
-    this.doc.setFontSize(8.4);
-    this.doc.setTextColor(...ACCENT);
-    this.doc.text(
-      "C A S E   I N T E L L I G E N C E   R E P O R T",
-      pageW / 2,
-      pageH * 0.34 + 136,
-      {
-        align: "center",
-      },
-    );
-
-    // Case title + party subtitle. Long matter names commonly carry the
-    // parties inline ("X vs. Y"); splitting them lets the cover read as
-    // *this specific case* without crowding the serif title.
-    const rawName = opts.caseName || "Untitled Case";
-    const partySplit = rawName.match(/^(.*?)\s+(?:vs?\.?|c\/|contra)\s+(.+)$/i);
-    const titleText = partySplit ? partySplit[1].trim() : rawName;
-    const subtitleText = partySplit ? `vs. ${partySplit[2].trim()}` : "";
-
-    this.doc.setFont("times", "bold");
-    const titleWidth = pageW - margin * 2 - 40;
-    let titleSize = 30;
-    this.doc.setFontSize(titleSize);
-    let titleLines = this.doc.splitTextToSize(titleText, titleWidth) as string[];
-    if (titleLines.length > 1) {
-      titleSize = 25;
-      this.doc.setFontSize(titleSize);
-      titleLines = this.doc.splitTextToSize(titleText, titleWidth) as string[];
-    }
+    this.doc.setFontSize(14);
     this.doc.setTextColor(255, 255, 255);
-    let ty = pageH * 0.56;
-    for (const line of titleLines.slice(0, 3)) {
-      this.doc.text(line, pageW / 2, ty, { align: "center" });
-      ty += titleSize * 1.16;
+    this.doc.text(spaced("NYRAVA"), pageW / 2, 110, { align: "center" });
+    this.doc.setFont("helvetica", "normal");
+    this.doc.setFontSize(9);
+    this.doc.setTextColor(...ACCENT);
+    this.doc.text(spaced("LEGAL INTELLIGENCE  -  MÉXICO"), pageW / 2, 125, { align: "center" });
+
+    this.doc.setFont("helvetica", "bold");
+    this.doc.setFontSize(11);
+    this.doc.setTextColor(...DANGER);
+    this.doc.text(spaced(rt("CONFIDENCIAL")), pageW / 2, 160, { align: "center" });
+
+    this.doc.setDrawColor(...ACCENT_SOFT);
+    this.doc.setLineWidth(0.5);
+    const cx = pageW - 120;
+    const cy = pageH / 2;
+    this.doc.line(cx, cy - 80, cx, cy + 120); 
+    this.doc.line(cx - 60, cy - 40, cx + 60, cy - 40);
+    this.doc.line(cx - 60, cy - 40, cx - 60, cy + 20);
+    this.doc.line(cx + 60, cy - 40, cx + 60, cy + 20);
+    this.doc.circle(cx - 60, cy + 20, 15, "S");
+    this.doc.circle(cx + 60, cy + 20, 15, "S");
+    
+    this.doc.setFont("times", "bold");
+    this.doc.setFontSize(26);
+    this.doc.setTextColor(255, 255, 255);
+    const titleLines = this.doc.splitTextToSize(opts.reportTitle.toUpperCase(), pageW - margin * 2 - 100) as string[];
+    let ty = 240;
+    for (const line of titleLines) {
+      this.doc.text(line, margin, ty);
+      ty += 32;
     }
-    if (subtitleText) {
-      this.doc.setFont("times", "italic");
-      this.doc.setFontSize(14);
-      this.doc.setTextColor(...ACCENT_SOFT);
-      const subLines = this.doc.splitTextToSize(subtitleText, titleWidth) as string[];
-      for (const line of subLines.slice(0, 2)) {
-        this.doc.text(line, pageW / 2, ty, { align: "center" });
+
+    ty += 20;
+    this.doc.setFont("helvetica", "bold");
+    this.doc.setFontSize(16);
+    this.doc.setTextColor(...ACCENT_SOFT);
+    const caseLines = this.doc.splitTextToSize(opts.caseName, pageW - margin * 2 - 150) as string[];
+    for (const line of caseLines) {
+      this.doc.text(line, margin, ty);
+      ty += 22;
+    }
+
+    ty += 40;
+    this.doc.setFont("helvetica", "bold");
+    this.doc.setFontSize(9);
+    
+    const fields = [
+      { k: "CLIENTE", v: opts.client },
+      { k: "EXPEDIENTE", v: opts.matterId },
+      { k: "PROCEDIMIENTO", v: opts.proceeding },
+      { k: "MATERIA", v: opts.matterType },
+      { k: "ÓRGANO JURISDICCIONAL", v: opts.court },
+      { k: "JURISDICCIÓN", v: opts.jurisdiction },
+      { k: "FECHA DEL ANÁLISIS", v: opts.date },
+      { k: "CLASIFICACIÓN", v: opts.classification }
+    ];
+
+    for (const f of fields) {
+      if (f.v) {
+        this.doc.setTextColor(...MUTED);
+        this.doc.text(spaced(f.k), margin, ty);
+        this.doc.setTextColor(255, 255, 255);
+        this.doc.text(f.v, margin + 180, ty);
         ty += 18;
       }
     }
-    // Gold rule under the title block
-    this.doc.setDrawColor(...ACCENT);
-    this.doc.setLineWidth(2.2);
-    this.doc.line(pageW / 2 - 21, ty + 4, pageW / 2 + 21, ty + 4);
-    ty += 26;
 
-    if (opts.description) {
-      this.doc.setFont("helvetica", "normal");
-      this.doc.setFontSize(9.6);
-      this.doc.setTextColor(220, 220, 215);
-      const descLines = this.doc.splitTextToSize(opts.description, 410) as string[];
-      for (const line of descLines.slice(0, 4)) {
-        this.doc.text(line, pageW / 2, ty, { align: "center" });
-        ty += 14;
-      }
+    this.doc.setFillColor(...PRIMARY_DEEP);
+    this.doc.rect(0, pageH - 50, pageW, 50, "F");
+    
+    this.doc.setFont("helvetica", "normal");
+    this.doc.setFontSize(8);
+    this.doc.setTextColor(...MUTED);
+    this.doc.text("NYRAVA LEGAL INTELLIGENCE - MEXICO.NYRAVA.COM", margin, pageH - 22);
+
+    if (opts.engineVersion) {
+      this.doc.text(`MOTOR V${opts.engineVersion}`, pageW - margin, pageH - 22, { align: "right" });
     }
 
-    // Work-product pill — positioned from the ACTUAL end of the description
-    // block, never a fixed Y, so a long dek can't collide with it.
-    const tagText = "ATTORNEY WORK PRODUCT  ·  PRIVILEGED & CONFIDENTIAL";
-    this.doc.setFont("helvetica", "bold");
-    this.doc.setFontSize(8.6);
-    const tagW = this.doc.getTextWidth(tagText) + 26;
-    const tagH = 22;
-    const tagY = Math.min(Math.max(ty + 34, pageH - 190), pageH - 168);
-    const tagX = (pageW - tagW) / 2;
-    this.doc.setDrawColor(...ACCENT);
-    this.doc.setLineWidth(0.8);
-    this.doc.roundedRect(tagX, tagY - tagH + 6, tagW, tagH, 4, 4, "S");
-    this.doc.setTextColor(...ACCENT);
-    this.doc.text(tagText, pageW / 2, tagY, { align: "center" });
-
-    // Metadata columns, separated by pale gold verticals
-    const footTop = pageH - 112;
-    const col = (
-      label: string,
-      value: string,
-      x: number,
-      align: "left" | "center" | "right" = "left",
-    ) => {
-      this.doc.setFont("helvetica", "bold");
-      this.doc.setFontSize(7.2);
-      this.doc.setTextColor(...ACCENT);
-      this.doc.text(label.toUpperCase(), x, footTop, { align });
-      this.doc.setFont("helvetica", "normal");
-      this.doc.setFontSize(9.4);
-      this.doc.setTextColor(255, 255, 255);
-      this.doc.text(value, x, footTop + 14, { align });
-    };
-    this.doc.setDrawColor(...ACCENT_SOFT);
-    this.doc.setLineWidth(0.4);
-    const sepTop = footTop - 9;
-    const sepBottom = footTop + 19;
-    this.doc.line(
-      margin + (pageW / 2 - margin) * 0.52,
-      sepTop,
-      margin + (pageW / 2 - margin) * 0.52,
-      sepBottom,
-    );
-    this.doc.line(
-      pageW - margin - (pageW / 2 - margin) * 0.52,
-      sepTop,
-      pageW - margin - (pageW / 2 - margin) * 0.52,
-      sepBottom,
-    );
-    col("Generated", new Date().toLocaleString(), margin);
-    if (opts.matterId) col("Matter ID", opts.matterId, pageW / 2, "center");
-    col("Classification", "Confidential", pageW - margin, "right");
-
-    // Bottom tagline
-    this.doc.setFont("helvetica", "normal");
-    this.doc.setFontSize(7.5);
-    this.doc.setTextColor(...ACCENT_SOFT);
-    this.doc.text(
-      CERTIFICATION_TAGLINE[opts.certification ?? "unverified"],
-      pageW / 2,
-      pageH - 42,
-      { align: "center" },
-    );
+    this.doc.addPage();
   }
 
   // Grid of compact stat cards (replaces the old plain label/value rows on
@@ -2085,11 +2032,19 @@ function renderCover(
   const r = asObj(data.report);
 
   // --- Page 1: premium full-bleed cover with TrustBadge ---
+  const identity = resolveReportIdentity(c);
   b.premiumCover({
+    reportTitle: "INFORME DE INTELIGENCIA JURÍDICA",
     caseName: asStr(c.name, "Untitled Case"),
-    description: asStr(c.description) || undefined,
-    engineVersion: asStr(r.intelligence_version) || undefined,
-    matterId: asStr(c.id).slice(0, 8).toUpperCase() || undefined,
+    client: identity.client,
+    proceeding: translateLegalTerm(identity.proceedingType),
+    matterType: translateLegalTerm(asStr(c.materia)),
+    court: translateLegalTerm(asStr(c.court_name)),
+    jurisdiction: translateLegalTerm(asStr(c.jurisdiction)),
+    matterId: identity.caseNumber,
+    classification: "CONFIDENCIAL",
+    date: new Date().toLocaleDateString("es-MX"),
+    engineVersion: translateLegalTerm(asStr(r.intelligence_version)),
     certification: deriveCertificationState(data),
   });
 
