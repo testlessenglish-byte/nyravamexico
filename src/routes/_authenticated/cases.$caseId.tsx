@@ -2450,12 +2450,12 @@ function ChatTab({ caseId }: { caseId: string }) {
   };
 
   const suggestions = [
-    "What is my strongest defense argument?",
-    "What evidence is weakest and most vulnerable?",
-    "What motions should be filed first?",
-    "What constitutional violations exist?",
-    "What evidence appears to be missing?",
-    "What would opposing counsel argue?",
+    L("¿Cuál es mi argumento de defensa más sólido?", "What is my strongest defense argument?"),
+    L("¿Qué prueba es más débil y vulnerable?", "What evidence is weakest and most vulnerable?"),
+    L("¿Qué promociones deben presentarse primero?", "What motions should be filed first?"),
+    L("¿Qué violaciones constitucionales existen?", "What constitutional violations exist?"),
+    L("¿Qué pruebas parecen faltar?", "What evidence appears to be missing?"),
+    L("¿Qué argumentaría la contraparte?", "What would opposing counsel argue?"),
   ];
 
   return (
