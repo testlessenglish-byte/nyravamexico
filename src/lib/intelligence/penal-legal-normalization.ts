@@ -307,7 +307,7 @@ export type PenalNormalizationRule =
 
 export function normalizePenalFinding<T extends NewFinding>(
   finding: T,
-  context: PenalMatterContext,
+  context: PartyScoreContext,
 ): T {
   if (!isPenalMatter(context)) return finding;
   const antecedent = validateReincidenciaEvidence(finding);
@@ -375,7 +375,7 @@ export function normalizePenalFinding<T extends NewFinding>(
   if (
     proposition === "court_holding" &&
     adoption === "adopted" &&
-    !completePartyAwareScoreMapping(finding)
+    !completePartyAwareScoreMapping(finding, context)
   ) {
     impactDirection = "neutral";
     affectedParty = "neutral";
