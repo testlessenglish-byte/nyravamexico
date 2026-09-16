@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+﻿import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -100,11 +100,8 @@ function NewCasePage() {
       toast.error(locale === "es" ? "Selecciona un cliente." : "Select a client.");
       return;
     }
-    if (clientSelectionType === "new" && !newClientName) {
-      toast.error(
-        locale === "es" ? "Ingresa el nombre del nuevo cliente." : "Enter the new client name.",
-      );
-      return;
+    if (clientSelectionType === "new" && !newClientName.trim()) {
+      // It's allowed to be empty.
     }
     if (!caseType) {
       toast.error(t("new.toast.needCaseType"));
@@ -257,7 +254,7 @@ function NewCasePage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className="text-sm font-medium">
-                    {locale === "es" ? "Nombre / Razón Social *" : "Name / Legal Name *"}
+                    {locale === "es" ? "Nombre / Razón Social (Opcional)" : "Name / Legal Name (Optional)"}
                   </label>
                   <input
                     value={newClientName}
