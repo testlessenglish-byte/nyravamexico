@@ -1,8 +1,8 @@
-// CRM Client Management — CRUD operations for the legal CRM.
+﻿// CRM Client Management â€” CRUD operations for the legal CRM.
 //
 // New tables (clients, case_deadlines, crm_activity_log) are not yet
 // in the auto-generated Supabase types.ts, so queries against them use
-// `(client as any).from(...)` — the same pattern billing.functions.ts
+// `(client as any).from(...)` â€” the same pattern billing.functions.ts
 // uses for billing_provider_settings and other tables added after the
 // types were last generated.
 import { createServerFn } from "@tanstack/react-start";
@@ -105,7 +105,7 @@ export const getClient = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     if (!client) throw new Error("Client not found or access denied.");
 
-    // Cases for this client — client_id is new, not yet in types
+    // Cases for this client â€” client_id is new, not yet in types
     const { data: cases } = await (ctx.supabase as any)
       .from("cases")
       .select("id, name, case_number, status, matter_type, updated_at")
@@ -320,6 +320,7 @@ export const deleteClientFn = createServerFn({ method: "POST" })
 
     return { success: true };
   });
+
 
 
 

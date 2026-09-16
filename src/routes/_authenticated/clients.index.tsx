@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+﻿import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState, useMemo } from "react";
@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/_authenticated/clients/")({
-  head: () => ({ meta: [{ title: "Clientes — Nyrava" }] }),
+  head: () => ({ meta: [{ title: "Clientes â€” Nyrava" }] }),
   component: ClientsPage,
 });
 
@@ -96,9 +96,9 @@ function ClientsPage() {
               </DialogHeader>
                 <form onSubmit={handleCreateClient} className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Nombre / Razón Social *</label>
+                    <label className="text-sm font-medium">Nombre / RazÃ³n Social *</label>
                     <Input 
-                      placeholder="Ej. Juan Pérez o Empresa S.A." 
+                      placeholder="Ej. Juan PÃ©rez o Empresa S.A." 
                       value={newClient.display_name}
                       onChange={(e) => setNewClient({ ...newClient, display_name: e.target.value })}
                       required
@@ -111,12 +111,12 @@ function ClientsPage() {
                       value={newClient.client_type}
                       onChange={(e) => setNewClient({ ...newClient, client_type: e.target.value })}
                     >
-                      <option value="individual">Persona Física</option>
+                      <option value="individual">Persona FÃ­sica</option>
                       <option value="company">Persona Moral</option>
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Correo Electrónico</label>
+                    <label className="text-sm font-medium">Correo ElectrÃ³nico</label>
                     <Input 
                       type="email" 
                       placeholder="correo@ejemplo.com" 
@@ -166,10 +166,10 @@ function ClientsPage() {
         <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">
           <Users className="mx-auto h-12 w-12 text-muted-foreground/50" />
           <h2 className="mt-4 text-lg font-medium text-foreground">
-            {clients && clients.length > 0 ? "No se encontraron resultados" : "No tienes clientes aún"}
+            {clients && clients.length > 0 ? "No se encontraron resultados" : "No tienes clientes aÃºn"}
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {clients && clients.length > 0 ? "Intenta con otros términos de búsqueda." : "Agrega tu primer cliente para comenzar."}
+            {clients && clients.length > 0 ? "Intenta con otros tÃ©rminos de bÃºsqueda." : "Agrega tu primer cliente para comenzar."}
           </p>
         </div>
       ) : (
@@ -190,6 +190,7 @@ function ClientsPage() {
     </div>
   );
 }
+
 
 
 
