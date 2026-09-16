@@ -426,7 +426,7 @@ export async function buildCanonicalTimeline(db: Db, caseId: string): Promise<Ca
       const text = String(e.event ?? e.description ?? "").trim();
       if (!text) continue;
       const quote = String(e.source_quote ?? text);
-      const evType = classifyTimelineEvent(`${text} ${quote}`, e.event_type);
+      const evType = classifyTimelineEvent(`${text} ${quote}`, e.event_type || "case_event");
       if (evType === "unknown") continue;
       if (evType === "case_event") analyzerCount += 1;
       push({
@@ -455,7 +455,7 @@ export async function buildCanonicalTimeline(db: Db, caseId: string): Promise<Ca
     const text = String(r.title ?? r.description ?? "").trim();
     if (!text) continue;
     const quote = String(r.source_quote ?? text);
-    const declaredType = r.proposition_type === "procedural_event" ? "case_event" : undefined;
+    const declaredType = r.proposition_type === "procedural_event" ? "case_event" : "case_event";
     const evType = classifyTimelineEvent(`${text} ${quote}`, declaredType);
     if (evType === "unknown") continue;
     if (evType === "case_event") findingCount += 1;
@@ -476,17 +476,16 @@ export async function buildCanonicalTimeline(db: Db, caseId: string): Promise<Ca
     });
   }
 
-  // 3) Corpus fallback. Run whenever the structured producers are sparse.
-  if (byKey.size < 3) {
-    for (const doc of documents ?? []) {
-      const text = typeof doc.extracted_text === "string" ? doc.extracted_text : "";
-      for (const ev of extractCorpusTimelineEvents(text)) {
-        const evType = classifyTimelineEvent(`${ev.event} ${ev.source_quote}`);
-        if (evType === "unknown") continue;
-        if (evType === "case_event") corpusCount += 1;
-        push({
-          date: ev.date,
-          date_raw: ev.date_raw,
+  // 3) Corpus fallback. Run ALWAYS so all dates surface
+  for (const doc of documents ?? []) {
+    const text = typeof doc.extracted_text === "string" ? doc.extracted_text : "";
+    for (const ev of extractCorpusTimelineEvents(text)) {
+      const evType = classifyTimelineEvent(`${ev.event} ${ev.source_quote}`);
+      if (evType === "unknown") continue;
+      if (evType === "case_event") corpusCount += 1;
+      push({
+        date: ev.date,
+        date_raw: ev.date_raw,
           event: ev.event,
           event_type: evType,
           sources: [
@@ -500,7 +499,6 @@ export async function buildCanonicalTimeline(db: Db, caseId: string): Promise<Ca
         });
       }
     }
-  }
 
   const mapBucketToEvent = (b: Bucket): CanonicalTimelineEvent => ({
     date: b.date,

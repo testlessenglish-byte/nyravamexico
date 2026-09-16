@@ -13,6 +13,7 @@ import { CreditCard, Check, Loader2, ShieldCheck, ExternalLink, Gauge } from "lu
 import {
   getMyBillingStatus,
   createCheckoutSession,
+  createCustomerPortalSession,
   cancelMySubscription,
 } from "@/lib/billing.functions";
 import { listPublicBillingPlans, type PublicBillingPlan } from "@/lib/billing-plans.functions";
@@ -44,7 +45,7 @@ function BillingPage() {
   const qc = useQueryClient();
   const statusFn = useServerFn(getMyBillingStatus);
   const checkoutFn = useServerFn(createCheckoutSession);
-  const cancelFn = useServerFn(cancelMySubscription);
+  const portalFn = useServerFn(createCustomerPortalSession);
   const plansFn = useServerFn(listPublicBillingPlans);
 
   const plansQ = useQuery({ queryKey: ["public-billing-plans"], queryFn: () => plansFn() });
@@ -64,16 +65,12 @@ function BillingPage() {
       money = `$${amount.toFixed(2)}`;
     }
     const suffix =
-      plan.interval === "year"
-        ? locale === "es"
-          ? "/año"
-          : "/yr"
-        : plan.interval === "one_time"
-          ? ""
-          : locale === "es"
-            ? "/mes"
-            : "/mo";
-    return `${money}${suffix}`;
+      plan.interval === "month"
+        ? t("billing.plan.monthly")
+        : plan.interval === "year"
+          ? t("billing.plan.yearly")
+          : t("billing.plan.oneTime");
+    return `${money} ${suffix}`;
   };
 
   const { data, isLoading } = useQuery({
@@ -82,22 +79,18 @@ function BillingPage() {
   });
 
   const checkout = useMutation({
-    mutationFn: (input: { planKey: string; provider: "stripe" }) =>
-      checkoutFn({
-        data: { planKey: input.planKey, provider: input.provider, origin: window.location.origin },
-      }),
-    onSuccess: (res: { url?: string | null }) => {
-      if (res?.url) window.location.href = res.url;
-      else toast.error(t("billing.error.noCheckout"));
+    mutationFn: (args: { planKey: string; provider?: string }) =>
+      checkoutFn({ data: { plan: args.planKey, origin: window.location.origin } }),
+    onSuccess: (res) => {
+      if (res.url) window.location.href = res.url;
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : String(e)),
   });
 
-  const cancel = useMutation({
-    mutationFn: () => cancelFn(),
-    onSuccess: () => {
-      toast.success(t("billing.cancel.success"));
-      qc.invalidateQueries({ queryKey: ["billing-status"] });
+  const portal = useMutation({
+    mutationFn: () => portalFn({ data: { origin: window.location.origin } }),
+    onSuccess: (res: any) => {
+      if (res.url) window.location.href = res.url;
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : String(e)),
   });
@@ -157,15 +150,13 @@ function BillingPage() {
           </div>
         )}
 
-        {data?.plan && data.status === "active" && (
+        {data?.plan && (data.status === "active" || data.status === "trialing") && (
           <button
-            onClick={() => {
-              if (window.confirm(t("billing.cancel.confirm"))) cancel.mutate();
-            }}
-            disabled={cancel.isPending}
+            onClick={() => portal.mutate()}
+            disabled={portal.isPending}
             className="mt-4 inline-flex items-center gap-2 rounded border border-border/60 px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted/40 disabled:opacity-50"
           >
-            {cancel.isPending ? (
+            {portal.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <ExternalLink className="h-4 w-4" />

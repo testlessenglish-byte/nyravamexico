@@ -115,7 +115,7 @@ export async function resolveUserPlan(admin: Db, userId: string): Promise<Resolv
     };
   }
 
-  if (sub?.status === "active" && sub.plan) {
+  if ((sub?.status === "active" || sub?.status === "trialing") && sub.plan) {
     const { data: planRow } = await admin
       .from("billing_plans")
       .select(

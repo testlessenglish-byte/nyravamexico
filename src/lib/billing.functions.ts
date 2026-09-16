@@ -513,3 +513,34 @@ export const adminSetBillingProviderEnabled = createServerFn({ method: "POST" })
 
 
 export { isPlanKey };
+
+export const createCustomerPortalSession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ origin: z.string().url() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const userId = await getAuthedUserId(context as { supabase?: Db; userId?: string });
+    
+    const admin = getAdminClient();
+    const { data: sub } = await admin
+      .from("subscriptions")
+      .select("stripe_customer_id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (!sub?.stripe_customer_id) {
+      throw new Error("No Stripe customer found for this account.");
+    }
+
+    const { getStripe } = await import("./stripe.server");
+    const stripe = getStripe();
+
+    const returnUrl = `${data.origin}/billing`;
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: sub.stripe_customer_id,
+      return_url: returnUrl,
+    });
+
+    return { url: session.url };
+  });
+
