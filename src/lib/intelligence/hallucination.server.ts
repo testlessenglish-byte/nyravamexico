@@ -537,6 +537,7 @@ export async function runHallucinationReview(args: { db: Db; caseId: string }): 
     concluded_case_actions_removed: proseReconciliation.concludedCaseActionsRemoved,
     materia_leak_actions_removed: proseReconciliation.materiaLeakActionsRemoved,
     false_orphan_citations_reconciled: proseReconciliation.falseOrphanCitationsReconciled,
+    upstream_release_block: proseReconciliation.upstreamReleaseBlock,
   };
 
   const nowIso = new Date().toISOString();
