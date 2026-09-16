@@ -904,7 +904,9 @@ export class PdfBuilder {
     this.doc.line(cx + 35, 195, cx + 70, 195);
     this.doc.text(spaced("MÉXICO"), cx, 198, { align: "center" });
 
-    // Large centered report title
+    // Large centered report title. The title and identity occupy bounded
+    // regions; unusually long names therefore cannot push metadata into the
+    // classification and certification area at the foot of the cover.
     let ty = 260;
     this.doc.setFont("times", "normal");
     this.doc.setFontSize(28);
@@ -916,38 +918,51 @@ export class PdfBuilder {
     }
 
     // Case Identity
-    ty += 30;
+    ty = 350;
     this.doc.setFont("times", "bold");
-    this.doc.setFontSize(24);
-    const caseNameLines = this.doc.splitTextToSize(opts.caseName || "ADR 3265/2023", pageW - margin * 2) as string[];
+    let caseNameSize = 24;
+    this.doc.setFontSize(caseNameSize);
+    let caseNameLines = this.doc.splitTextToSize(opts.caseName || "ADR 3265/2023", pageW - margin * 2) as string[];
+    while (caseNameLines.length > 2 && caseNameSize > 18) {
+      caseNameSize -= 1;
+      this.doc.setFontSize(caseNameSize);
+      caseNameLines = this.doc.splitTextToSize(opts.caseName || "ADR 3265/2023", pageW - margin * 2) as string[];
+    }
+    const caseNameLeading = caseNameSize + 4;
     for (const line of caseNameLines) {
       this.doc.text(line, cx, ty, { align: "center" });
-      ty += 28;
+      ty += caseNameLeading;
     }
     
-    ty += 2;
+    ty += 4;
     this.doc.setFont("times", "normal");
-    this.doc.setFontSize(20);
+    this.doc.setFontSize(18);
     const proceedingLines = this.doc.splitTextToSize(opts.proceeding || "Amparo Directo en Revisión", pageW - margin * 2) as string[];
     for (const line of proceedingLines) {
       this.doc.text(line, cx, ty, { align: "center" });
-      ty += 24;
+      ty += 21;
     }
 
     ty += 4;
     this.doc.setFont("times", "normal");
-    this.doc.setFontSize(16);
-    const courtLines = this.doc.splitTextToSize(opts.court || "Suprema Corte de Justicia de la Nación", pageW - margin * 2) as string[];
+    let courtSize = 15;
+    this.doc.setFontSize(courtSize);
+    let courtLines = this.doc.splitTextToSize(opts.court || "Suprema Corte de Justicia de la Nación", pageW - margin * 2) as string[];
+    while ((ty + courtLines.length * (courtSize + 3)) > 486 && courtSize > 11) {
+      courtSize -= 1;
+      this.doc.setFontSize(courtSize);
+      courtLines = this.doc.splitTextToSize(opts.court || "Suprema Corte de Justicia de la Nación", pageW - margin * 2) as string[];
+    }
     for (const line of courtLines) {
       this.doc.text(line, cx, ty, { align: "center" });
-      ty += 20;
+      ty += courtSize + 3;
     }
 
     // Metadata table. Labels and values have separate measured columns so a
     // long label (notably "ÓRGANO JURISDICCIONAL") can never run into its
     // value. Each row grows to the taller wrapped side instead of assuming a
     // fixed 20pt height.
-    ty += 44;
+    ty = 505;
     const metadataLeft = margin + 54;
     const metadataDivider = cx - 34;
     const metadataRight = metadataDivider + 14;
@@ -1009,14 +1024,21 @@ export class PdfBuilder {
       }
     }
 
-    // CONFIDENCIAL Box
-    ty += 12;
+    // Classification box has its own bounded region below metadata.
+    ty = Math.max(640, ty + 12);
     const classificationWidth = 240;
     const classificationTextWidth = classificationWidth - 24;
-    const classification = spaced(opts.classification || "CONFIDENCIAL");
+    const rawClassification = (opts.classification || "CONFIDENCIAL").toUpperCase();
+    const classification = rawClassification.length <= 20 ? spaced(rawClassification) : rawClassification;
     this.doc.setFont("times", "bold");
-    this.doc.setFontSize(14);
-    const classificationLines = this.doc.splitTextToSize(classification, classificationTextWidth) as string[];
+    let classificationSize = 14;
+    this.doc.setFontSize(classificationSize);
+    let classificationLines = this.doc.splitTextToSize(classification, classificationTextWidth) as string[];
+    while (classificationLines.length > 2 && classificationSize > 10) {
+      classificationSize -= 1;
+      this.doc.setFontSize(classificationSize);
+      classificationLines = this.doc.splitTextToSize(classification, classificationTextWidth) as string[];
+    }
     const classificationHeight = Math.max(35, classificationLines.length * 17 + 14);
     this.doc.setDrawColor(...GOLD);
     this.doc.setLineWidth(1);
@@ -1028,7 +1050,7 @@ export class PdfBuilder {
     });
 
     // Certification text
-    ty += classificationHeight + 24;
+    ty = Math.max(710, ty + classificationHeight + 20);
     this.doc.setFont("times", "normal");
     this.doc.setFontSize(10.5);
     this.doc.setTextColor(255, 255, 255);
