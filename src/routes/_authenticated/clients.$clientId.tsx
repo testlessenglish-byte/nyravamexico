@@ -128,6 +128,9 @@ function ClientDetailPage() {
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <Briefcase className="h-5 w-5 text-primary" /> Expedientes Relacionados
             </h2>
+            <Link to="/new" search={{ clientId }} className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90">
+              + Analizar Nuevo Caso
+            </Link>
           </div>
 
           <div className="panel overflow-hidden">
