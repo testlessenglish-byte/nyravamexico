@@ -3876,7 +3876,7 @@ export const adminStats = createServerFn({ method: "GET" })
       .maybeSingle();
     if (!adminRole) throw new Error("Forbidden");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [cases, users, reports, usage] = await Promise.all([
+    const [cases, users, reports, usage, subs, plans] = await Promise.all([
       supabaseAdmin
         .from("cases")
         .select("id,name,status,user_id,created_at,completed_at")
@@ -3897,6 +3897,12 @@ export const adminStats = createServerFn({ method: "GET" })
         .select("model,operation,total_tokens,latency_ms,success,created_at,user_id,case_id")
         .order("created_at", { ascending: false })
         .limit(500),
+      supabaseAdmin
+        .from("subscriptions")
+        .select("*"),
+      supabaseAdmin
+        .from("billing_plans")
+        .select("key, price_cents, interval"),
     ]);
     const { data: audit } = await supabaseAdmin
       .from("admin_audit_log")
@@ -3909,6 +3915,8 @@ export const adminStats = createServerFn({ method: "GET" })
       reports: reports.data ?? [],
       usage: usage.data ?? [],
       audit: audit ?? [],
+      subscriptions: subs.data ?? [],
+      billing_plans: plans.data ?? [],
     };
   });
 

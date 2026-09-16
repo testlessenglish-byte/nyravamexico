@@ -104,6 +104,24 @@ function AdminDashboard() {
   const inProg = data.cases.length - failed - complete;
   const totalTokens = data.usage.reduce((s, u) => s + (u.total_tokens ?? 0), 0);
   const failedAi = data.usage.filter((u) => !u.success).length;
+  
+  const trialing = data.subscriptions.filter(s => s.status === "trialing").length;
+  const activeSubs = data.subscriptions.filter(s => s.status === "active").length;
+  const pastDue = data.subscriptions.filter(s => s.status === "past_due").length;
+  const canceled = data.subscriptions.filter(s => s.status === "canceled").length;
+  
+  // Calculate MRR
+  let mrr = 0;
+  for (const sub of data.subscriptions) {
+    if ((sub.status === "active" || sub.status === "trialing") && sub.plan) {
+      const plan = data.billing_plans.find(p => p.key === sub.plan);
+      if (plan) {
+        if (plan.interval === "month") mrr += plan.price_cents / 100;
+        else if (plan.interval === "year") mrr += (plan.price_cents / 100) / 12;
+      }
+    }
+  }
+
   const casePager = pageWindow(data.cases, casePage);
   const userPager = pageWindow(data.users, userPage);
   const usagePager = pageWindow(data.usage, usagePage);
@@ -145,6 +163,12 @@ function AdminDashboard() {
             className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium hover:bg-muted sm:text-sm"
           >
             Billing Plans →
+          </Link>
+          <Link
+            to="/admin/subscriptions"
+            className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium hover:bg-muted sm:text-sm"
+          >
+            Subscribers →
           </Link>
           <Link
             to="/admin/beta"
@@ -192,6 +216,61 @@ function AdminDashboard() {
         <Stat label="Complete" value={complete} tone="success" />
         <Stat label="Failed" value={failed} tone="destructive" />
       </div>
+
+      <Section title="Subscriptions & Billing">
+        <div className="grid gap-4 md:grid-cols-5">
+          <div className="rounded-xl border border-border bg-card p-5">
+            <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">MRR</div>
+            <div className="mt-2 text-3xl font-semibold tabular-nums text-accent">
+              {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(mrr)}
+            </div>
+          </div>
+          <Stat label="Trials" value={trialing} tone="success" />
+          <Stat label="Active" value={activeSubs} tone="success" />
+          <Stat label="Past Due" value={pastDue} tone="warning" />
+          <Stat label="Canceled" value={canceled} tone="destructive" />
+        </div>
+        
+        <div className="mt-6">
+          <h3 className="mb-3 text-sm font-medium text-muted-foreground">Recent Subscribers</h3>
+          <Table cols={["Customer", "Plan", "Status", "Joined"]}>
+            {data.subscriptions
+              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+              .slice(0, 5)
+              .map((sub) => {
+                const u = data.users.find((u) => u.id === sub.user_id);
+                return (
+                  <tr key={sub.user_id} className="border-t border-border">
+                    <td className="px-4 py-2 font-medium">
+                      {u ? (
+                        <>
+                          <div className="truncate">{u.full_name}</div>
+                          <div className="text-xs text-muted-foreground">{u.email}</div>
+                        </>
+                      ) : (
+                        "Unknown"
+                      )}
+                    </td>
+                    <td className="px-4 py-2">{sub.plan || "—"}</td>
+                    <td className="px-4 py-2">
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                        sub.status === "active" ? "border border-success/40 bg-success/10 text-success" :
+                        sub.status === "trialing" ? "border border-accent/40 bg-accent/10 text-accent" :
+                        sub.status === "past_due" ? "border border-warning/40 bg-warning/10 text-warning" :
+                        "border border-destructive/40 bg-destructive/10 text-destructive"
+                      }`}>
+                        {sub.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-muted-foreground">
+                      {new Date(sub.created_at).toLocaleString()}
+                    </td>
+                  </tr>
+                );
+              })}
+          </Table>
+        </div>
+      </Section>
 
       <Section title="System health">
         <div className="rounded-xl border border-border bg-card p-5 text-sm">

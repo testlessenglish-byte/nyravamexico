@@ -80,6 +80,7 @@ import { Route as AuthenticatedAdminLegalKnowledgeRouteImport } from './routes/_
 import { Route as AuthenticatedAdminMessagesRouteImport } from './routes/_authenticated/admin.messages'
 import { Route as AuthenticatedAdminPipelineLedgerRouteImport } from './routes/_authenticated/admin.pipeline-ledger'
 import { Route as AuthenticatedAdminResetRouteImport } from './routes/_authenticated/admin.reset'
+import { Route as AuthenticatedAdminSubscriptionsRouteImport } from './routes/_authenticated/admin.subscriptions'
 import { Route as AuthenticatedAdminTeamRouteImport } from './routes/_authenticated/admin.team'
 import { Route as AuthenticatedAdminTestCasesRouteImport } from './routes/_authenticated/admin.test-cases'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
@@ -462,6 +463,12 @@ const AuthenticatedAdminResetRoute = AuthenticatedAdminResetRouteImport.update({
   path: '/reset',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
+const AuthenticatedAdminSubscriptionsRoute =
+  AuthenticatedAdminSubscriptionsRouteImport.update({
+    id: '/subscriptions',
+    path: '/subscriptions',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminTeamRoute = AuthenticatedAdminTeamRouteImport.update({
   id: '/team',
   path: '/team',
@@ -629,6 +636,7 @@ export interface FileRoutesByFullPath {
   '/admin/messages': typeof AuthenticatedAdminMessagesRoute
   '/admin/pipeline-ledger': typeof AuthenticatedAdminPipelineLedgerRoute
   '/admin/reset': typeof AuthenticatedAdminResetRoute
+  '/admin/subscriptions': typeof AuthenticatedAdminSubscriptionsRoute
   '/admin/team': typeof AuthenticatedAdminTeamRoute
   '/admin/test-cases': typeof AuthenticatedAdminTestCasesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -716,6 +724,7 @@ export interface FileRoutesByTo {
   '/admin/messages': typeof AuthenticatedAdminMessagesRoute
   '/admin/pipeline-ledger': typeof AuthenticatedAdminPipelineLedgerRoute
   '/admin/reset': typeof AuthenticatedAdminResetRoute
+  '/admin/subscriptions': typeof AuthenticatedAdminSubscriptionsRoute
   '/admin/team': typeof AuthenticatedAdminTeamRoute
   '/admin/test-cases': typeof AuthenticatedAdminTestCasesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -807,6 +816,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/messages': typeof AuthenticatedAdminMessagesRoute
   '/_authenticated/admin/pipeline-ledger': typeof AuthenticatedAdminPipelineLedgerRoute
   '/_authenticated/admin/reset': typeof AuthenticatedAdminResetRoute
+  '/_authenticated/admin/subscriptions': typeof AuthenticatedAdminSubscriptionsRoute
   '/_authenticated/admin/team': typeof AuthenticatedAdminTeamRoute
   '/_authenticated/admin/test-cases': typeof AuthenticatedAdminTestCasesRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -898,6 +908,7 @@ export interface FileRouteTypes {
     | '/admin/messages'
     | '/admin/pipeline-ledger'
     | '/admin/reset'
+    | '/admin/subscriptions'
     | '/admin/team'
     | '/admin/test-cases'
     | '/admin/users'
@@ -985,6 +996,7 @@ export interface FileRouteTypes {
     | '/admin/messages'
     | '/admin/pipeline-ledger'
     | '/admin/reset'
+    | '/admin/subscriptions'
     | '/admin/team'
     | '/admin/test-cases'
     | '/admin/users'
@@ -1075,6 +1087,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/messages'
     | '/_authenticated/admin/pipeline-ledger'
     | '/_authenticated/admin/reset'
+    | '/_authenticated/admin/subscriptions'
     | '/_authenticated/admin/team'
     | '/_authenticated/admin/test-cases'
     | '/_authenticated/admin/users'
@@ -1638,6 +1651,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminResetRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/subscriptions': {
+      id: '/_authenticated/admin/subscriptions'
+      path: '/subscriptions'
+      fullPath: '/admin/subscriptions'
+      preLoaderRoute: typeof AuthenticatedAdminSubscriptionsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/team': {
       id: '/_authenticated/admin/team'
       path: '/team'
@@ -1771,6 +1791,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminMessagesRoute: typeof AuthenticatedAdminMessagesRoute
   AuthenticatedAdminPipelineLedgerRoute: typeof AuthenticatedAdminPipelineLedgerRoute
   AuthenticatedAdminResetRoute: typeof AuthenticatedAdminResetRoute
+  AuthenticatedAdminSubscriptionsRoute: typeof AuthenticatedAdminSubscriptionsRoute
   AuthenticatedAdminTeamRoute: typeof AuthenticatedAdminTeamRoute
   AuthenticatedAdminTestCasesRoute: typeof AuthenticatedAdminTestCasesRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
@@ -1787,6 +1808,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminMessagesRoute: AuthenticatedAdminMessagesRoute,
   AuthenticatedAdminPipelineLedgerRoute: AuthenticatedAdminPipelineLedgerRoute,
   AuthenticatedAdminResetRoute: AuthenticatedAdminResetRoute,
+  AuthenticatedAdminSubscriptionsRoute: AuthenticatedAdminSubscriptionsRoute,
   AuthenticatedAdminTeamRoute: AuthenticatedAdminTeamRoute,
   AuthenticatedAdminTestCasesRoute: AuthenticatedAdminTestCasesRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
@@ -1935,3 +1957,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

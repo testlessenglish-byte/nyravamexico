@@ -513,3 +513,39 @@ export const adminSetBillingProviderEnabled = createServerFn({ method: "POST" })
 
 
 export { isPlanKey };
+
+export const createCustomerPortalSession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const userId = await getAuthedUserId(context as { supabase?: Db; userId?: string });
+    
+    // We need req from somewhere. Let's see if context.req exists or if we can use getHeader()
+    // Wait, in React Start server functions we can use getWebRequest()
+    const { getWebRequest } = await import("@tanstack/react-start/server");
+    const req = getWebRequest();
+    const admin = getAdminClient();
+    const { data: sub } = await admin
+      .from("subscriptions")
+      .select("stripe_customer_id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (!sub?.stripe_customer_id) {
+      throw new Error("No Stripe customer found for this account.");
+    }
+
+    const { getStripe } = await import("./stripe.server");
+    const stripe = getStripe();
+
+    const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "mexico.nyrava.com";
+    const protocol = req.headers.get("x-forwarded-proto") ?? "https";
+    const returnUrl = `${protocol}://${host}/billing`;
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: sub.stripe_customer_id,
+      return_url: returnUrl,
+    });
+
+    return { url: session.url };
+  });
+

@@ -185,13 +185,15 @@ export const Route = createFileRoute("/api/public/hooks/stripe-webhook")({
               const organizationPlan = sub.metadata?.plan?.trim() || null;
               const plan = isDynamicPlanKey(organizationPlan) ? organizationPlan : undefined;
               const status: Database["public"]["Tables"]["subscriptions"]["Row"]["status"] =
-                sub.status === "active" || sub.status === "trialing"
-                  ? "active"
-                  : sub.status === "past_due" || sub.status === "unpaid"
-                    ? "past_due"
-                    : sub.status === "canceled" || sub.status === "incomplete_expired"
-                      ? "canceled"
-                      : "incomplete";
+                sub.status === "trialing"
+                  ? "trialing"
+                  : sub.status === "active"
+                    ? "active"
+                    : sub.status === "past_due" || sub.status === "unpaid"
+                      ? "past_due"
+                      : sub.status === "canceled" || sub.status === "incomplete_expired"
+                        ? "canceled"
+                        : "incomplete";
               const periodEnd = (sub as unknown as { current_period_end?: number }).current_period_end;
               await admin.from("subscriptions").upsert(
                 {
@@ -205,6 +207,17 @@ export const Route = createFileRoute("/api/public/hooks/stripe-webhook")({
                 },
                 { onConflict: "user_id" },
               );
+              if (sub.status === "trialing" || sub.status === "active") {
+                  try {
+                    await admin.from("admin_audit_log").insert({
+                      action: sub.status === "trialing" ? "subscription.trial_started" : "subscription.active",
+                      target: userId,
+                      meta: { plan: plan || "N/A", status, stripe_id: sub.id, event: "🎉 Nuevo cliente — Nyrava México" },
+                    });
+                  } catch (e) {
+                    console.error("Failed to insert admin audit log", e);
+                  }
+              }
               await provisionOrganizationSubscription(admin, {
                 eventId: event.id,
                 eventType: event.type,
