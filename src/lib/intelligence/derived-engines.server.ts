@@ -115,9 +115,15 @@ async function invalidateReleasedSnapshot(db: Db, caseId: string, source: string
   }
 }
 
-export async function deriveContradictions(db: Db, caseId: string) {
+export async function deriveContradictions(
+  db: Db,
+  caseId: string,
+  opts: { invalidateReport?: boolean } = {},
+) {
   const n = await countFindings(db, caseId, DERIVED_ENGINE_SOURCES.contradictions);
-  await invalidateReleasedSnapshot(db, caseId, "deriveContradictions");
+  if (opts.invalidateReport !== false) {
+    await invalidateReleasedSnapshot(db, caseId, "deriveContradictions");
+  }
   return {
     value: { derived_from: "analyzers", contradictions: n },
     stats: { generated: n, accepted: n },

@@ -61,11 +61,14 @@ describe("canonical execution architecture", () => {
     }
   });
 
-  it("classifies every stage except report_generator as blocking for the report gate (2026-07-31: report runs last — every other stage, multi_agent included, must finish first)", () => {
-    const expected = CANONICAL_STAGES.filter((s) => s.engine !== "report_generator").map((s) => s.engine);
+  it("uses the canonical requirement tier for report blockers", () => {
+    const expected = CANONICAL_STAGES.filter(
+      (s) => s.requirement === "blocking" && s.engine !== "report_generator",
+    ).map((s) => s.engine);
     expect([...REPORT_BLOCKING_ENGINES].sort()).toEqual([...expected].sort());
     expect(REPORT_BLOCKING_ENGINES).not.toContain("report_generator");
-    expect(REPORT_BLOCKING_ENGINES).toContain("multi_agent");
+    expect(REPORT_BLOCKING_ENGINES).not.toContain("multi_agent");
+    expect(REPORT_BLOCKING_ENGINES).not.toContain("perspectives");
     expect(REPORT_ENRICHING_ENGINES.length).toBeGreaterThan(0);
   });
 
@@ -99,15 +102,15 @@ describe("canonical execution architecture", () => {
   // row at all. These tests prove *why* that's the right terminal state to
   // pick — "skipped" is the one status canGenerateReport() already exempts
   // unconditionally, for every engine, regardless of requirement tier.
-  it("report gate still blocks on an optional engine with NO row at all — proves the dead end this fix closes", () => {
+  it("report gate does not block on an optional engine with no row", () => {
     expect(OPTIONAL_ENGINES.has("perspectives")).toBe(true);
     expect(OPTIONAL_ENGINES.has("strategy")).toBe(true);
     const rows = REPORT_BLOCKING_ENGINES.filter((e) => e !== "perspectives" && e !== "strategy").map((e) =>
       row(e, "completed"),
     );
     const gate = canGenerateReport(rows);
-    expect(gate.ok).toBe(false);
-    expect(gate.missingBlocking).toEqual(expect.arrayContaining(["perspectives", "strategy"]));
+    expect(gate.ok).toBe(true);
+    expect(gate.missingBlocking).not.toEqual(expect.arrayContaining(["perspectives", "strategy"]));
   });
 
   it("report gate passes once the missing optional engines are recorded 'skipped' (what ensureRequiredEngines now does)", () => {
@@ -117,13 +120,15 @@ describe("canonical execution architecture", () => {
     expect(canGenerateReport(rows).ok).toBe(true);
   });
 
-  it("blocks release when an optional substantive engine failed or was blocked", () => {
-    const rows = REPORT_BLOCKING_ENGINES.map((e) =>
-      e === "perspectives" ? row(e, "failed") : e === "strategy" ? row(e, "blocked") : row(e, "completed"),
-    );
+  it("records optional failures as non-blocking coverage degradation", () => {
+    const rows = [
+      ...REPORT_BLOCKING_ENGINES.map((e) => row(e, "completed")),
+      row("perspectives", "failed"),
+      row("strategy", "blocked"),
+    ];
     const gate = canGenerateReport(rows);
-    expect(gate.ok).toBe(false);
-    expect(gate.missingBlocking).toEqual(expect.arrayContaining(["perspectives", "strategy"]));
+    expect(gate.ok).toBe(true);
+    expect(gate.missingBlocking).toEqual([]);
   });
 
   it("a BLOCKING-tier engine with no row still blocks — this fix is scoped to optional engines only", () => {

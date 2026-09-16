@@ -1153,7 +1153,7 @@ export const resumeFullPipelineStep = createServerFn({ method: "POST" })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: caseRow, error: caseErr } = await (supabase as any)
       .from("cases")
-      .select("status,next_stage,worker_lease_until")
+      .select("status,status_message,progress,next_stage,worker_lease_until,error,report_at,completed_at")
       .eq("id", data.caseId)
       .maybeSingle();
     if (caseErr) throw new Error(caseErr.message);
@@ -1526,20 +1526,25 @@ export const clearPipelineStuckState = createServerFn({ method: "POST" })
       .eq("case_id", data.caseId)
       .in("status", ["queued", "running"]);
 
+    const terminalStatuses = new Set(["complete", "released", "needs_revision", "failed", "cancelled"]);
+    const preserveTerminal = !resumeKey && terminalStatuses.has(String(caseRow.status ?? ""));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: updateErr } = await (supabase as any)
       .from("cases")
       .update({
-        status: "failed",
-        status_message: resumeKey
-          ? `Stuck state cleared — click Resume to continue at ${resumeKey}`
-          : "Stuck state cleared — no incomplete stage found",
+        status: preserveTerminal ? caseRow.status : resumeKey ? "failed" : "complete",
+        status_message: preserveTerminal
+          ? caseRow.status_message
+          : resumeKey
+            ? `Stuck state cleared — click Resume to continue at ${resumeKey}`
+            : "Pipeline complete — no incomplete stage found",
+        progress: preserveTerminal ? caseRow.progress : resumeKey ? caseRow.progress : 100,
         queued_at: null,
         worker_lease_until: null,
         next_stage: resumeKey ?? null,
         cancel_requested: false,
-        stall_reason: "manual_clear",
-        error: null,
+        stall_reason: resumeKey ? "manual_clear" : null,
+        error: preserveTerminal ? caseRow.error : null,
       })
       .eq("id", data.caseId);
     if (updateErr) throw new Error(updateErr.message);

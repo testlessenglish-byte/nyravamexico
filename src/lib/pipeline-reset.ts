@@ -95,6 +95,7 @@ export const CASE_RESET_FIELDS = {
   status_message: null,
   progress: 0,
   report_checkpoint_count: 0,
+  stall_auto_retry_count: 0,
   cancel_requested: false,
 } as const;
 
