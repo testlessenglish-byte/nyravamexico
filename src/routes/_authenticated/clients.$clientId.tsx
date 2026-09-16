@@ -1,14 +1,15 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getClient } from "@/lib/clients.functions";
+import { getClient, deleteClientFn } from "@/lib/clients.functions";
 import {
   User, Building2, Mail, Phone, MapPin, FileText,
-  Briefcase, Edit, Archive, ChevronLeft,
+  Briefcase, Edit, Archive, ChevronLeft, Trash2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DeadlineList } from "@/components/crm/DeadlineList";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/clients/$clientId")({
   head: () => ({ meta: [{ title: "Detalle de Cliente â€” Nyrava" }] }),
@@ -18,6 +19,19 @@ export const Route = createFileRoute("/_authenticated/clients/$clientId")({
 function ClientDetailPage() {
   const { clientId } = Route.useParams();
   const fetchClient = useServerFn(getClient);
+  const deleteClient = useServerFn(deleteClientFn);
+  const navigate = useNavigate();
+
+  const handleDelete = async () => {
+    if (!window.confirm("¿Estás seguro de que deseas eliminar este cliente? Esta acción no se puede deshacer.")) return;
+    try {
+      await deleteClient({ data: { clientId } });
+      toast.success("Cliente eliminado exitosamente");
+      navigate({ to: "/clients" });
+    } catch (error: any) {
+      toast.error(error.message || "Error al eliminar el cliente");
+    }
+  };
 
   const { data: clientData, isLoading } = useQuery({
     queryKey: ["client", clientId],
@@ -176,3 +190,4 @@ function ClientDetailPage() {
     </div>
   );
 }
+

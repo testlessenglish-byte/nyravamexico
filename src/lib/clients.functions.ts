@@ -285,3 +285,38 @@ export const archiveClient = createServerFn({ method: "POST" })
 
     return updated;
   });
+
+// ---------------------------------------------------------------------------
+// Delete Client
+// ---------------------------------------------------------------------------
+export const deleteClientFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ clientId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase;
+    const userId = context.user.id;
+
+    // Check if client has cases
+    const { data: cases } = await supabase
+      .from("cases")
+      .select("id")
+      .eq("client_id", data.clientId)
+      .limit(1);
+
+    if (cases && cases.length > 0) {
+      throw new Error("No se puede eliminar el cliente porque tiene casos activos. Por favor, reasigne o elimine los casos primero.");
+    }
+
+    const { error } = await supabase
+      .from("clients")
+      .delete()
+      .eq("id", data.clientId);
+
+    if (error) {
+      console.error("Delete client error:", error);
+      throw new Error("No se pudo eliminar el cliente.");
+    }
+
+    return { success: true };
+  });
+
