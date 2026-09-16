@@ -14,6 +14,9 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { I18nProvider, useI18n } from "@/i18n";
 import { Toaster } from "@/components/ui/sonner";
 
+const SOCIAL_IMAGE_URL =
+  "https://mexico.nyrava.com/__l5e/assets-v1/775b6578-f629-470f-8bb7-bb39be2faf3c/nyrava-mexico-social-2026.png";
+
 // Root-level boundaries render OUTSIDE RootComponent, so they must provide
 // their own I18n context — otherwise useI18n throws and masks the real error.
 function NotFoundComponent() {
@@ -97,12 +100,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { name: "author", content: "Nyrava Intelligence México" },
       { name: "theme-color", content: "#7C3AED" },
-      // Site-wide default social-preview image — no page currently sets its
-      // own og:image/twitter:image, so this applies everywhere without
-      // conflict. If a page adds its own later, verify how TanStack
-      // Router's head merge handles the duplicate tag before relying on it.
-      { property: "og:image", content: "https://mexico.nyrava.com/nyrava-logo.png" },
-      { name: "twitter:image", content: "https://mexico.nyrava.com/nyrava-logo.png" },
+      { property: "og:site_name", content: "Nyrava México" },
+      { property: "og:image", content: SOCIAL_IMAGE_URL },
+      { property: "og:image:secure_url", content: SOCIAL_IMAGE_URL },
+      { property: "og:image:type", content: "image/png" },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { property: "og:image:alt", content: "Nyrava México — Inteligencia Jurídica Avanzada" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: SOCIAL_IMAGE_URL },
+      { name: "twitter:image:alt", content: "Nyrava México — Inteligencia Jurídica Avanzada" },
     ],
     links: [
       {

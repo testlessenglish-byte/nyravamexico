@@ -53,7 +53,7 @@ export const Route = createFileRoute("/auth")({
       { property: "og:title", content: "Acceso · Nyrava México" },
       { property: "og:description", content: "Inicia sesión o crea tu cuenta." },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [{ rel: "canonical", href: "https://mexico.nyrava.com/auth" }],
   }),

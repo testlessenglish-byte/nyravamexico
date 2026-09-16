@@ -12,3 +12,9 @@
 - [x] Add automatic renderer QA before PDF save/release
 - [x] Apply shared protection to legal, memorandum, and social audit PDFs
 - [x] Regression-test and visually inspect ADR 217/2019
+
+## Public social branding and profiles (Sep 16)
+- [x] Replace the legacy social preview with a dedicated 1200×630 Nyrava México card across public pages
+- [ ] Publish and verify exact production Open Graph and Twitter metadata
+- [x] Add private LinkedIn, Discord, X/Twitter, and Facebook profile fields for signed-in users
+- [x] Show only the opted-in super administrator’s social links at the bottom of main public pages

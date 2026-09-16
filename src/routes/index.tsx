@@ -27,6 +27,8 @@ import { listPublishedDemoCases } from "@/lib/demo-cases.functions";
 
 const SITE_URL = "https://mexico.nyrava.com";
 const LOGO_URL = `${SITE_URL}/nyrava-shield.png`;
+const SOCIAL_IMAGE_URL = `${SITE_URL}/__l5e/assets-v1/775b6578-f629-470f-8bb7-bb39be2faf3c/nyrava-mexico-social-2026.png`;
+const SOCIAL_DESCRIPTION = "Inteligencia jurídica más allá del análisis humano.";
 
 const ORGANIZATION_JSON_LD = JSON.stringify({
   "@context": "https://schema.org",
@@ -66,8 +68,20 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "Nyrava México — Inteligencia Jurídica" },
       {
         property: "og:description",
-        content: "Inteligencia jurídica más allá del análisis humano.",
+        content: SOCIAL_DESCRIPTION,
       },
+      { property: "og:type", content: "website" },
+      { property: "og:image", content: SOCIAL_IMAGE_URL },
+      { property: "og:image:secure_url", content: SOCIAL_IMAGE_URL },
+      { property: "og:image:type", content: "image/png" },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { property: "og:image:alt", content: "Nyrava México — Inteligencia Jurídica Avanzada" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Nyrava México — Inteligencia Jurídica" },
+      { name: "twitter:description", content: SOCIAL_DESCRIPTION },
+      { name: "twitter:image", content: SOCIAL_IMAGE_URL },
+      { name: "twitter:image:alt", content: "Nyrava México — Inteligencia Jurídica Avanzada" },
     ],
     links: [{ rel: "canonical", href: `${SITE_URL}/` }],
     scripts: [
