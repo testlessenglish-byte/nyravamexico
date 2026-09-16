@@ -13,9 +13,11 @@ import { getSocialWorkspace, inviteSocialOrganizationMember, updateSocialOrganiz
 import { supabase } from "@/integrations/supabase/client";
 import {
   User, Mail, Lock, Mic, Bell, Bot, History, Save, Loader2, Volume2, PlayCircle, Users, UserPlus, Trash2,
+  Share2,
 } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { SubscriberDonationIdentitySection } from "@/components/account/SubscriberDonationIdentitySection";
+import { getMySocialProfile, updateMySocialProfile } from "@/lib/social-profile.functions";
 
 export const Route = createFileRoute("/_authenticated/account")({
   head: () => ({ meta: [{ title: "Cuenta — Nyrava" }] }),
@@ -71,6 +73,7 @@ function AccountPage() {
       </header>
 
       <ProfileCard acc={acc} onSaved={() => accQ.refetch()} />
+      <SocialProfilesCard isSuperAdmin={acc.roles.includes("super_admin")} />
       <OrganizationTeamCard workspace={workspaceQ.data} loading={workspaceQ.isLoading} />
       {workspaceQ.data?.organizations?.[0]?.id && (
         <SubscriberDonationIdentitySection
@@ -84,6 +87,63 @@ function AccountPage() {
       <AICompanionCard settings={acc.settings} onSaved={() => accQ.refetch()} />
       <ActivityCard data={actQ.data} loading={actQ.isLoading} />
     </div>
+  );
+}
+
+function SocialProfilesCard({ isSuperAdmin }: { isSuperAdmin: boolean }) {
+  const { t } = useI18n();
+  const queryClient = useQueryClient();
+  const getSocial = useServerFn(getMySocialProfile);
+  const updateSocial = useServerFn(updateMySocialProfile);
+  const query = useQuery({ queryKey: ["my-social-profile"], queryFn: () => getSocial() });
+  const [draft, setDraft] = useState<null | {
+    linkedin_url: string;
+    discord_url: string;
+    twitter_url: string;
+    facebook_url: string;
+    public_visible: boolean;
+  }>(null);
+  const form = draft ?? {
+    linkedin_url: query.data?.linkedin_url ?? "",
+    discord_url: query.data?.discord_url ?? "",
+    twitter_url: query.data?.twitter_url ?? "",
+    facebook_url: query.data?.facebook_url ?? "",
+    public_visible: query.data?.public_visible ?? false,
+  };
+  const mutation = useMutation({
+    mutationFn: () => updateSocial({ data: form }),
+    onSuccess: () => {
+      toast.success(t("acct.social.saved"));
+      setDraft(null);
+      void queryClient.invalidateQueries({ queryKey: ["my-social-profile"] });
+      void queryClient.invalidateQueries({ queryKey: ["public-super-admin-social-profile"] });
+    },
+    onError: (error: unknown) => toast.error(error instanceof Error ? error.message : t("acct.saveFailed")),
+  });
+
+  const set = (key: keyof typeof form, value: string | boolean) => setDraft({ ...form, [key]: value });
+  return (
+    <Card icon={<Share2 className="h-4 w-4" />} title={t("acct.social.title")}>
+      <p className="mb-3 text-xs leading-relaxed text-muted-foreground">{t("acct.social.description")}</p>
+      {query.isLoading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : (
+        <>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="LinkedIn" value={form.linkedin_url} onChange={(value) => set("linkedin_url", value)} />
+            <Field label="Discord" value={form.discord_url} onChange={(value) => set("discord_url", value)} />
+            <Field label="X / Twitter" value={form.twitter_url} onChange={(value) => set("twitter_url", value)} />
+            <Field label="Facebook" value={form.facebook_url} onChange={(value) => set("facebook_url", value)} />
+          </div>
+          {isSuperAdmin && (
+            <div className="mt-3">
+              <Toggle label={t("acct.social.publicVisible")} checked={form.public_visible}
+                onChange={(value) => set("public_visible", value)} />
+              <p className="mt-1 text-[11px] text-muted-foreground">{t("acct.social.publicHint")}</p>
+            </div>
+          )}
+          <SaveButton pending={mutation.isPending} onClick={() => mutation.mutate()} />
+        </>
+      )}
+    </Card>
   );
 }
 

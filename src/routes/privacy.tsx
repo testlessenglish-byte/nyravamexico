@@ -25,7 +25,7 @@ export const Route = createFileRoute("/privacy")({
           "Aviso de Privacidad Integral de Nyrava México conforme a la LFPDPPP: datos tratados, finalidades, IA, transferencias y derechos ARCO.",
       },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
+      { name: "twitter:card", content: "summary_large_image" },
       { property: "og:url", content: "https://mexico.nyrava.com/privacy" },
       { name: "twitter:url", content: "https://mexico.nyrava.com/privacy" },
       { name: "robots", content: "index,follow" },
