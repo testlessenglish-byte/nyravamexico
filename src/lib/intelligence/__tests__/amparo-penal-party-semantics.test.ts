@@ -88,7 +88,7 @@ describe("Normalizer and QA auditor share one canonical definition", () => {
     expect(hasCompletePartyAwareScoreMapping(complete, ADR_PENAL)).toBe(true);
     expect(auditPenalProceduralSemantics([complete], ADR_PENAL)).toBe(0);
     // And the normalizer leaves its direction intact — no needless neutralization.
-    const normalized = normalizePenalFinding({ ...(complete as never) }, ADR_PENAL);
+    const normalized = normalizePenalFinding({ ...(complete as object) } as never, ADR_PENAL);
     expect((normalized as unknown as Finding).impact_direction).toBe("weakens");
     expect((normalized as unknown as Finding).benefited_party).toBe("quejoso");
   });
