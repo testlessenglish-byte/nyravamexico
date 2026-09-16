@@ -904,7 +904,9 @@ export class PdfBuilder {
     this.doc.line(cx + 35, 195, cx + 70, 195);
     this.doc.text(spaced("MÉXICO"), cx, 198, { align: "center" });
 
-    // Large centered report title
+    // Large centered report title. The title and identity occupy bounded
+    // regions; unusually long names therefore cannot push metadata into the
+    // classification and certification area at the foot of the cover.
     let ty = 260;
     this.doc.setFont("times", "normal");
     this.doc.setFontSize(28);
@@ -916,37 +918,60 @@ export class PdfBuilder {
     }
 
     // Case Identity
-    ty += 30;
+    ty = 350;
     this.doc.setFont("times", "bold");
-    this.doc.setFontSize(24);
-    const caseNameLines = this.doc.splitTextToSize(opts.caseName || "ADR 3265/2023", pageW - margin * 2) as string[];
+    let caseNameSize = 24;
+    this.doc.setFontSize(caseNameSize);
+    let caseNameLines = this.doc.splitTextToSize(opts.caseName || "ADR 3265/2023", pageW - margin * 2) as string[];
+    while (caseNameLines.length > 2 && caseNameSize > 18) {
+      caseNameSize -= 1;
+      this.doc.setFontSize(caseNameSize);
+      caseNameLines = this.doc.splitTextToSize(opts.caseName || "ADR 3265/2023", pageW - margin * 2) as string[];
+    }
+    const caseNameLeading = caseNameSize + 4;
     for (const line of caseNameLines) {
       this.doc.text(line, cx, ty, { align: "center" });
-      ty += 28;
+      ty += caseNameLeading;
     }
     
-    ty += 2;
+    ty += 4;
     this.doc.setFont("times", "normal");
-    this.doc.setFontSize(20);
+    this.doc.setFontSize(18);
     const proceedingLines = this.doc.splitTextToSize(opts.proceeding || "Amparo Directo en Revisión", pageW - margin * 2) as string[];
     for (const line of proceedingLines) {
       this.doc.text(line, cx, ty, { align: "center" });
-      ty += 24;
+      ty += 21;
     }
 
     ty += 4;
     this.doc.setFont("times", "normal");
-    this.doc.setFontSize(16);
-    const courtLines = this.doc.splitTextToSize(opts.court || "Suprema Corte de Justicia de la Nación", pageW - margin * 2) as string[];
+    let courtSize = 15;
+    this.doc.setFontSize(courtSize);
+    let courtLines = this.doc.splitTextToSize(opts.court || "Suprema Corte de Justicia de la Nación", pageW - margin * 2) as string[];
+    while ((ty + courtLines.length * (courtSize + 3)) > 486 && courtSize > 11) {
+      courtSize -= 1;
+      this.doc.setFontSize(courtSize);
+      courtLines = this.doc.splitTextToSize(opts.court || "Suprema Corte de Justicia de la Nación", pageW - margin * 2) as string[];
+    }
     for (const line of courtLines) {
       this.doc.text(line, cx, ty, { align: "center" });
-      ty += 20;
+      ty += courtSize + 3;
     }
 
-    // Metadata table
-    ty += 60;
-    this.doc.setFont("helvetica", "normal");
-    this.doc.setFontSize(9);
+    // Metadata table. Labels and values have separate measured columns so a
+    // long label (notably "ÓRGANO JURISDICCIONAL") can never run into its
+    // value. Each row grows to the taller wrapped side instead of assuming a
+    // fixed 20pt height.
+    ty = 505;
+    const metadataLeft = margin + 54;
+    const metadataDivider = cx - 34;
+    const metadataRight = metadataDivider + 14;
+    const metadataLabelWidth = metadataDivider - metadataLeft - 18;
+    const metadataValueWidth = pageW - margin - 54 - metadataRight;
+    const metadataLabelSize = 7.5;
+    const metadataValueSize = 8.5;
+    const metadataLabelLeading = 9;
+    const metadataValueLeading = 10;
     
     const fields = [
       { k: "CLIENTE", v: opts.client || "Confidencial" },
@@ -958,62 +983,84 @@ export class PdfBuilder {
       { k: "NYRAVA MATTER ID", v: (opts.matterId || "44C5492F").slice(0, 8) }
     ];
 
-    const leftCol = cx - 180;
-    const rightCol = cx - 40;
-    
-    // Vertical line
+    const metadataRows = fields
+      .filter((field) => Boolean(field.v))
+      .map((field) => {
+        this.doc.setFont("helvetica", "normal");
+        this.doc.setFontSize(metadataLabelSize);
+        const labelLines = this.doc.splitTextToSize(spaced(field.k), metadataLabelWidth) as string[];
+        this.doc.setFontSize(metadataValueSize);
+        const valueLines = this.doc.splitTextToSize(field.v, metadataValueWidth) as string[];
+        const height = Math.max(
+          labelLines.length * metadataLabelLeading,
+          valueLines.length * metadataValueLeading,
+        ) + 7;
+        return { labelLines, valueLines, height };
+      });
+    const metadataHeight = metadataRows.reduce((sum, row) => sum + row.height, 0);
+
     this.doc.setDrawColor(...GOLD);
     this.doc.setLineWidth(0.5);
-    this.doc.line(rightCol - 10, ty - 10, rightCol - 10, ty + (fields.length * 20));
+    this.doc.line(metadataDivider, ty - 8, metadataDivider, ty + metadataHeight - 3);
 
+    let metadataRow = 0;
     for (const f of fields) {
       if (f.v) {
+        const row = metadataRows[metadataRow];
+        metadataRow += 1;
+        if (!row) continue;
+        this.doc.setFont("helvetica", "normal");
+        this.doc.setFontSize(metadataLabelSize);
         this.doc.setTextColor(...GOLD);
-        this.doc.text(spaced(f.k), leftCol, ty);
+        row.labelLines.forEach((line, index) => {
+          this.doc.text(line, metadataLeft, ty + index * metadataLabelLeading);
+        });
+        this.doc.setFontSize(metadataValueSize);
         this.doc.setTextColor(255, 255, 255);
-        
-        // Handle multiline for court
-        const vLines = this.doc.splitTextToSize(f.v, 200) as string[];
-        for (const line of vLines) {
-           this.doc.text(line, rightCol, ty);
-           ty += 14;
-        }
-        ty += 6;
+        row.valueLines.forEach((line, index) => {
+          this.doc.text(line, metadataRight, ty + index * metadataValueLeading);
+        });
+        ty += row.height;
       }
     }
 
-    // CONFIDENCIAL Box
-    ty += 20;
+    // Classification box has its own bounded region below metadata.
+    ty = Math.max(640, ty + 12);
+    const classificationWidth = 240;
+    const classificationTextWidth = classificationWidth - 24;
+    const rawClassification = (opts.classification || "CONFIDENCIAL").toUpperCase();
+    const classification = rawClassification.length <= 20 ? spaced(rawClassification) : rawClassification;
+    this.doc.setFont("times", "bold");
+    let classificationSize = 14;
+    this.doc.setFontSize(classificationSize);
+    let classificationLines = this.doc.splitTextToSize(classification, classificationTextWidth) as string[];
+    while (classificationLines.length > 2 && classificationSize > 10) {
+      classificationSize -= 1;
+      this.doc.setFontSize(classificationSize);
+      classificationLines = this.doc.splitTextToSize(classification, classificationTextWidth) as string[];
+    }
+    const classificationHeight = Math.max(35, classificationLines.length * 17 + 14);
     this.doc.setDrawColor(...GOLD);
     this.doc.setLineWidth(1);
-    this.doc.rect(cx - 120, ty, 240, 35, "S");
+    this.doc.rect(cx - classificationWidth / 2, ty, classificationWidth, classificationHeight, "S");
     
-    this.doc.setFont("times", "bold");
-    this.doc.setFontSize(16);
     this.doc.setTextColor(...GOLD);
-    this.doc.text(spaced(opts.classification || "CONFIDENCIAL"), cx, ty + 24, { align: "center" });
+    classificationLines.forEach((line, index) => {
+      this.doc.text(line, cx, ty + 22 + index * 17, { align: "center" });
+    });
 
     // Certification text
-    ty += 70;
+    ty = Math.max(710, ty + classificationHeight + 20);
     this.doc.setFont("times", "normal");
-    this.doc.setFontSize(12);
+    this.doc.setFontSize(10.5);
     this.doc.setTextColor(255, 255, 255);
-    this.doc.text("Sustentado en evidencia.", cx, ty, { align: "center" });
-    this.doc.text("Citas auditadas.", cx, ty + 16, { align: "center" });
-    this.doc.text("Diseñado para trabajo de inteligencia jurídica sensible.", cx, ty + 32, { align: "center" });
-
-    // Footer lines
-    ty += 60;
-    this.doc.setDrawColor(...GOLD);
-    this.doc.setLineWidth(1);
-    this.doc.line(cx - 15, ty, cx + 15, ty);
-    
-    this.doc.setFont("times", "normal");
-    this.doc.setFontSize(12);
-    this.doc.text("Nyrava Legal Intelligence", cx, ty + 20, { align: "center" });
-    this.doc.setFontSize(10);
-    this.doc.setTextColor(...GOLD);
-    this.doc.text("mexico.nyrava.com", cx, ty + 35, { align: "center" });
+    const certificationLines = this.doc.splitTextToSize(
+      "Sustentado en evidencia. Citas auditadas. Diseñado para trabajo de inteligencia jurídica sensible.",
+      pageW - margin * 2 - 140,
+    ) as string[];
+    certificationLines.forEach((line, index) => {
+      this.doc.text(line, cx, ty + index * 14, { align: "center" });
+    });
 
     // Bottom left Mexican architectural abstraction
     const bx = 36;

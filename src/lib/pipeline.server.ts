@@ -4983,8 +4983,6 @@ export async function runAgents(args: {
         meta: {
           specialist_failures: failures,
           degraded: failures.length > 0,
-        },
-        meta: {
           case_identity: {
             case_type: area,
             status: agentsIdentity.status,
