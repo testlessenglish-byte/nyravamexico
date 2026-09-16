@@ -333,6 +333,7 @@ async function reconcileSavedReportProse(
       concludedCaseActionsRemoved: 0,
       materiaLeakActionsRemoved: 0,
       falseOrphanCitationsReconciled: 0,
+      upstreamReleaseBlock: null,
     };
   }
 
