@@ -13,6 +13,7 @@ import jsPDF from "jspdf";
 import { composeFinalReportPayload, releaseFinalReportPayload, releaseRenderedReportOutput, type FinalReportPayload } from "./reporting/final-report-contract";
 import { canonicalSourceCount } from "./reporting/report-sources";
 import autoTable from "jspdf-autotable";
+import { assertPdfLayout, auditPdfLayout, type PdfLayoutIssue, type PdfLayoutPage } from "./pdf/layout-qa";
 
 // The report cover/header mark is drawn as a vector (see logoMark() /
 // trustBadge() below) rather than an embedded raster asset, so it always
@@ -615,6 +616,9 @@ export class PdfBuilder {
   // Title of the section currently being rendered, used to label pages a
   // section spills onto.
   private currentSection = "";
+  private layoutPages: PdfLayoutPage[] = [{ contentMarks: 0, maxContentY: 0 }];
+  private layoutIssues: PdfLayoutIssue[] = [];
+  private finalPageCount: number | null = null;
 
   constructor(caseName: string, matterId?: string) {
     this.matterId = matterId || caseName;
@@ -644,6 +648,20 @@ export class PdfBuilder {
             ? text.map((t) => (typeof t === "string" ? prep(t) : t))
             : text;
       this.renderedText.push(...(typeof safe === "string" ? [safe] : Array.isArray(safe) ? safe.filter((x): x is string => typeof x === "string") : []));
+      const page = this.doc.getCurrentPageInfo().pageNumber;
+      const x = typeof rest[0] === "number" ? rest[0] : 0;
+      const y = typeof rest[1] === "number" ? rest[1] : 0;
+      const state = this.layoutPages[page - 1] ?? { contentMarks: 0, maxContentY: 0 };
+      state.contentMarks += 1;
+      state.maxContentY = Math.max(state.maxContentY, y);
+      this.layoutPages[page - 1] = state;
+      if (page > 1 && (x < this.margin - 1 || x > this.pageW - this.margin + 1 || y > this.printableBottom + 1)) {
+        this.layoutIssues.push({
+          code: "CONTENT_OUTSIDE_PRINTABLE_BOUNDS",
+          page,
+          detail: `Text baseline at (${x.toFixed(1)}, ${y.toFixed(1)}) is outside the printable area.`,
+        });
+      }
       return (origText as unknown as (...a: unknown[]) => unknown)(safe, ...rest);
     };
     const origSplit = this.doc.splitTextToSize.bind(this.doc);
@@ -665,12 +683,29 @@ export class PdfBuilder {
       ...args: unknown[]
     ) => {
       const res = (origAddPage as unknown as (...a: unknown[]) => unknown)(...args);
+      this.layoutPages.push({ contentMarks: 0, maxContentY: 0 });
       const fill = this.doc.getFillColor?.();
       this.doc.setFillColor(...PAGE_BG);
       this.doc.rect(0, 0, this.pageW, this.pageH, "F");
       if (fill) this.doc.setFillColor(fill);
       return res;
     };
+  }
+
+  get printableTop() {
+    return this.margin + CONTINUATION_HEADER_H;
+  }
+
+  get printableBottom() {
+    return this.pageH - this.margin - 26;
+  }
+
+  get printableWidth() {
+    return this.pageW - this.margin * 2;
+  }
+
+  remainingHeight() {
+    return Math.max(0, this.printableBottom - this.y);
   }
 
   /** Loads the real crest image once, before any drawing happens. Must be
@@ -682,9 +717,10 @@ export class PdfBuilder {
   }
 
   ensureSpace(needed: number) {
-    if (this.y + needed > this.pageH - this.margin - 24) {
+    if (needed > this.printableBottom - this.printableTop) return;
+    if (needed > this.remainingHeight()) {
       this.doc.addPage();
-      this.y = this.margin + CONTINUATION_HEADER_H;
+      this.y = this.printableTop;
     }
   }
 
@@ -1000,13 +1036,7 @@ export class PdfBuilder {
     this.doc.rect(bx + 70, by - 25, 15, 15, "S");
     this.doc.rect(bx + 90, by - 18, 12, 8, "S");
 
-    // Bottom right page number
-    this.doc.setFont("times", "normal");
-    this.doc.setFontSize(10);
-    this.doc.setTextColor(255, 255, 255);
-    this.doc.text("Página 1 de 24", pageW - 36, pageH - 40, { align: "right" });
-
-    this.doc.addPage();
+    // Page numbering is painted only after final pagination is complete.
   }
 
   // Grid of compact stat cards (replaces the old plain label/value rows on
@@ -1024,8 +1054,10 @@ export class PdfBuilder {
     const h = 66;
     const padX = 18; // clears the accent bar on the left edge
     const rows = Math.ceil(items.length / nCols);
+    const fullGridHeight = rows * (h + gap);
+    if (fullGridHeight <= this.printableBottom - this.printableTop) this.ensureSpace(fullGridHeight);
     for (let row = 0; row < rows; row++) {
-      this.ensureSpace(h);
+      this.ensureSpace(h + gap);
       for (let col = 0; col < nCols; col++) {
         const i = row * nCols + col;
         if (i >= items.length) break;
@@ -1379,7 +1411,11 @@ export class PdfBuilder {
       this.y += 34;
     }
     this.firstSectionRendered = true;
-    this.ensureSpace(120);
+    this.doc.setFont("times", "bold");
+    this.doc.setFontSize(20);
+    const titleLines = this.doc.splitTextToSize(rt(label), this.printableWidth) as string[];
+    const headingHeight = 26 + titleLines.length * 25 + 22;
+    this.ensureSpace(headingHeight + 36);
     this.sectionTitle(kicker ?? SECTION_KICKERS[label] ?? label, label);
   }
 
@@ -1387,12 +1423,14 @@ export class PdfBuilder {
     // Quiet subsection header: uppercase small-caps label with a hairline
     // rule beneath it, no filled tinted bar. Reads as editorial, not as
     // a boxed dashboard card.
-    this.ensureSpace(90);
-    this.y += 16;
     this.doc.setFont("helvetica", "bold");
     this.doc.setFontSize(10);
+    const lines = this.doc.splitTextToSize(rt(label).toUpperCase(), this.printableWidth) as string[];
+    this.ensureSpace(32 + lines.length * 13 + 22);
+    this.y += 16;
     this.doc.setTextColor(...PRIMARY);
-    this.doc.text(label.toUpperCase(), this.margin, this.y);
+    this.doc.text(lines, this.margin, this.y);
+    this.y += Math.max(0, (lines.length - 1) * 13);
     this.y += 6;
     this.doc.setDrawColor(230, 233, 238);
     this.doc.setLineWidth(0.5);
@@ -1403,14 +1441,16 @@ export class PdfBuilder {
   // Same quiet subsection header as h2(), but with a small colored dot
   // beside the label to signal severity tier at a glance.
   h2Tier(label: string, color: [number, number, number]) {
-    this.ensureSpace(90);
+    this.doc.setFont("helvetica", "bold");
+    this.doc.setFontSize(10);
+    const lines = this.doc.splitTextToSize(rt(label).toUpperCase(), this.printableWidth - 12) as string[];
+    this.ensureSpace(32 + lines.length * 13 + 22);
     this.y += 16;
     this.doc.setFillColor(...color);
     this.doc.circle(this.margin + 3, this.y - 3, 2.8, "F");
-    this.doc.setFont("helvetica", "bold");
-    this.doc.setFontSize(10);
     this.doc.setTextColor(...PRIMARY);
-    this.doc.text(rt(label).toUpperCase(), this.margin + 12, this.y);
+    this.doc.text(lines, this.margin + 12, this.y);
+    this.y += Math.max(0, (lines.length - 1) * 13);
     this.y += 6;
     this.doc.setDrawColor(230, 233, 238);
     this.doc.setLineWidth(0.5);
@@ -1476,7 +1516,12 @@ export class PdfBuilder {
   }
 
   label(label: string, value: string) {
-    this.ensureSpace(16);
+    const valueWidth = this.printableWidth - 110;
+    this.doc.setFont("helvetica", "normal");
+    this.doc.setFontSize(10.5);
+    const lines = this.doc.splitTextToSize(value, valueWidth) as string[];
+    const height = Math.max(16, lines.length * 14);
+    this.ensureSpace(height);
     this.doc.setFont("helvetica", "bold");
     this.doc.setFontSize(9);
     this.doc.setTextColor(...MUTED);
@@ -1484,19 +1529,23 @@ export class PdfBuilder {
     this.doc.setFont("helvetica", "normal");
     this.doc.setFontSize(10.5);
     this.doc.setTextColor(...PRIMARY);
-    this.doc.text(value, this.margin + 110, this.y);
-    this.y += 14;
+    this.doc.text(lines, this.margin + 110, this.y);
+    this.y += height;
   }
 
   callout(label: string, value: string, color: [number, number, number] = ACCENT) {
-    this.ensureSpace(52);
     const x = this.margin;
     const w = this.pageW - this.margin * 2;
+    this.doc.setFont("helvetica", "normal");
+    this.doc.setFontSize(11);
+    const lines = this.doc.splitTextToSize(value, w - 28) as string[];
+    const h = Math.max(40, 27 + lines.length * 14);
+    this.ensureSpace(h + 12);
     // Quiet callout: no border, subtle fill, thin colored left rule.
     this.doc.setFillColor(249, 250, 252);
-    this.doc.roundedRect(x, this.y, w, 40, 3, 3, "F");
+    this.doc.roundedRect(x, this.y, w, h, 3, 3, "F");
     this.doc.setFillColor(...color);
-    this.doc.rect(x, this.y, 2.5, 40, "F");
+    this.doc.rect(x, this.y, 2.5, h, "F");
     this.doc.setTextColor(...color);
     this.doc.setFont("helvetica", "bold");
     this.doc.setFontSize(8);
@@ -1504,8 +1553,8 @@ export class PdfBuilder {
     this.doc.setTextColor(...PRIMARY);
     this.doc.setFont("helvetica", "normal");
     this.doc.setFontSize(11);
-    this.doc.text(value, x + 14, this.y + 31);
-    this.y += 52;
+    this.doc.text(lines, x + 14, this.y + 31);
+    this.y += h + 12;
   }
 
   // Headline meter — large number, small caption, thin progress bar.
@@ -1670,7 +1719,14 @@ export class PdfBuilder {
     // Refined tinted banner — subdued surface with a colored left rule and
     // dark text, rather than a full saturated red slab. Reads as an
     // executive alert, not a warning label.
-    const h = 40;
+    const textW = this.printableWidth - 48;
+    this.doc.setFont("helvetica", "bold");
+    this.doc.setFontSize(11);
+    const headlineLines = this.doc.splitTextToSize(headline.toUpperCase(), textW) as string[];
+    this.doc.setFont("helvetica", "normal");
+    this.doc.setFontSize(9);
+    const sublineLines = subline ? (this.doc.splitTextToSize(subline, textW) as string[]) : [];
+    const h = Math.max(40, 18 + headlineLines.length * 13 + sublineLines.length * 11);
     this.ensureSpace(h + 18);
     const x = this.margin;
     const w = this.pageW - this.margin * 2;
@@ -1691,12 +1747,14 @@ export class PdfBuilder {
     this.doc.setFont("helvetica", "bold");
     this.doc.setFontSize(11);
     this.doc.setTextColor(...PRIMARY);
-    this.doc.text(headline.toUpperCase(), x + 30, this.y + h / 2 - 2);
-    if (subline) {
+    let textY = this.y + 17;
+    this.doc.text(headlineLines, x + 30, textY);
+    textY += headlineLines.length * 13;
+    if (sublineLines.length) {
       this.doc.setFont("helvetica", "normal");
       this.doc.setFontSize(9);
       this.doc.setTextColor(...MUTED);
-      this.doc.text(subline, x + 30, this.y + h / 2 + 11);
+      this.doc.text(sublineLines, x + 30, textY);
     }
     this.y += h + 22;
   }
@@ -1706,7 +1764,11 @@ export class PdfBuilder {
   // Deliberately terse (title only, no description) since its job is a
   // 3-second scan, not the full write-up — that lives in Key Findings.
   findingChip(severity: string, title: string, confidence: number) {
-    const h = 26;
+    const maxW = this.pageW - this.margin * 2 - 150;
+    this.doc.setFont("times", "bold");
+    this.doc.setFontSize(11);
+    const titleLines = this.doc.splitTextToSize(title, maxW) as string[];
+    const h = Math.max(26, titleLines.length * 14 + 12);
     this.ensureSpace(h + 8);
     const color = this.severityColor(severity);
     const sevLabel = rt(severity.toUpperCase());
@@ -1722,9 +1784,7 @@ export class PdfBuilder {
     this.doc.setFont("times", "bold");
     this.doc.setFontSize(11);
     this.doc.setTextColor(...PRIMARY);
-    const maxW = this.pageW - this.margin * 2 - 150;
-    const titleLine = (this.doc.splitTextToSize(title, maxW) as string[])[0] ?? "";
-    this.doc.text(titleLine, this.margin + 14, yy + 17);
+    this.doc.text(titleLines, this.margin + 14, yy + 17);
     this.pill(
       `${sevLabel} · ${Math.round(confidence * 100)}%`,
       this.pageW - this.margin - 8,
@@ -1746,8 +1806,16 @@ export class PdfBuilder {
     this.doc.setFont("helvetica", "italic");
     this.doc.setFontSize(8.6);
     const lines = this.doc.splitTextToSize(`"${text}"`, innerW) as string[];
-    const attrLines = attribution ? ([attribution] as string[]) : [];
+    const attrLines = attribution
+      ? (this.doc.splitTextToSize(attribution, innerW) as string[])
+      : [];
     const h = lines.length * 12 + attrLines.length * 11 + 14;
+    if (h > this.printableBottom - this.printableTop) {
+      this.table([], [[`“${text}”${attribution ? `\n${attribution}` : ""}`]], {
+        columnStyles: { 0: { cellWidth: this.printableWidth, fontStyle: "italic", textColor: MUTED } },
+      });
+      return;
+    }
     this.ensureSpace(h + 6);
     const yy = this.y - 10;
     this.doc.setFillColor(...QUOTE_BG);
@@ -1784,10 +1852,27 @@ export class PdfBuilder {
       // small-caps labels. Used by the index/contents table, where a heavy
       // green header row fought with the redesigned section titles.
       plainHead?: boolean;
+      keepTogether?: boolean;
     } = {},
   ) {
     if (body.length === 0) return;
-    this.ensureSpace(40);
+    const availableWidth = this.printableWidth;
+    const supplied = Object.values(opts.columnStyles ?? {}).reduce((sum: number, style: any) => {
+      return sum + (typeof style?.cellWidth === "number" ? style.cellWidth : 0);
+    }, 0);
+    if (supplied > availableWidth + 0.5) {
+      this.layoutIssues.push({
+        code: "TABLE_WIDTH_OVERFLOW",
+        page: this.doc.getCurrentPageInfo().pageNumber,
+        detail: `Configured table columns total ${supplied.toFixed(1)}pt; printable width is ${availableWidth.toFixed(1)}pt.`,
+      });
+    }
+    const estimatedRows = Math.min(body.length, 8) * 28 + (head.length ? 30 : 0);
+    if (opts.keepTogether && estimatedRows <= this.printableBottom - this.printableTop) {
+      this.ensureSpace(estimatedRows);
+    } else {
+      this.ensureSpace(40);
+    }
     const headerRow = head[0] ?? [];
     const sevColIdx = headerRow.findIndex((hh) => /severity/i.test(hh));
     const scoreColIdx = headerRow.findIndex((hh) => /^score$/i.test(hh.trim()));
@@ -1839,6 +1924,10 @@ export class PdfBuilder {
       // table, quiet enough not to read as a dashboard grid.
       alternateRowStyles: { fillColor: [252, 250, 246] as [number, number, number] },
       columnStyles: opts.columnStyles,
+      tableWidth: availableWidth,
+      horizontalPageBreak: false,
+      showHead: head.length ? "everyPage" : "never",
+      rowPageBreak: "avoid",
       theme: "grid",
       // Color-code Severity and Score columns wherever a table has them,
       // so risk reads visually (red/amber/gold/green) instead of forcing
@@ -1993,6 +2082,14 @@ export class PdfBuilder {
     const pageLabelW = 70; // reserved width for the right-aligned "Page i / N"
     for (let i = 1; i <= pageCount; i++) {
       this.doc.setPage(i);
+      if (i === 1) {
+        this.doc.setFont("times", "normal");
+        this.doc.setFontSize(10);
+        this.doc.setTextColor(255, 255, 255);
+        const pageWord = getReportTemplateLocale() === "en" ? "Page" : "Página";
+        this.doc.text(`${pageWord} 1 / ${pageCount}`, this.pageW - 36, this.pageH - 40, { align: "right" });
+        continue;
+      }
       // The compact header (drawn separately, see header() above) already
       // carries a brand rule at the top of every interior page, so the old
       // duplicate top strip that used to live here has been removed —
@@ -2027,6 +2124,29 @@ export class PdfBuilder {
         this.doc.text(stamp, this.pageW / 2, this.pageH - 18, { align: "center" });
       }
     }
+  }
+
+  private removeBlankInteriorPages() {
+    for (let page = this.doc.getNumberOfPages() - 1; page >= 2; page -= 1) {
+      if ((this.layoutPages[page - 1]?.contentMarks ?? 0) !== 0) continue;
+      this.doc.deletePage(page);
+      this.layoutPages.splice(page - 1, 1);
+    }
+  }
+
+  finalizeLayout(meta: { parity: string; ess: string; generatedAt: string } | null = null) {
+    if (this.finalPageCount !== null) return;
+    this.removeBlankInteriorPages();
+    this.finalPageCount = this.doc.getNumberOfPages();
+    const issues = auditPdfLayout({
+      pages: this.layoutPages,
+      pageCount: this.doc.getNumberOfPages(),
+      expectedPageCount: this.finalPageCount,
+      recordedIssues: this.layoutIssues,
+    });
+    assertPdfLayout(issues);
+    this.header();
+    this.footer(meta);
   }
 
   // Full closing page appended after all report content: mark, domain,
@@ -2094,8 +2214,7 @@ export class PdfBuilder {
   }
 
   save(filename: string, meta: { parity: string; ess: string; generatedAt: string } | null = null, validateOnly = false) {
-    this.header();
-    this.footer(meta);
+    this.finalizeLayout(meta);
     if (!this.finalPayload) throw new Error("REPORT_CONTRACT_UNAVAILABLE");
     const released = releaseRenderedReportOutput(this.finalPayload, "pdf", this.renderedText.join("\n"));
     if (!validateOnly) this.doc.save(filename);
@@ -4501,18 +4620,18 @@ function renderAppendix(b: PdfBuilder, data: CaseExportData) {
     [["#", "Tema", "Documento", "Página", "Cita"]],
     cites.map((c, i) => [
       i + 1,
-      asStr(c.topic).slice(0, 30),
+      asStr(c.topic),
       resolveDocTitle(c.doc_n) ?? asStr(c.doc_n),
       asStr(c.page),
-      asStr(c.quote).slice(0, 100),
+      asStr(c.quote),
     ]),
     {
       columnStyles: {
         0: { cellWidth: 22 }, // #
-        1: { cellWidth: 110 }, // Topic — widened so labels stop wrapping awkwardly
-        2: { cellWidth: 90 }, // Document
-        3: { cellWidth: 32 }, // Page
-        // Quote gets whatever remains — it's the longest field.
+        1: { cellWidth: 82 },
+        2: { cellWidth: 105 },
+        3: { cellWidth: 34 },
+        4: { cellWidth: 261 },
       },
       emphasizeColIdx: 2, // Document name — bold, reads as the citation's anchor
       mutedColIdx: 4, // Quote — italic/muted, reads as quoted material, not a label

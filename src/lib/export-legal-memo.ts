@@ -56,6 +56,7 @@ export function downloadLegalMemoPdf(payload: FinalReportPayload, caseName: stri
     engineVersion: undefined,
     certification: "verified",
   });
+  b.pageBreak();
 
   b.h1(memo.caption?.title || rt("MEMORANDUM OF LAW"));
   b.text(`Re: ${memo.caption?.re || caseName}`, { size: 11 });
@@ -163,6 +164,7 @@ export function downloadLegalMemoPdf(payload: FinalReportPayload, caseName: stri
   }
 
   // Not strictly supporting capturePdfText here since b.renderedText is internal, but we can access it
+  b.finalizeLayout(null);
   releaseRenderedReportOutput(validated, "memo-pdf", b.renderedText.join("\n"));
   b.doc.save(`${identity.filename.replace('.pdf', '')}_Legal_Memo.pdf`);
 }

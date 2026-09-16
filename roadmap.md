@@ -8,7 +8,7 @@
 - [x] Report webhook URL + any manual Stripe action
 
 ## Global PDF layout hardening (Sep 15)
-- [ ] Fix shared pagination, content fitting, wrapping, and final page numbering
-- [ ] Add automatic renderer QA before PDF save/release
-- [ ] Apply shared protection to legal, memorandum, and social audit PDFs
-- [ ] Regression-test and visually inspect ADR 217/2019
+- [x] Fix shared pagination, content fitting, wrapping, and final page numbering
+- [x] Add automatic renderer QA before PDF save/release
+- [x] Apply shared protection to legal, memorandum, and social audit PDFs
+- [x] Regression-test and visually inspect ADR 217/2019
