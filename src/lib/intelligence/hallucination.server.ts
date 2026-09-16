@@ -305,6 +305,7 @@ async function reconcileSavedReportProse(
   concludedCaseActionsRemoved: number;
   materiaLeakActionsRemoved: number;
   falseOrphanCitationsReconciled: number;
+  upstreamReleaseBlock: string[] | null;
 }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [{ data: saved }, { data: caseRow }, { data: documentsRaw }] = await Promise.all([
