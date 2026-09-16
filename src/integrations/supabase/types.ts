@@ -10798,6 +10798,39 @@ export type Database = {
           },
         ]
       }
+      user_social_profiles: {
+        Row: {
+          created_at: string
+          discord_url: string | null
+          facebook_url: string | null
+          linkedin_url: string | null
+          public_visible: boolean
+          twitter_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          discord_url?: string | null
+          facebook_url?: string | null
+          linkedin_url?: string | null
+          public_visible?: boolean
+          twitter_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          discord_url?: string | null
+          facebook_url?: string | null
+          linkedin_url?: string | null
+          public_visible?: boolean
+          twitter_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       verification_items: {
         Row: {
           case_id: string
