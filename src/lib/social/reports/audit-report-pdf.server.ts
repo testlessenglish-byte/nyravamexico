@@ -84,5 +84,6 @@ export function generateAuditReportPdf(data: AuditReportData): Uint8Array {
     b.pageH - 7
   );
 
+  b.finalizeLayout(null);
   return b.doc.output("arraybuffer") as unknown as Uint8Array;
 }
