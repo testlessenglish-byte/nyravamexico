@@ -13,6 +13,7 @@ import { CreditCard, Check, Loader2, ShieldCheck, ExternalLink, Gauge } from "lu
 import {
   getMyBillingStatus,
   createCheckoutSession,
+  createCustomerPortalSession,
   cancelMySubscription,
 } from "@/lib/billing.functions";
 import { listPublicBillingPlans, type PublicBillingPlan } from "@/lib/billing-plans.functions";
@@ -78,7 +79,8 @@ function BillingPage() {
   });
 
   const checkout = useMutation({
-    mutationFn: (planKey: string) => checkoutFn({ data: { planKey } }),
+    mutationFn: (args: { planKey: string; provider?: string }) =>
+      checkoutFn({ data: { plan: args.planKey, origin: window.location.origin } }),
     onSuccess: (res) => {
       if (res.url) window.location.href = res.url;
     },
@@ -86,8 +88,8 @@ function BillingPage() {
   });
 
   const portal = useMutation({
-    mutationFn: () => portalFn(),
-    onSuccess: (res) => {
+    mutationFn: () => portalFn({ data: { origin: window.location.origin } }),
+    onSuccess: (res: any) => {
       if (res.url) window.location.href = res.url;
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : String(e)),
