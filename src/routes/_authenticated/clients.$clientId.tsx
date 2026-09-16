@@ -1,23 +1,37 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+﻿import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getClient } from "@/lib/clients.functions";
+import { getClient, deleteClientFn } from "@/lib/clients.functions";
 import {
   User, Building2, Mail, Phone, MapPin, FileText,
-  Briefcase, Edit, Archive, ChevronLeft,
+  Briefcase, Edit, Archive, ChevronLeft, Trash2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DeadlineList } from "@/components/crm/DeadlineList";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/clients/$clientId")({
-  head: () => ({ meta: [{ title: "Detalle de Cliente — Nyrava" }] }),
+  head: () => ({ meta: [{ title: "Detalle de Cliente â€” Nyrava" }] }),
   component: ClientDetailPage,
 });
 
 function ClientDetailPage() {
   const { clientId } = Route.useParams();
   const fetchClient = useServerFn(getClient);
+  const deleteClient = useServerFn(deleteClientFn);
+  const navigate = useNavigate();
+
+  const handleDelete = async () => {
+    if (!window.confirm("¿Estás seguro de que deseas eliminar este cliente? Esta acción no se puede deshacer.")) return;
+    try {
+      await deleteClient({ data: { clientId } });
+      toast.success("Cliente eliminado exitosamente");
+      navigate({ to: "/clients" });
+    } catch (error: any) {
+      toast.error(error.message || "Error al eliminar el cliente");
+    }
+  };
 
   const { data: clientData, isLoading } = useQuery({
     queryKey: ["client", clientId],
@@ -66,7 +80,7 @@ function ClientDetailPage() {
               <h1 className="text-2xl font-bold text-foreground">{client.display_name}</h1>
               <div className="mt-2 flex items-center gap-3">
                 <Badge variant="outline" className="text-primary border-primary/20 bg-primary/5">
-                  {client.client_type === "company" ? "Persona Moral" : "Persona Física"}
+                  {client.client_type === "company" ? "Persona Moral" : "Persona FÃ­sica"}
                 </Badge>
                 <span className={`text-sm font-medium ${client.status === "active" ? "text-green-600" : "text-muted-foreground"}`}>
                   {client.status === "active" ? "Activo" : client.status === "inactive" ? "Inactivo" : "Archivado"}
@@ -87,20 +101,20 @@ function ClientDetailPage() {
         {/* Contact Info Grid */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-6 border-t border-border">
           <div className="space-y-1">
-            <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" /> Correo Electrónico</div>
-            <div className="text-sm">{client.email || "—"}</div>
+            <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" /> Correo ElectrÃ³nico</div>
+            <div className="text-sm">{client.email || "â€”"}</div>
           </div>
           <div className="space-y-1">
-            <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Teléfono</div>
-            <div className="text-sm">{client.phone || "—"}</div>
+            <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> TelÃ©fono</div>
+            <div className="text-sm">{client.phone || "â€”"}</div>
           </div>
           <div className="space-y-1">
             <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" /> RFC</div>
-            <div className="text-sm font-mono">{client.rfc || "—"}</div>
+            <div className="text-sm font-mono">{client.rfc || "â€”"}</div>
           </div>
           <div className="space-y-1">
-            <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> Dirección</div>
-            <div className="text-sm line-clamp-2">{client.address || "—"}</div>
+            <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> DirecciÃ³n</div>
+            <div className="text-sm line-clamp-2">{client.address || "â€”"}</div>
           </div>
         </div>
       </div>
@@ -117,7 +131,7 @@ function ClientDetailPage() {
         </div>
         <div className="panel p-4 flex flex-col items-center justify-center text-center">
           <span className="text-3xl font-bold text-amber-500">{deadlines.length}</span>
-          <span className="text-xs uppercase tracking-wider text-muted-foreground mt-1">Próximos Vencimientos</span>
+          <span className="text-xs uppercase tracking-wider text-muted-foreground mt-1">PrÃ³ximos Vencimientos</span>
         </div>
       </div>
 
@@ -149,10 +163,10 @@ function ClientDetailPage() {
                   >
                     <div className="min-w-0 pr-4">
                       <div className="font-medium text-foreground truncate">
-                        {c.case_number || c.title || "Sin título"}
+                        {c.case_number || c.title || "Sin tÃ­tulo"}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">
-                        {c.matter_type || "General"} · Actualizado {new Date(c.updated_at).toLocaleDateString()}
+                        {c.matter_type || "General"} Â· Actualizado {new Date(c.updated_at).toLocaleDateString()}
                       </div>
                     </div>
                     <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
@@ -176,3 +190,5 @@ function ClientDetailPage() {
     </div>
   );
 }
+
+

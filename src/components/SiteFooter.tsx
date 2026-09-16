@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+﻿import { Link } from "@tanstack/react-router";
 import { NyravaLogo } from "./NyravaLogo";
 import { useI18n } from "@/i18n";
 import { useQuery } from "@tanstack/react-query";
@@ -70,14 +70,14 @@ export function SiteFooter() {
       </div>
       <div className="border-t border-border/60">
         <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-3 px-6 py-6 text-xs text-muted-foreground md:flex-row md:items-center">
-          <span>© {new Date().getFullYear()} Nyrava Intelligence México. {t("footer.copyright")}</span>
+          <span>Â© {new Date().getFullYear()} Nyrava Intelligence MÃ©xico. {t("footer.copyright")}</span>
           <div className="flex flex-wrap items-center gap-3">
             {socialLinks.length > 0 && (
               <div className="flex items-center gap-2" aria-label={t("footer.socialLinks")}>
                 <span className="hidden sm:inline">{socialProfile?.name}</span>
                 {socialLinks.map(({ label, href, icon: Icon }) => (
                   <a key={label} href={href} target="_blank" rel="noopener noreferrer"
-                    aria-label={`${label} — ${socialProfile?.name}`}
+                    aria-label={`${label} â€” ${socialProfile?.name}`}
                     className="grid h-8 w-8 place-items-center rounded-full border border-border/70 transition-colors hover:border-primary/50 hover:text-primary">
                     <Icon className="h-4 w-4" aria-hidden="true" />
                   </a>
@@ -91,3 +91,5 @@ export function SiteFooter() {
     </footer>
   );
 }
+
+
