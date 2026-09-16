@@ -14,7 +14,7 @@
 - [x] Regression-test and visually inspect ADR 217/2019
 
 ## Public social branding and profiles (Sep 16)
-- [ ] Replace the legacy social preview with a dedicated 1200×630 Nyrava México card across public pages
+- [x] Replace the legacy social preview with a dedicated 1200×630 Nyrava México card across public pages
 - [ ] Publish and verify exact production Open Graph and Twitter metadata
-- [ ] Add LinkedIn, Discord, X/Twitter, and Facebook profile fields for admins and subscribers
-- [ ] Show administrator social profiles at the bottom of main public pages
+- [x] Add private LinkedIn, Discord, X/Twitter, and Facebook profile fields for signed-in users
+- [x] Show only the opted-in super administrator’s social links at the bottom of main public pages
