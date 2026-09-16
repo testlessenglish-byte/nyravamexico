@@ -1411,7 +1411,11 @@ export class PdfBuilder {
       this.y += 34;
     }
     this.firstSectionRendered = true;
-    this.ensureSpace(120);
+    this.doc.setFont("times", "bold");
+    this.doc.setFontSize(20);
+    const titleLines = this.doc.splitTextToSize(rt(label), this.printableWidth) as string[];
+    const headingHeight = 26 + titleLines.length * 25 + 22;
+    this.ensureSpace(headingHeight + 36);
     this.sectionTitle(kicker ?? SECTION_KICKERS[label] ?? label, label);
   }
 
@@ -1419,7 +1423,7 @@ export class PdfBuilder {
     // Quiet subsection header: uppercase small-caps label with a hairline
     // rule beneath it, no filled tinted bar. Reads as editorial, not as
     // a boxed dashboard card.
-    this.ensureSpace(90);
+    this.ensureSpace(62);
     this.y += 16;
     this.doc.setFont("helvetica", "bold");
     this.doc.setFontSize(10);
@@ -1435,7 +1439,7 @@ export class PdfBuilder {
   // Same quiet subsection header as h2(), but with a small colored dot
   // beside the label to signal severity tier at a glance.
   h2Tier(label: string, color: [number, number, number]) {
-    this.ensureSpace(90);
+    this.ensureSpace(62);
     this.y += 16;
     this.doc.setFillColor(...color);
     this.doc.circle(this.margin + 3, this.y - 3, 2.8, "F");

@@ -56,6 +56,7 @@ export function downloadLegalMemoPdf(payload: FinalReportPayload, caseName: stri
     engineVersion: undefined,
     certification: "verified",
   });
+  b.pageBreak();
 
   b.h1(memo.caption?.title || rt("MEMORANDUM OF LAW"));
   b.text(`Re: ${memo.caption?.re || caseName}`, { size: 11 });

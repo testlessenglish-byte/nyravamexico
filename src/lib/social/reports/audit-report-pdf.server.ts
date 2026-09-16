@@ -60,6 +60,7 @@ export function generateAuditReportPdf(data: AuditReportData): Uint8Array {
     engineVersion: undefined,
     certification: "verified",
   });
+  b.pageBreak();
 
   b.h1(isEs ? "Parámetros del Informe" : "Report Parameters");
   b.text(`${isEs ? "ID de Informe:" : "Report ID:"} ${data.reportId}`, { bold: true });
