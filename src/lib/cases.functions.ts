@@ -165,7 +165,7 @@ export const createCaseAndUpload = createServerFn({ method: "POST" })
 
     if (existingClientId && /^[0-9a-f-]{36}$/i.test(existingClientId)) {
       finalClientId = existingClientId;
-      const { data: cData } = await supabase.from("clients").select("display_name").eq("id", finalClientId).single();
+      const { data: cData } = await (supabase as any).from("clients").select("display_name").eq("id", finalClientId).single();
       if (cData) finalClientName = cData.display_name;
     } else {
       const newClientName = String(data.get("new_client_name") ?? "").trim();
@@ -181,7 +181,7 @@ export const createCaseAndUpload = createServerFn({ method: "POST" })
           .limit(1)
           .maybeSingle();
 
-        const { data: newClient } = await supabase.from("clients").insert({
+        const { data: newClient } = await (supabase as any).from("clients").insert({
           display_name: newClientName,
           client_type: newClientType,
           email: newClientEmail || null,
@@ -5383,4 +5383,5 @@ export const logReportExport = createServerFn({ method: "POST" })
     });
     return { ok: true };
   });
+
 
