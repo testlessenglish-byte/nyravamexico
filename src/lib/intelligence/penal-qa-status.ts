@@ -1,4 +1,9 @@
 import type { Finding } from "./types";
+import {
+  hasCompletePartyAwareScoreMapping,
+  type PartyScoreContext,
+} from "./penal-legal-normalization";
+
 
 export type PenalQaStatus = "PASS" | "WARN" | "WARN_NON_BLOCKING" | "FAIL" | "NOT_APPLICABLE";
 
