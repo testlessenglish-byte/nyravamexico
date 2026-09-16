@@ -4906,15 +4906,13 @@ export async function runAgents(args: {
       throw new _AgentCheckpoint("agents", `${done}/${totalAgentCount} agents complete`);
     }
 
+    // Individual specialist agents enrich the blocking parent stage. Their
+    // failures are retained in agent_findings and engine diagnostics, but do
+    // not turn the whole parent stage into a failure. The report's unchanged
+    // QA, citation, hallucination and Judge gates decide whether the remaining
+    // verified material is safe to release or must stay LIMITED/blocked.
     if (failures.length > 0) {
-      const error = failures.join("; ").slice(0, 2000);
-      await setCase(db, caseId, {
-        status: "failed",
-        status_message: `${failures.length}/${activeAgents.length} agents failed`,
-        progress: 100,
-        error,
-      });
-      throw new Error(error);
+      console.warn(`[agents] ${failures.length}/${activeAgents.length} specialist agent(s) failed: ${failures.join("; ")}`);
     }
 
     // Stage rollup: the comparison row. wall_ms is the honest end-to-end
@@ -4982,6 +4980,10 @@ export async function runAgents(args: {
       stats: {
         generated: totalGenerated,
         accepted: totalAccepted,
+        meta: {
+          specialist_failures: failures,
+          degraded: failures.length > 0,
+        },
         meta: {
           case_identity: {
             case_type: area,

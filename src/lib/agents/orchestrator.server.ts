@@ -352,7 +352,9 @@ async function agentEvidence(ctx: RunCtx): Promise<AgentResult> {
 
 async function agentContradictions(ctx: RunCtx): Promise<AgentResult> {
   const m = await import("@/lib/intelligence/derived-engines.server");
-  const out = await m.deriveContradictions(ctx.db, ctx.caseId);
+  // The multi-agent pass is diagnostic/read-only. It must never invalidate
+  // the report it is reviewing (or a blocked draft awaiting human revision).
+  const out = await m.deriveContradictions(ctx.db, ctx.caseId, { invalidateReport: false });
   return {
     status: "success",
     confidence: 0.8,

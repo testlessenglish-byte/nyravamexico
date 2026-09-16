@@ -19,7 +19,8 @@ describe("terminal release state requires a saved report", () => {
   it("the orchestrator refuses a terminal status write when no report exists", () => {
     const text = source("src/lib/agents/orchestrator.server.ts");
     expect(text).toContain("savedReportForRelease");
-    expect(text).toContain("if (args.deferRelease || !savedReportForRelease)");
+    expect(text).toContain("if (args.deferRelease)");
+    expect(text).toContain("if (!savedReportForRelease)");
     expect(text).toContain('"multi_agent.no_saved_report"');
   });
 
@@ -32,5 +33,16 @@ describe("terminal release state requires a saved report", () => {
       expect(text).toContain('postRun?.status === "needs_revision"');
     },
   );
+
+  it("diagnostic multi-agent contradiction checks cannot invalidate a saved report", () => {
+    const text = source("src/lib/agents/orchestrator.server.ts");
+    expect(text).toContain("deriveContradictions(ctx.db, ctx.caseId, { invalidateReport: false })");
+  });
+
+  it("report completion requires a same-execution persisted artifact", () => {
+    const text = source("src/lib/pipeline-runner.server.ts");
+    expect(text).toContain("REPORT_PERSISTENCE_INVARIANT_FAILED");
+    expect(text).toContain("missing_same_execution_report");
+  });
 });
 

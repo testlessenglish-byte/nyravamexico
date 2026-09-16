@@ -1207,7 +1207,7 @@ async function _runPipelineForCase(
       try {
         const { data: reportRow } = await (supabase as any)
           .from("reports")
-          .select("updated_at,created_at,citations")
+          .select("updated_at,created_at,citations,execution_id")
           .eq("case_id", caseId)
           .maybeSingle();
         const blockingEngines = new Set(
@@ -1216,6 +1216,10 @@ async function _runPipelineForCase(
           ),
         );
         const { isReportStale, isReportStaleByDocumentHash } = await import("./cases.functions");
+        const missingForExecution =
+          !reportRow ||
+          (executionId &&
+            (reportRow as { execution_id?: string | null }).execution_id !== executionId);
         const timestampStale = isReportStale(
           reportRow as { updated_at?: string | null; created_at?: string | null } | null,
           (priorRuns ?? []) as Array<{ engine: string; created_at?: string | null; ended_at?: string | null }>,
@@ -1237,9 +1241,15 @@ async function _runPipelineForCase(
             (docsForHashCheck ?? []) as Array<{ id: string; extracted_text: string | null }>,
           );
         }
-        if (timestampStale || hashStale) {
+        if (missingForExecution || timestampStale || hashStale) {
           latestStatusByEngine.delete(ENGINE.report);
-          trace("report.stale_forcing_regeneration", { reason: timestampStale ? "engine_timestamp" : "document_hash" });
+          trace("report.stale_forcing_regeneration", {
+            reason: missingForExecution
+              ? "missing_same_execution_report"
+              : timestampStale
+                ? "engine_timestamp"
+                : "document_hash",
+          });
         }
       } catch (e) {
         console.warn("[pipeline] report staleness check failed (non-fatal)", e);
@@ -1580,6 +1590,25 @@ async function _runPipelineForCase(
         /* noop */
       }
       if (s.key === "report") {
+        // A resolved runner call is not sufficient: report completion means a
+        // persisted artifact for this exact execution exists.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: persistedReport, error: persistedReportError } = await (supabase as any)
+          .from("reports")
+          .select("id,execution_id")
+          .eq("case_id", caseId)
+          .maybeSingle();
+        if (
+          persistedReportError ||
+          !persistedReport ||
+          (executionId && persistedReport.execution_id !== executionId)
+        ) {
+          throw new Error(
+            `REPORT_PERSISTENCE_INVARIANT_FAILED: report_generator returned without a same-execution report row${
+              persistedReportError ? ` (${persistedReportError.message})` : ""
+            }`,
+          );
+        }
         // Report finished cleanly — reset the checkpoint backstop counter so a
         // later regenerate starts with a fresh budget.
         try {

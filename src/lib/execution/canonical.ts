@@ -427,24 +427,12 @@ export function requireEngineForStage(stageKey: string): string {
 //
 // 2026-07-31: per explicit direction, the report must not generate until
 // EVERY stage has reached a terminal state — not just the stages marked
-// requirement:"blocking". Confirmed live in a real case: work_product
-// (requirement:"optional") was stuck at status "running" while the
-// pipeline continued straight through report generation and the final
-// multi-agent review, producing a report next to a permanently-dangling
-// "still running" engine. This intentionally no longer filters by
-// `requirement` — it lists every stage except report_generator itself
-// (self-referential, see note above). multi_agent WAS excluded here in an
-// earlier revision, back when it ran after report; it was moved ahead of
-// report generation (see the multi_agent stage's own comment above) and IS
-// now correctly included as a precondition — a stray "and multi_agent runs
-// after report" note survived that move and contradicted both this filter
-// (which only excludes report_generator) and report's own `dependsOn`
-// (which lists multi_agent). The underlying `requirement` field on each
-// CANONICAL_STAGES entry is left untouched — it's still used elsewhere
-// (e.g. whether a failed stage flips the whole pipeline run to "failed"),
-// and this change is scoped to the report gate only.
+// Only stages explicitly classified as blocking can prevent report assembly.
+// Enriching and optional stages still run and remain visible in diagnostics,
+// but their failure degrades coverage rather than contradicting the runner's
+// own non-blocking semantics.
 export const REPORT_BLOCKING_ENGINES: readonly string[] = CANONICAL_STAGES.filter(
-  (s) => s.engine !== "report_generator",
+  (s) => s.requirement === "blocking" && s.engine !== "report_generator",
 ).map((s) => s.engine);
 
 /** Engines whose stage is requirement:"optional".
@@ -460,9 +448,8 @@ export const REPORT_ENRICHING_ENGINES: readonly string[] = CANONICAL_STAGES.filt
   (s) => s.requirement === "enriching",
 ).map((s) => s.engine);
 
-/** All engines the report gate considers (blocking + enriching, deduped —
- * every stage is now in REPORT_BLOCKING_ENGINES, so this would otherwise
- * double-count the subset that's also requirement:"enriching"). */
+/** All engines inspected by report readiness. Only REPORT_BLOCKING_ENGINES
+ * can block; enriching engines are reported as coverage warnings. */
 export const REPORT_REQUIRED_ENGINES: readonly string[] = Array.from(
   new Set([...REPORT_BLOCKING_ENGINES, ...REPORT_ENRICHING_ENGINES]),
 );
