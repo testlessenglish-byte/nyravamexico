@@ -10,7 +10,9 @@ export function resolveReportIdentity(caseData: Record<string, any>) {
   // Do NOT fallback to finding "quejoso" or "actor" in parties list if client is missing!
   const safeClient = clientName ? clientName.trim() : undefined;
 
-  const caseNumber = (caseData.case_number || caseData.expediente || caseData.id?.substring(0, 8)) as string;
+  const caseNumber = String(
+    caseData.case_number || caseData.expediente || caseData.id?.substring(0, 8) || "SIN_EXPEDIENTE",
+  );
   const proceedingType = (caseData.proceeding_type || caseData.tipo_juicio) as string | undefined;
 
   // Generate safe filename
