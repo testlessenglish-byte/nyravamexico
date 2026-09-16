@@ -66,7 +66,13 @@ import {
 } from "./finding-taxonomy";
 import { clusterBySameIssue } from "./finding-dedupe";
 import { validateFindingClassification, validateFindingCategory } from "./finding-classification-gate";
-import { normalizePenalFinding, normalizeSubstantiveLegalDomain } from "./penal-legal-normalization";
+import {
+  hasCompletePartyAwareScoreMapping,
+  normalizePenalFinding,
+  normalizeSubstantiveLegalDomain,
+  type PartyScoreContext,
+} from "./penal-legal-normalization";
+
 
 type Db = SupabaseClient<Database>;
 type J = import("@/integrations/supabase/types").Json;
