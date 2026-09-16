@@ -128,6 +128,7 @@ export const Route = createFileRoute("/_authenticated")({
 const PRIMARY_NAV = [
   { to: "/dashboard", labelKey: "nav.missionControl", icon: LayoutDashboard },
   { to: "/cases", labelKey: "nav.caseIntelligence", icon: FolderOpen },
+  { to: "/clients", label: "Clientes", icon: Users },
   { to: "/social", labelKey: "nav.comprehensiveCare", icon: HeartHandshake },
   { to: "/new", labelKey: "nav.analyzeNewCase", icon: Plus },
 ] as const;
