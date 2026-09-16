@@ -11,7 +11,7 @@ export const Route = createFileRoute("/responsible-ai")({
       { property: "og:title", content: "Política de IA Responsable — Nyrava México" },
       { property: "og:description", content: "Principios de gobernanza e inteligencia artificial responsable en el sistema jurídico mexicano." },
       { property: "og:type", content: "article" },
-      { name: "twitter:card", content: "summary" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [{ rel: "canonical", href: "https://mexico.nyrava.com/responsible-ai" }],
   }),
