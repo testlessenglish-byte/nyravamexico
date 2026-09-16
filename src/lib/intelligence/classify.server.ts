@@ -801,7 +801,10 @@ export function rankAndClassify<T extends Partial<NewFinding>>(
   T & {
     evidence_type: EvidenceType;
     impact_direction: ImpactDirection;
-    affected_party: AffectedParty | null;
+    // A row's own party attribution may use any procedural vocabulary
+    // (amparo roles included); only this module's RULES are limited to the
+    // ordinary defense/prosecution pair.
+    affected_party: PartyRole | null;
     priority: number;
     category: string;
     category_key: string;
