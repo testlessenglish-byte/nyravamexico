@@ -73,6 +73,7 @@
 
 import type { NewFinding, Severity } from "./types";
 import type { MexicanCaseType } from "../jurisdiction/mexico-types";
+import type { PartyRole } from "./types";
 
 export type EvidenceType = "inculpatory" | "exculpatory" | "impeachment" | "neutral";
 export type ImpactDirection = "strengthens" | "weakens" | "neutral";
