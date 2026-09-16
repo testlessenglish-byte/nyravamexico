@@ -1005,6 +1005,7 @@ export async function addFindings(db: Db, rows: NewFinding[]) {
   // every call site's signature.
   let classifyMateria: string | undefined;
   let classifyUnderlyingMateria: string | null | undefined;
+  let classifyProceduralVehicle: string | null | undefined;
   if (classifyCaseId) {
     // VERIFIED CASE IDENTITY — same precedence as the practice-area
     // backstop above (verified/attorney-locked/declared); undefined when
@@ -1016,8 +1017,18 @@ export async function addFindings(db: Db, rows: NewFinding[]) {
     const classifyIdentity = await resolveClassifyIdentity(db, classifyCaseId);
     classifyMateria = classifyIdentity.caseType ?? undefined;
     classifyUnderlyingMateria = classifyIdentity.underlyingMateria;
+    classifyProceduralVehicle = classifyIdentity.proceduralVehicle;
   }
+  // Procedural vehicle and underlying substantive materia are distinct and
+  // both matter: an Amparo Directo en Revisión with Penal underlying materia
+  // legitimately uses the amparo party vocabulary AND the penal one.
+  const partyScoreContext: PartyScoreContext = {
+    matter: classifyMateria ?? null,
+    underlyingMatter: classifyUnderlyingMateria ?? null,
+    proceduralVehicle: classifyProceduralVehicle ?? null,
+  };
   const classified = rankAndClassify(finalized, classifyLocale, classifyMateria);
+
 
   // Dimension tagging — computed ONCE, here, at the single insert choke
   // point every write path funnels through (see TRUST CONTRACT header).
