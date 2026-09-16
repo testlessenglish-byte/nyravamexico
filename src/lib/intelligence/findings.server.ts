@@ -1240,7 +1240,7 @@ export async function addFindings(db: Db, rows: NewFinding[]) {
       rationale: (r.rationale ?? null) as J,
       legal_significance: r.legal_significance,
       potential_impact: r.potential_impact,
-      affected_party: normParty(r.affected_party),
+      affected_party,
       benefited_party: normParty(r.benefited_party),
       authority_level: r.authority_level ?? (isHolding ? 1 : null),
       score_dimension: r.score_dimension ?? null,
@@ -1260,7 +1260,20 @@ export async function addFindings(db: Db, rows: NewFinding[]) {
       metadata: {
         ...(r.metadata ?? {}),
         is_authority_exempt: isHolding,
+        ...(postPromotionNeutralized
+          ? {
+              post_promotion_normalization: {
+                version: 1,
+                rule: "adopted_holding_neutralized_post_promotion",
+                original_impact_direction: r.impact_direction ?? null,
+                original_affected_party: r.affected_party ?? null,
+                reason:
+                  "Adopted court holding carried a non-neutral scoring direction without a complete party-aware score mapping for this procedural context; scoring attributes neutralized, holding and citation preserved.",
+              },
+            }
+          : {}),
       } as J,
+
       finding_type,
       // Set by addGatedFindings' path (classifyEvidenceRelationship, see
       // evidence-gate.server.ts); null for the few call sites that persist
@@ -1272,9 +1285,11 @@ export async function addFindings(db: Db, rows: NewFinding[]) {
       source_document_id: resolvedDocId,
       source_page: resolvedPage,
       source_quote: resolvedQuote,
-      // Neutral classification fields
-      evidence_type: r.evidence_type,
-      impact_direction: r.impact_direction,
+      // Neutral classification fields — the post-promotion invariant above
+      // is the authority on these two for a promoted court holding.
+      evidence_type,
+      impact_direction,
+
       priority: r.priority,
     });
   }
