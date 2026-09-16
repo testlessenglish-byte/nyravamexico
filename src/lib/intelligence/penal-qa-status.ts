@@ -39,7 +39,11 @@ function count(value: number | null | undefined): number {
   return Number.isFinite(value) ? Math.max(0, Number(value)) : 0;
 }
 
-export function auditPenalProceduralSemantics(findings: readonly Finding[]): number {
+export function auditPenalProceduralSemantics(
+  findings: readonly Finding[],
+  context: PartyScoreContext = {},
+): number {
+
   const courtRoles = new Set([
     "juez_control",
     "tribunal_enjuiciamiento",
