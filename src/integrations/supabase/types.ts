@@ -1205,6 +1205,53 @@ export type Database = {
           },
         ]
       }
+      case_deadlines: {
+        Row: {
+          case_id: string
+          completed: boolean
+          created_at: string
+          created_by: string | null
+          due_date: string
+          id: string
+          notes: string | null
+          priority: string | null
+          source: string
+          title: string
+        }
+        Insert: {
+          case_id: string
+          completed?: boolean
+          created_at?: string
+          created_by?: string | null
+          due_date: string
+          id?: string
+          notes?: string | null
+          priority?: string | null
+          source?: string
+          title: string
+        }
+        Update: {
+          case_id?: string
+          completed?: boolean
+          created_at?: string
+          created_by?: string | null
+          due_date?: string
+          id?: string
+          notes?: string | null
+          priority?: string | null
+          source?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_deadlines_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       case_decision_reconstructions: {
         Row: {
           case_id: string
@@ -2649,6 +2696,7 @@ export type Database = {
           case_type: string | null
           case_type_source: string | null
           case_type_verification_status: string | null
+          client_id: string | null
           completed_at: string | null
           contradiction_at: string | null
           created_at: string
@@ -2712,6 +2760,7 @@ export type Database = {
           case_type?: string | null
           case_type_source?: string | null
           case_type_verification_status?: string | null
+          client_id?: string | null
           completed_at?: string | null
           contradiction_at?: string | null
           created_at?: string
@@ -2775,6 +2824,7 @@ export type Database = {
           case_type?: string | null
           case_type_source?: string | null
           case_type_verification_status?: string | null
+          client_id?: string | null
           completed_at?: string | null
           contradiction_at?: string | null
           created_at?: string
@@ -2827,6 +2877,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "cases_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "cases_firm_id_fkey"
             columns: ["firm_id"]
             isOneToOne: false
@@ -2877,6 +2934,74 @@ export type Database = {
           },
         ]
       }
+      clients: {
+        Row: {
+          address: string | null
+          client_type: string
+          created_at: string
+          created_by: string
+          display_name: string
+          email: string | null
+          id: string
+          legal_name: string | null
+          notes: string | null
+          org_id: string | null
+          phone: string | null
+          reference_number: string | null
+          responsible_attorney: string | null
+          rfc: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          address?: string | null
+          client_type?: string
+          created_at?: string
+          created_by: string
+          display_name: string
+          email?: string | null
+          id?: string
+          legal_name?: string | null
+          notes?: string | null
+          org_id?: string | null
+          phone?: string | null
+          reference_number?: string | null
+          responsible_attorney?: string | null
+          rfc?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          address?: string | null
+          client_type?: string
+          created_at?: string
+          created_by?: string
+          display_name?: string
+          email?: string | null
+          id?: string
+          legal_name?: string | null
+          notes?: string | null
+          org_id?: string | null
+          phone?: string | null
+          reference_number?: string | null
+          responsible_attorney?: string | null
+          rfc?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clients_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       closing_milestones: {
         Row: {
           case_id: string
@@ -2920,6 +3045,50 @@ export type Database = {
             columns: ["case_id"]
             isOneToOne: false
             referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_activity_log: {
+        Row: {
+          action: string
+          actor_id: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          org_id: string | null
+          resource_id: string | null
+          resource_type: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          org_id?: string | null
+          resource_id?: string | null
+          resource_type: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          org_id?: string | null
+          resource_id?: string | null
+          resource_type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_activity_log_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -11392,6 +11561,10 @@ export type Database = {
       get_social_case_core: { Args: { p_case: string }; Returns: Json }
       get_social_organization_account: {
         Args: { p_org: string }
+        Returns: Json
+      }
+      global_legal_search: {
+        Args: { _limit?: number; _query: string; _user_id?: string }
         Returns: Json
       }
       has_permission: {
