@@ -124,20 +124,130 @@ function canonicalAdoption(
   return "unknown";
 }
 
-function completePartyAwareScoreMapping(finding: NewFinding): boolean {
+// ---------------------------------------------------------------------------
+// CANONICAL PARTY-AWARE SCORE MAPPING
+//
+// One definition, used by BOTH the write-time normalizer (this file) and the
+// QA auditor (penal-qa-status.ts). Two layers disagreeing about what a
+// complete mapping is caused a real production block: the normalizer accepted
+// a record the auditor later rejected (ADR 217/2019).
+//
+// Procedural vehicle and underlying substantive materia are distinct. An
+// Amparo Directo en Revisión whose underlying materia is Penal is a single
+// legitimate configuration: its party vocabulary is the Amparo one (quejoso /
+// autoridad responsable / tercero interesado) AND the penal one, because the
+// substantive analysis inside the amparo is genuinely penal. An ordinary
+// penal proceeding keeps the penal vocabulary only.
+// ---------------------------------------------------------------------------
+
+export type PartyScoreContext = PenalMatterContext & {
+  /** e.g. "amparo_directo_revision", "amparo_indirecto", "apelacion". */
+  proceduralVehicle?: string | null;
+};
+
+/** Parties that can be the BENEFICIARY of a scoring effect in an ordinary
+ *  penal proceeding. "both"/"neutral" are deliberately excluded — a benefit
+ *  attributed to everyone justifies no direction. */
+const PENAL_BENEFICIARY_PARTIES: ReadonlySet<string> = new Set([
+  "defense",
+  "defensa",
+  "imputado",
+  "acusado",
+  "sentenciado",
+  "prosecution",
+  "ministerio_publico",
+  "fiscal",
+  "victima",
+  "ofendido",
+]);
+
+/** Amparo party roles — first-class, not a penal synonym set. */
+const AMPARO_BENEFICIARY_PARTIES: ReadonlySet<string> = new Set([
+  "quejoso",
+  "autoridad_responsable",
+  "autoridad",
+  "tercero_interesado",
+  "recurrente",
+]);
+
+const NON_DIRECTIONAL_PARTIES: ReadonlySet<string> = new Set(["both", "neutral"]);
+
+export function isAmparoProceeding(context: PartyScoreContext): boolean {
+  return [context.proceduralVehicle, context.matter].some((value) =>
+    /amparo/i.test(String(value ?? "")),
+  );
+}
+
+/** Party roles that may be named as the beneficiary of a non-neutral score
+ *  effect, selected by procedural context. */
+export function allowedBeneficiaryParties(
+  context: PartyScoreContext = {},
+): ReadonlySet<string> {
+  const penal = isPenalMatter(context);
+  const amparo = isAmparoProceeding(context);
+  if (amparo) {
+    // Amparo (with or without a penal underlying materia) legitimately uses
+    // amparo roles; when the underlying materia is penal the penal roles are
+    // equally legitimate for the substantive analysis inside the amparo.
+    return penal
+      ? new Set([...AMPARO_BENEFICIARY_PARTIES, ...PENAL_BENEFICIARY_PARTIES])
+      : AMPARO_BENEFICIARY_PARTIES;
+  }
+  if (penal) return PENAL_BENEFICIARY_PARTIES;
+  // Unknown procedural context: accept any recognized party role rather than
+  // guessing a vocabulary. Still stricter than "any non-empty string".
+  return new Set([...AMPARO_BENEFICIARY_PARTIES, ...PENAL_BENEFICIARY_PARTIES]);
+}
+
+type PartyScoreFinding = {
+  impact_direction?: unknown;
+  affected_party?: unknown;
+  benefited_party?: unknown;
+  score_dimension?: unknown;
+  reason_for_score_effect?: unknown;
+  source_quote?: unknown;
+  evidence_refs?: ReadonlyArray<{ quote?: unknown } | null | undefined> | null;
+};
+
+/**
+ * THE canonical completeness test for a non-neutral scoring effect.
+ * A neutral finding needs no mapping; a directional one must name who it
+ * benefits (in a vocabulary valid for the procedural context), which score
+ * dimension it moves, why, and carry a verbatim quote.
+ */
+export function hasCompletePartyAwareScoreMapping(
+  finding: PartyScoreFinding,
+  context: PartyScoreContext = {},
+): boolean {
   const impact = norm(finding.impact_direction);
-  const affected = norm(finding.affected_party);
+  if (impact !== "strengthens" && impact !== "weakens") return false;
+
+  const allowed = allowedBeneficiaryParties(context);
   const benefited = norm(finding.benefited_party);
-  const quote = finding.source_quote || finding.evidence_refs?.find((ref) => ref.quote)?.quote;
+  if (!allowed.has(benefited)) return false;
+
+  const affected = norm(finding.affected_party);
+  if (affected && !allowed.has(affected) && !NON_DIRECTIONAL_PARTIES.has(affected)) return false;
+
+  const quote =
+    (typeof finding.source_quote === "string" ? finding.source_quote : "") ||
+    String(
+      (finding.evidence_refs ?? []).find((ref) => String(ref?.quote ?? "").trim())?.quote ?? "",
+    );
   return (
-    (impact === "strengthens" || impact === "weakens") &&
-    (affected === "defense" || affected === "prosecution" || affected === "both") &&
-    (benefited === "defense" || benefited === "prosecution") &&
     Boolean(String(finding.score_dimension ?? "").trim()) &&
     Boolean(String(finding.reason_for_score_effect ?? "").trim()) &&
     Boolean(String(quote ?? "").trim())
   );
 }
+
+function completePartyAwareScoreMapping(
+  finding: NewFinding,
+  context: PartyScoreContext,
+): boolean {
+  return hasCompletePartyAwareScoreMapping(finding as PartyScoreFinding, context);
+}
+
 
 function validEvidenceGapBasis(metadata: Record<string, unknown> | undefined): boolean {
   const basis = metadata?.evidence_gap_basis as GapBasis | undefined;
@@ -197,7 +307,7 @@ export type PenalNormalizationRule =
 
 export function normalizePenalFinding<T extends NewFinding>(
   finding: T,
-  context: PenalMatterContext,
+  context: PartyScoreContext,
 ): T {
   if (!isPenalMatter(context)) return finding;
   const antecedent = validateReincidenciaEvidence(finding);
@@ -265,7 +375,7 @@ export function normalizePenalFinding<T extends NewFinding>(
   if (
     proposition === "court_holding" &&
     adoption === "adopted" &&
-    !completePartyAwareScoreMapping(finding)
+    !completePartyAwareScoreMapping(finding, context)
   ) {
     impactDirection = "neutral";
     affectedParty = "neutral";

@@ -10033,7 +10033,13 @@ ${paginationTail}`;
       classificationConflicts: reportMateriaConflict ? 1 : 0,
       proceduralSemanticIssues: auditPenalProceduralSemantics(
         findings as unknown as Parameters<typeof auditPenalProceduralSemantics>[0],
+        {
+          matter: caseType,
+          underlyingMatter: reportUnderlyingMateria,
+          proceduralVehicle: reportIdentity.proceduralVehicle,
+        },
       ),
+
       proceduralSchemaAliases: findings.filter((f:any) => f.proposition_type === "holding" && f.audit_classification === "VERIFIED_COURT_HOLDING").length,
       renderedCriticalIssues:
         typeof renderedQa?.critical_count === "number" ? renderedQa.critical_count : null,

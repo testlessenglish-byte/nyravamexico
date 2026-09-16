@@ -58,6 +58,10 @@ export type HallucinationReport = {
   concluded_case_actions_removed?: number;
   materia_leak_actions_removed?: number;
   false_orphan_citations_reconciled?: number;
+  /** An integrity block recorded by an EARLIER stage (e.g. procedural
+   *  semantics). Reported verbatim so the real blocker is visible; it is
+   *  deliberately NOT treated as a hallucination failure. */
+  upstream_release_block?: string[] | null;
 };
 
 const REPORT_PROSE_FIELDS = [
@@ -301,6 +305,7 @@ async function reconcileSavedReportProse(
   concludedCaseActionsRemoved: number;
   materiaLeakActionsRemoved: number;
   falseOrphanCitationsReconciled: number;
+  upstreamReleaseBlock: string[] | null;
 }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [{ data: saved }, { data: caseRow }, { data: documentsRaw }] = await Promise.all([
@@ -328,6 +333,7 @@ async function reconcileSavedReportProse(
       concludedCaseActionsRemoved: 0,
       materiaLeakActionsRemoved: 0,
       falseOrphanCitationsReconciled: 0,
+      upstreamReleaseBlock: null,
     };
   }
 
@@ -451,13 +457,26 @@ async function reconcileSavedReportProse(
     if (error) throw new Error(`Failed to persist final rendered QA: ${error.message}`);
   }
 
-  if (saved.quality_blocked || renderedDecision.blocked) {
+  // A block THIS layer discovers in the rendered report still aborts the
+  // review — that is its own integrity check and must keep its teeth.
+  if (renderedDecision.blocked) {
     const reasons = [
       ...(Array.isArray(saved.quality_block_reasons) ? saved.quality_block_reasons.map(String) : []),
       ...renderedDecision.reasons,
     ];
     throw new Error(`Rendered report integrity blocked release${reasons.length ? `: ${reasons.join("; ")}` : "."}`);
   }
+
+  // A block recorded by an EARLIER stage is reported, not re-thrown. Throwing
+  // here aborted hallucination verification and made the upstream failure
+  // resurface as `gate:hallucination`, hiding the real blocker (ADR
+  // 217/2019: procedural semantics failed while 38/38 claims verified). The
+  // release is still blocked — by whoever actually blocked it.
+  const upstreamReleaseBlock = saved.quality_blocked
+    ? (Array.isArray(saved.quality_block_reasons) && saved.quality_block_reasons.length
+        ? saved.quality_block_reasons.map(String)
+        : ["quality_blocked"])
+    : null;
 
   return {
     quarantinedActionsRemoved: removed,
@@ -466,7 +485,9 @@ async function reconcileSavedReportProse(
     concludedCaseActionsRemoved,
     materiaLeakActionsRemoved,
     falseOrphanCitationsReconciled,
+    upstreamReleaseBlock,
   };
+
 }
 
 export async function runHallucinationReview(args: { db: Db; caseId: string }): Promise<HallucinationReport> {
@@ -516,6 +537,7 @@ export async function runHallucinationReview(args: { db: Db; caseId: string }): 
     concluded_case_actions_removed: proseReconciliation.concludedCaseActionsRemoved,
     materia_leak_actions_removed: proseReconciliation.materiaLeakActionsRemoved,
     false_orphan_citations_reconciled: proseReconciliation.falseOrphanCitationsReconciled,
+    upstream_release_block: proseReconciliation.upstreamReleaseBlock,
   };
 
   const nowIso = new Date().toISOString();

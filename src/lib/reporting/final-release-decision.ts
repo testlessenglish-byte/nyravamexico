@@ -1,5 +1,6 @@
 type Row = Record<string, any>;
 import { auditPenalProceduralSemantics } from "../intelligence/penal-qa-status";
+import type { PartyScoreContext } from "../intelligence/penal-legal-normalization";
 import type { Finding } from "../intelligence/types";
 export interface ReleaseLayer { layer: string; status: string; blocking?: boolean; reason?: string; issues?: number }
 export interface FinalReleaseInput {
@@ -20,10 +21,14 @@ export function normalizeQaLayers(layers: ReleaseLayer[] = []): ReleaseLayer[] {
   });
 }
 /** Refresh semantics against the actual final records, not a stale pre-projection count. */
-export function refreshProceduralQa(report: Row, findings: readonly Row[]): void {
+export function refreshProceduralQa(
+  report: Row,
+  findings: readonly Row[],
+  context: PartyScoreContext = {},
+): void {
   const full = report.full_report ?? {};
   if (!Array.isArray(full.qa_statuses)) return;
-  const issues = auditPenalProceduralSemantics(findings as readonly Finding[]);
+  const issues = auditPenalProceduralSemantics(findings as readonly Finding[], context);
   const aliases = findings.filter(f => f.proposition_type === "holding" &&
     f.audit_classification === "VERIFIED_COURT_HOLDING").length;
   full.qa_statuses = full.qa_statuses.map((layer: ReleaseLayer) => layer.layer !== "procedural_semantics" ||

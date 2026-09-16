@@ -66,7 +66,13 @@ import {
 } from "./finding-taxonomy";
 import { clusterBySameIssue } from "./finding-dedupe";
 import { validateFindingClassification, validateFindingCategory } from "./finding-classification-gate";
-import { normalizePenalFinding, normalizeSubstantiveLegalDomain } from "./penal-legal-normalization";
+import {
+  hasCompletePartyAwareScoreMapping,
+  normalizePenalFinding,
+  normalizeSubstantiveLegalDomain,
+  type PartyScoreContext,
+} from "./penal-legal-normalization";
+
 
 type Db = SupabaseClient<Database>;
 type J = import("@/integrations/supabase/types").Json;
@@ -815,8 +821,12 @@ export async function addFindings(db: Db, rows: NewFinding[]) {
           underlyingMatter:
             identity.underlyingMateria ??
             (activePenalDomain ? String(activePenalDomain) : null),
+          // Procedural vehicle is NOT the materia — an amparo vehicle with a
+          // penal underlying materia must keep both vocabularies available.
+          proceduralVehicle: identity.proceduralVehicle,
         }),
       );
+
     }
   }
 
@@ -999,6 +1009,7 @@ export async function addFindings(db: Db, rows: NewFinding[]) {
   // every call site's signature.
   let classifyMateria: string | undefined;
   let classifyUnderlyingMateria: string | null | undefined;
+  let classifyProceduralVehicle: string | null | undefined;
   if (classifyCaseId) {
     // VERIFIED CASE IDENTITY — same precedence as the practice-area
     // backstop above (verified/attorney-locked/declared); undefined when
@@ -1010,8 +1021,18 @@ export async function addFindings(db: Db, rows: NewFinding[]) {
     const classifyIdentity = await resolveClassifyIdentity(db, classifyCaseId);
     classifyMateria = classifyIdentity.caseType ?? undefined;
     classifyUnderlyingMateria = classifyIdentity.underlyingMateria;
+    classifyProceduralVehicle = classifyIdentity.proceduralVehicle;
   }
+  // Procedural vehicle and underlying substantive materia are distinct and
+  // both matter: an Amparo Directo en Revisión with Penal underlying materia
+  // legitimately uses the amparo party vocabulary AND the penal one.
+  const partyScoreContext: PartyScoreContext = {
+    matter: classifyMateria ?? null,
+    underlyingMatter: classifyUnderlyingMateria ?? null,
+    proceduralVehicle: classifyProceduralVehicle ?? null,
+  };
   const classified = rankAndClassify(finalized, classifyLocale, classifyMateria);
+
 
   // Dimension tagging — computed ONCE, here, at the single insert choke
   // point every write path funnels through (see TRUST CONTRACT header).
@@ -1162,7 +1183,46 @@ export async function addFindings(db: Db, rows: NewFinding[]) {
     const speaker_role = isHolding ? "scjn" : normSpeakerRole(r.speaker_role);
     const proposition_type = isHolding ? "holding" : normPropositionType(r.proposition_type);
     const adoption_status = isHolding ? "adopted" : normAdoptionStatus(r.adoption_status);
-    const impact_direction = isHolding && !r.impact_direction ? "neutral" : (r.impact_direction ?? "neutral");
+    // -----------------------------------------------------------------
+    // POST-PROMOTION SEMANTIC INVARIANT. The three lines above can promote
+    // a row into `adopted VERIFIED_COURT_HOLDING` AFTER
+    // normalizePenalFinding already ran, so the normalizer's rule ("an
+    // adopted court holding may only carry a non-neutral scoring direction
+    // when the party-aware mapping is complete") has to be re-checked
+    // against the FINAL state, immediately before persistence — otherwise
+    // the promotion itself manufactures the exact record the QA auditor
+    // later rejects (ADR 217/2019).
+    //
+    // Nothing is invented: the holding, its quote, citation, source and
+    // substance are untouched; only the unsupported scoring attributes are
+    // neutralized, and the neutralization is recorded in metadata.
+    // -----------------------------------------------------------------
+    let impact_direction = isHolding && !r.impact_direction ? "neutral" : (r.impact_direction ?? "neutral");
+    let affected_party = normParty(r.affected_party);
+    let evidence_type = r.evidence_type;
+    let postPromotionNeutralized = false;
+    if (
+      isHolding &&
+      String(impact_direction ?? "").toLowerCase() !== "neutral" &&
+      !hasCompletePartyAwareScoreMapping(
+        {
+          impact_direction,
+          affected_party,
+          benefited_party: r.benefited_party,
+          score_dimension: r.score_dimension,
+          reason_for_score_effect: r.reason_for_score_effect,
+          source_quote: resolvedQuote,
+          evidence_refs: ev as Array<{ quote?: unknown }>,
+        },
+        partyScoreContext,
+      )
+    ) {
+      impact_direction = "neutral";
+      affected_party = "neutral";
+      evidence_type = "neutral";
+      postPromotionNeutralized = true;
+    }
+
 
     // Lift canonical identity out of metadata onto the top-level column so
     // joins/exports/audit tools can resolve findings by canonical_finding_id
@@ -1201,7 +1261,7 @@ export async function addFindings(db: Db, rows: NewFinding[]) {
       rationale: (r.rationale ?? null) as J,
       legal_significance: r.legal_significance,
       potential_impact: r.potential_impact,
-      affected_party: normParty(r.affected_party),
+      affected_party,
       benefited_party: normParty(r.benefited_party),
       authority_level: r.authority_level ?? (isHolding ? 1 : null),
       score_dimension: r.score_dimension ?? null,
@@ -1221,7 +1281,20 @@ export async function addFindings(db: Db, rows: NewFinding[]) {
       metadata: {
         ...(r.metadata ?? {}),
         is_authority_exempt: isHolding,
+        ...(postPromotionNeutralized
+          ? {
+              post_promotion_normalization: {
+                version: 1,
+                rule: "adopted_holding_neutralized_post_promotion",
+                original_impact_direction: r.impact_direction ?? null,
+                original_affected_party: r.affected_party ?? null,
+                reason:
+                  "Adopted court holding carried a non-neutral scoring direction without a complete party-aware score mapping for this procedural context; scoring attributes neutralized, holding and citation preserved.",
+              },
+            }
+          : {}),
       } as J,
+
       finding_type,
       // Set by addGatedFindings' path (classifyEvidenceRelationship, see
       // evidence-gate.server.ts); null for the few call sites that persist
@@ -1233,9 +1306,11 @@ export async function addFindings(db: Db, rows: NewFinding[]) {
       source_document_id: resolvedDocId,
       source_page: resolvedPage,
       source_quote: resolvedQuote,
-      // Neutral classification fields
-      evidence_type: r.evidence_type,
-      impact_direction: r.impact_direction,
+      // Neutral classification fields — the post-promotion invariant above
+      // is the authority on these two for a promoted court holding.
+      evidence_type,
+      impact_direction,
+
       priority: r.priority,
     });
   }

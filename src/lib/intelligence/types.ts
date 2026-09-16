@@ -1,8 +1,36 @@
 // Canonical Nyrava Intelligence types — shared by every engine and reader.
 
 export type Severity = "critical" | "high" | "medium" | "low" | "info";
-export type AffectedParty = "defense" | "prosecution" | "both" | "neutral";
-export type BenefitedParty = "defense" | "prosecution" | "both" | "neutral";
+/** Party roles a finding can affect or benefit. The ordinary-penal pair
+ *  (defense/prosecution) and the Amparo roles (quejoso / autoridad
+ *  responsable / tercero interesado) are BOTH first-class: an Amparo whose
+ *  underlying substantive materia is Penal legitimately uses either. Which
+ *  vocabulary is valid for a given record is decided by procedural context —
+ *  see allowedBeneficiaryParties() in penal-legal-normalization.ts, the one
+ *  canonical definition shared by the write-time normalizer and the QA
+ *  auditor. These unions mirror normParty()'s runtime allow-list. */
+export type PartyRole =
+  | "defense"
+  | "prosecution"
+  | "both"
+  | "neutral"
+  | "quejoso"
+  | "autoridad_responsable"
+  | "tercero_interesado"
+  | "ministerio_publico"
+  | "defensa"
+  | "victima"
+  | "ofendido"
+  | "actor"
+  | "demandado"
+  | "trabajador"
+  | "patron"
+  | "contribuyente"
+  | "autoridad_fiscal"
+  | "particular"
+  | "autoridad";
+export type AffectedParty = PartyRole;
+export type BenefitedParty = PartyRole;
 
 /** Judicial-hierarchy attribution — see judicial-hierarchy.ts.
  *

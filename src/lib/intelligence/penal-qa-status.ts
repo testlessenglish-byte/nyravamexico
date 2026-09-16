@@ -1,4 +1,9 @@
 import type { Finding } from "./types";
+import {
+  hasCompletePartyAwareScoreMapping,
+  type PartyScoreContext,
+} from "./penal-legal-normalization";
+
 
 export type PenalQaStatus = "PASS" | "WARN" | "WARN_NON_BLOCKING" | "FAIL" | "NOT_APPLICABLE";
 
@@ -34,7 +39,11 @@ function count(value: number | null | undefined): number {
   return Number.isFinite(value) ? Math.max(0, Number(value)) : 0;
 }
 
-export function auditPenalProceduralSemantics(findings: readonly Finding[]): number {
+export function auditPenalProceduralSemantics(
+  findings: readonly Finding[],
+  context: PartyScoreContext = {},
+): number {
+
   const courtRoles = new Set([
     "juez_control",
     "tribunal_enjuiciamiento",
@@ -72,12 +81,11 @@ export function auditPenalProceduralSemantics(findings: readonly Finding[]): num
       if (!["adopted", "rejected", "not_reached", "historical", "unknown"].includes(adoption)) {
         issues += 1;
       }
-      const hasPartyAwareMapping =
-        ["strengthens", "weakens"].includes(impact) &&
-        Boolean(String(finding.benefited_party ?? "")) &&
-        Boolean(String(finding.score_dimension ?? "")) &&
-        Boolean(String(finding.reason_for_score_effect ?? "")) &&
-        finding.evidence_refs.some((ref) => Boolean(String(ref.quote ?? "").trim()));
+      // Same canonical definition the write-time normalizer uses, so one
+      // layer can never accept a record the other rejects. The procedural
+      // context selects the party vocabulary (amparo vs ordinary penal).
+      const hasPartyAwareMapping = hasCompletePartyAwareScoreMapping(finding, context);
+
       if (
         ["holding", "court_holding"].includes(proposition) &&
         adoption === "adopted" &&
