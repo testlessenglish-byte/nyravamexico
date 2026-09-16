@@ -66,7 +66,7 @@ export function selectTimelineEvents(data: Any): Array<{
   }
 
   const fr = (data?.report?.full_report ?? {}) as Any;
-  for (const arr of [fr.timeline, fr.events, fr.case_timeline].filter(Array.isArray) as Any[][]) {
+  for (const arr of [fr.canonical_timeline?.events, fr.timeline, fr.events, fr.case_timeline].filter(Array.isArray) as Any[][]) {
     for (const ev of arr) {
       if (!ev) continue;
       push(

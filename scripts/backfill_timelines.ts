@@ -1,0 +1,62 @@
+﻿import { createClient } from "@supabase/supabase-js";
+import { buildCanonicalTimeline, persistCanonicalTimeline } from "../src/lib/intelligence/canonical-timeline.server";
+
+// Assuming we have supabase url and key in env
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error("Missing Supabase credentials");
+  process.exit(1);
+}
+
+const db = createClient(supabaseUrl, supabaseKey);
+
+async function runBackfill() {
+  console.log("Starting timeline backfill...");
+  
+  let page = 0;
+  const pageSize = 100;
+  let totalProcessed = 0;
+  let totalInserted = 0;
+  let totalSuperseded = 0;
+  
+  while (true) {
+    const { data: cases, error } = await db
+      .from("cases")
+      .select("id, name, status")
+      .in("status", ["completed", "validated", "needs_revision"])
+      .range(page * pageSize, (page + 1) * pageSize - 1);
+      
+    if (error) {
+      console.error("Error fetching cases:", error);
+      break;
+    }
+    
+    if (!cases || cases.length === 0) {
+      break;
+    }
+    
+    for (const c of cases) {
+      console.log(`Processing case: ${c.name} (${c.id})`);
+      try {
+        const ct = await buildCanonicalTimeline(db as any, c.id);
+        const stats = await persistCanonicalTimeline(db as any, c.id, ct);
+        console.log(`  -> Inserted: ${stats.inserted}, Superseded: ${stats.superseded}, Unchanged: ${stats.unchanged}`);
+        totalInserted += stats.inserted;
+        totalSuperseded += stats.superseded;
+      } catch (err) {
+        console.error(`  -> Failed to process case ${c.id}:`, err);
+      }
+      totalProcessed++;
+    }
+    
+    page++;
+  }
+  
+  console.log("Backfill complete.");
+  console.log(`Processed ${totalProcessed} cases.`);
+  console.log(`Inserted ${totalInserted} events, superseded ${totalSuperseded} events.`);
+}
+
+runBackfill();

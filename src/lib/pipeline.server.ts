@@ -5606,9 +5606,24 @@ async function ensureRequiredEngines(args: {
     agents: () => runAgents(baseArgs),
     timeline: () =>
       runEngine(db, { caseId, userId, engine: ENGINE.timeline, executionId: args.executionId }, async () => {
-        const { buildCanonicalTimeline } = await import("./intelligence/canonical-timeline.server");
+        const { buildCanonicalTimeline, persistCanonicalTimeline } = await import("./intelligence/canonical-timeline.server");
         const ct = await buildCanonicalTimeline(db, caseId);
-        return { value: ct, stats: { generated: ct.totals.total, accepted: ct.totals.dated } };
+        
+        let persistStats: { inserted: number; superseded: number; unchanged: number } | null = null;
+        try {
+          persistStats = await persistCanonicalTimeline(db, caseId, ct);
+        } catch (e) {
+          console.warn("[pipeline.timeline] persistCanonicalTimeline failed:", e instanceof Error ? e.message : e);
+        }
+        
+        return { 
+          value: ct, 
+          stats: { 
+            generated: ct.totals.total, 
+            accepted: ct.totals.dated,
+            meta: persistStats ? { persisted: persistStats } : undefined,
+          } 
+        };
       }),
 
     evidence_intelligence: () =>
