@@ -1423,12 +1423,14 @@ export class PdfBuilder {
     // Quiet subsection header: uppercase small-caps label with a hairline
     // rule beneath it, no filled tinted bar. Reads as editorial, not as
     // a boxed dashboard card.
-    this.ensureSpace(62);
-    this.y += 16;
     this.doc.setFont("helvetica", "bold");
     this.doc.setFontSize(10);
+    const lines = this.doc.splitTextToSize(rt(label).toUpperCase(), this.printableWidth) as string[];
+    this.ensureSpace(32 + lines.length * 13 + 22);
+    this.y += 16;
     this.doc.setTextColor(...PRIMARY);
-    this.doc.text(label.toUpperCase(), this.margin, this.y);
+    this.doc.text(lines, this.margin, this.y);
+    this.y += Math.max(0, (lines.length - 1) * 13);
     this.y += 6;
     this.doc.setDrawColor(230, 233, 238);
     this.doc.setLineWidth(0.5);
@@ -1439,14 +1441,16 @@ export class PdfBuilder {
   // Same quiet subsection header as h2(), but with a small colored dot
   // beside the label to signal severity tier at a glance.
   h2Tier(label: string, color: [number, number, number]) {
-    this.ensureSpace(62);
+    this.doc.setFont("helvetica", "bold");
+    this.doc.setFontSize(10);
+    const lines = this.doc.splitTextToSize(rt(label).toUpperCase(), this.printableWidth - 12) as string[];
+    this.ensureSpace(32 + lines.length * 13 + 22);
     this.y += 16;
     this.doc.setFillColor(...color);
     this.doc.circle(this.margin + 3, this.y - 3, 2.8, "F");
-    this.doc.setFont("helvetica", "bold");
-    this.doc.setFontSize(10);
     this.doc.setTextColor(...PRIMARY);
-    this.doc.text(rt(label).toUpperCase(), this.margin + 12, this.y);
+    this.doc.text(lines, this.margin + 12, this.y);
+    this.y += Math.max(0, (lines.length - 1) * 13);
     this.y += 6;
     this.doc.setDrawColor(230, 233, 238);
     this.doc.setLineWidth(0.5);
@@ -1715,7 +1719,14 @@ export class PdfBuilder {
     // Refined tinted banner — subdued surface with a colored left rule and
     // dark text, rather than a full saturated red slab. Reads as an
     // executive alert, not a warning label.
-    const h = 40;
+    const textW = this.printableWidth - 48;
+    this.doc.setFont("helvetica", "bold");
+    this.doc.setFontSize(11);
+    const headlineLines = this.doc.splitTextToSize(headline.toUpperCase(), textW) as string[];
+    this.doc.setFont("helvetica", "normal");
+    this.doc.setFontSize(9);
+    const sublineLines = subline ? (this.doc.splitTextToSize(subline, textW) as string[]) : [];
+    const h = Math.max(40, 18 + headlineLines.length * 13 + sublineLines.length * 11);
     this.ensureSpace(h + 18);
     const x = this.margin;
     const w = this.pageW - this.margin * 2;
@@ -1736,12 +1747,14 @@ export class PdfBuilder {
     this.doc.setFont("helvetica", "bold");
     this.doc.setFontSize(11);
     this.doc.setTextColor(...PRIMARY);
-    this.doc.text(headline.toUpperCase(), x + 30, this.y + h / 2 - 2);
-    if (subline) {
+    let textY = this.y + 17;
+    this.doc.text(headlineLines, x + 30, textY);
+    textY += headlineLines.length * 13;
+    if (sublineLines.length) {
       this.doc.setFont("helvetica", "normal");
       this.doc.setFontSize(9);
       this.doc.setTextColor(...MUTED);
-      this.doc.text(subline, x + 30, this.y + h / 2 + 11);
+      this.doc.text(sublineLines, x + 30, textY);
     }
     this.y += h + 22;
   }

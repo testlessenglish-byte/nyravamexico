@@ -76,15 +76,6 @@ export function generateAuditReportPdf(data: AuditReportData): Uint8Array {
     b.text(`${isEs ? "Prioridad:" : "Priority:"} ${data.caseRecord.priority}`);
   }
 
-  // Inject the checksum into the footer
-  b.doc.setFontSize(7);
-  b.doc.setTextColor(111, 107, 133);
-  b.doc.text(
-    `${isEs ? "Verificación SHA-256:" : "SHA-256 Verification:"} ${data.checksum.slice(0, 16)}...`,
-    b.margin,
-    b.pageH - 7
-  );
-
   b.finalizeLayout(null);
   return b.doc.output("arraybuffer") as unknown as Uint8Array;
 }
