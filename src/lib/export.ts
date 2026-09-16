@@ -2082,6 +2082,7 @@ export class PdfBuilder {
         this.doc.setDrawColor(...LINE);
         this.doc.setLineWidth(0.6);
         this.doc.line(this.margin, this.pageH - 42, this.pageW - this.margin, this.pageH - 42);
+      }
       this.doc.setFont("helvetica", "normal");
       this.doc.setFontSize(7.7);
       this.doc.setTextColor(...MUTED);
@@ -2106,6 +2107,7 @@ export class PdfBuilder {
         this.doc.text(stamp, this.pageW / 2, this.pageH - 18, { align: "center" });
       }
     }
+  }
 
   private removeBlankInteriorPages() {
     for (let page = this.doc.getNumberOfPages() - 1; page >= 2; page -= 1) {
@@ -2128,7 +2130,6 @@ export class PdfBuilder {
     assertPdfLayout(issues);
     this.header();
     this.footer(meta);
-  }
   }
 
   // Full closing page appended after all report content: mark, domain,
