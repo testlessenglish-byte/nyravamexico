@@ -55,6 +55,8 @@ import { useI18n } from "@/i18n";
 // render, so nested components (and event callbacks) read the active locale
 // without threading a prop through the whole tree.
 let CUR_LOCALE: "es" | "en" = "es";
+import { getClient } from "@/lib/clients.functions";
+import { ClientCard } from "@/components/crm/ClientCard";
 function L(es: string, en: string): string {
   return CUR_LOCALE === "es" ? es : en;
 }
@@ -281,6 +283,7 @@ function Workspace() {
   }, []);
   const fetchCase = useServerFn(getCase);
   const sweepStalled = useServerFn(sweepStalledCasesForMe);
+  const fetchClientFn = useServerFn(getClient);
   // On mount, flip any case whose worker died between cron ticks from
   // "running" (stuck spinner) to "failed — click Resume" so the user sees
   // the real state immediately instead of waiting on the next cron tick.
@@ -301,6 +304,14 @@ function Workspace() {
       return s && RUNNING_STATUSES.has(s) ? 2000 : false;
     },
   });
+
+  const clientId = (data?.case as any)?.client_id;
+  const { data: clientData } = useQuery({
+    queryKey: ["client", clientId],
+    queryFn: () => fetchClientFn({ data: { clientId } }),
+    enabled: !!clientId,
+  });
+
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["case", caseId] });
 
@@ -745,6 +756,13 @@ function Workspace() {
           <div className="mt-6">
             {tab === "dashboard" && (
               <>
+                {clientData && (
+                  <div className="mb-4">
+                    <Link to="/clients/$clientId" params={{ clientId: clientData.id as string }}>
+                      <ClientCard client={clientData as any} />
+                    </Link>
+                  </div>
+                )}
                 <CommandCenterDashboard
                   caseId={c.id}
                   caseName={c.name}
