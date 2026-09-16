@@ -821,8 +821,12 @@ export async function addFindings(db: Db, rows: NewFinding[]) {
           underlyingMatter:
             identity.underlyingMateria ??
             (activePenalDomain ? String(activePenalDomain) : null),
+          // Procedural vehicle is NOT the materia — an amparo vehicle with a
+          // penal underlying materia must keep both vocabularies available.
+          proceduralVehicle: identity.proceduralVehicle,
         }),
       );
+
     }
   }
 
