@@ -103,7 +103,7 @@ END $$;
 -- 6. Create search indexes
 CREATE INDEX IF NOT EXISTS idx_cases_fulltext_search ON public.cases
   USING gin(to_tsvector('spanish',
-    coalesce(title, '') || ' ' || coalesce(case_number, '') || ' ' || coalesce(client_name, '') || ' ' || coalesce(jurisdiction, '') || ' ' || coalesce(judge_name, '') || ' ' || coalesce(opposing_counsel, '') || ' ' || coalesce(description, '')
+    coalesce(name, '') || ' ' || coalesce(jurisdiction, '') || ' ' || coalesce(description, '')
   ));
 
 CREATE INDEX IF NOT EXISTS idx_clients_fulltext_search ON public.clients
@@ -135,7 +135,7 @@ BEGIN
 
   SELECT coalesce(jsonb_agg(row_to_json(r)), '[]'::jsonb) INTO cases_result
   FROM (
-    SELECT c.id, c.title, c.case_number, c.client_name, c.matter_type::text, c.status::text, c.updated_at
+    SELECT c.id, c.name as title, c.jurisdiction, c.case_type::text as matter_type, c.status::text, c.updated_at
     FROM cases c
     WHERE (
       c.user_id = _user_id
@@ -143,11 +143,9 @@ BEGIN
       OR (c.firm_id IS NOT NULL AND EXISTS (SELECT 1 FROM firm_roles fr WHERE fr.firm_id = c.firm_id AND fr.user_id = _user_id))
     )
     AND (
-      c.case_number ILIKE '%' || q || '%'
-      OR c.title ILIKE '%' || q || '%'
-      OR c.client_name ILIKE '%' || q || '%'
+      c.name ILIKE '%' || q || '%'
       OR c.jurisdiction ILIKE '%' || q || '%'
-      OR c.judge_name ILIKE '%' || q || '%'
+      OR c.description ILIKE '%' || q || '%'
     )
     ORDER BY c.updated_at DESC NULLS LAST
     LIMIT _limit
@@ -176,7 +174,7 @@ BEGIN
 
   SELECT coalesce(jsonb_agg(row_to_json(r)), '[]'::jsonb) INTO documents_result
   FROM (
-    SELECT d.id, d.filename, d.case_id, c.title as case_title, c.case_number
+    SELECT d.id, d.filename, d.case_id, c.name as case_title
     FROM documents d
     JOIN cases c ON c.id = d.case_id
     WHERE (
@@ -194,3 +192,4 @@ END;
 $$;
 
 COMMIT;
+
