@@ -140,7 +140,7 @@ export const getClient = createServerFn({ method: "GET" })
       active_case_count: activeCases.length,
       closed_case_count: closedCases.length,
       upcoming_deadlines: upcomingDeadlines,
-    };
+    } as any;
   });
 
 // ---------------------------------------------------------------------------

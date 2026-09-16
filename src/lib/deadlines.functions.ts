@@ -28,7 +28,7 @@ export const listUpcomingDeadlines = createServerFn({ method: "GET" })
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
     // Get user's case IDs first, then fetch their deadlines
-    const { data: userCases } = await ctx.supabase
+    const { data: userCases } = await (ctx.supabase as any)
       .from("cases")
       .select("id, name, case_number");
 

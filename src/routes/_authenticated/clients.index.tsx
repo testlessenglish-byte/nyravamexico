@@ -27,22 +27,22 @@ function ClientsPage() {
   });
 
   const filtered = useMemo(() => {
-    let arr = (clients ?? []);
-    
+    let result = [...(clients ?? [])];
     if (statusFilter !== "all") {
-      arr = arr.filter((c) => c.status === statusFilter);
+      result = result.filter((c: any) => c.status === statusFilter);
     }
-    
-    if (query.trim()) {
-      const q = query.trim().toLowerCase();
-      arr = arr.filter((c) => 
-        c.display_name.toLowerCase().includes(q) || 
-        c.email?.toLowerCase().includes(q)
+    if (query) {
+      const q = query.toLowerCase();
+      result = result.filter(
+        (c: any) =>
+          c.display_name?.toLowerCase().includes(q) ||
+          c.legal_name?.toLowerCase().includes(q) ||
+          c.email?.toLowerCase().includes(q) ||
+          c.rfc?.toLowerCase().includes(q)
       );
     }
-    
-    return arr.sort((a, b) => a.display_name.localeCompare(b.display_name));
-  }, [clients, query, statusFilter]);
+    return result.sort((a: any, b: any) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+  }, [clients, statusFilter, query]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-10">
@@ -133,7 +133,7 @@ function ClientsPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((client) => (
+          {filtered.map((client: any) => (
             <ClientCard
               key={client.id}
               id={client.id}

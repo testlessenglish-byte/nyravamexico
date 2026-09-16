@@ -758,9 +758,14 @@ function Workspace() {
               <>
                 {clientData && (
                   <div className="mb-4">
-                    <Link to="/clients/$clientId" params={{ clientId: clientData.id as string }}>
-                      <ClientCard client={clientData as any} />
-                    </Link>
+                    <ClientCard
+                      id={(clientData as any).id}
+                      displayName={(clientData as any).display_name}
+                      clientType={(clientData as any).client_type}
+                      caseCount={(clientData as any).case_count || 0}
+                      email={(clientData as any).email}
+                      status={(clientData as any).status}
+                    />
                   </div>
                 )}
                 <CommandCenterDashboard
