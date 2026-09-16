@@ -1,4 +1,4 @@
-﻿import { Link } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { NyravaLogo } from "./NyravaLogo";
 import { useI18n } from "@/i18n";
 import { useQuery } from "@tanstack/react-query";
@@ -14,12 +14,12 @@ export function SiteFooter() {
     queryFn: () => getSocialProfile(),
     staleTime: 5 * 60 * 1000,
   });
-  const socialLinks = socialProfile ? [
-    { label: "LinkedIn", href: socialProfile.linkedin_url, icon: Linkedin },
-    { label: "Discord", href: socialProfile.discord_url, icon: MessageCircle },
-    { label: "X / Twitter", href: socialProfile.twitter_url, icon: Twitter },
-    { label: "Facebook", href: socialProfile.facebook_url, icon: Facebook },
-  ].filter((item): item is { label: string; href: string; icon: typeof Linkedin } => Boolean(item.href)) : [];
+  const socialLinks = [
+    { label: "LinkedIn", href: socialProfile?.linkedin_url || "https://linkedin.com/company/nyrava", icon: Linkedin },
+    { label: "Facebook", href: socialProfile?.facebook_url || "https://facebook.com/nyrava", icon: Facebook },
+    { label: "X / Twitter", href: socialProfile?.twitter_url || "https://x.com/nyrava", icon: Twitter },
+    { label: "Discord", href: socialProfile?.discord_url, icon: MessageCircle },
+  ].filter((item): item is { label: string; href: string; icon: typeof Linkedin } => Boolean(item.href));
   return (
     <footer className="mt-24 border-t border-border/60">
       <div className="mx-auto grid max-w-7xl gap-10 px-6 py-14 lg:grid-cols-5">
