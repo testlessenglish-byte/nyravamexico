@@ -1162,7 +1162,46 @@ export async function addFindings(db: Db, rows: NewFinding[]) {
     const speaker_role = isHolding ? "scjn" : normSpeakerRole(r.speaker_role);
     const proposition_type = isHolding ? "holding" : normPropositionType(r.proposition_type);
     const adoption_status = isHolding ? "adopted" : normAdoptionStatus(r.adoption_status);
-    const impact_direction = isHolding && !r.impact_direction ? "neutral" : (r.impact_direction ?? "neutral");
+    // -----------------------------------------------------------------
+    // POST-PROMOTION SEMANTIC INVARIANT. The three lines above can promote
+    // a row into `adopted VERIFIED_COURT_HOLDING` AFTER
+    // normalizePenalFinding already ran, so the normalizer's rule ("an
+    // adopted court holding may only carry a non-neutral scoring direction
+    // when the party-aware mapping is complete") has to be re-checked
+    // against the FINAL state, immediately before persistence — otherwise
+    // the promotion itself manufactures the exact record the QA auditor
+    // later rejects (ADR 217/2019).
+    //
+    // Nothing is invented: the holding, its quote, citation, source and
+    // substance are untouched; only the unsupported scoring attributes are
+    // neutralized, and the neutralization is recorded in metadata.
+    // -----------------------------------------------------------------
+    let impact_direction = isHolding && !r.impact_direction ? "neutral" : (r.impact_direction ?? "neutral");
+    let affected_party = normParty(r.affected_party);
+    let evidence_type = r.evidence_type;
+    let postPromotionNeutralized = false;
+    if (
+      isHolding &&
+      String(impact_direction ?? "").toLowerCase() !== "neutral" &&
+      !hasCompletePartyAwareScoreMapping(
+        {
+          impact_direction,
+          affected_party,
+          benefited_party: r.benefited_party,
+          score_dimension: r.score_dimension,
+          reason_for_score_effect: r.reason_for_score_effect,
+          source_quote: resolvedQuote,
+          evidence_refs: ev as Array<{ quote?: unknown }>,
+        },
+        partyScoreContext,
+      )
+    ) {
+      impact_direction = "neutral";
+      affected_party = "neutral";
+      evidence_type = "neutral";
+      postPromotionNeutralized = true;
+    }
+
 
     // Lift canonical identity out of metadata onto the top-level column so
     // joins/exports/audit tools can resolve findings by canonical_finding_id
