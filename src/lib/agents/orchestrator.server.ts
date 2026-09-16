@@ -719,6 +719,10 @@ async function agentHallucination(ctx: RunCtx): Promise<AgentResult> {
       `Verified ratio ${(verifiedRatio * 100).toFixed(1)}% of cited findings below ${ctx.analysisMode} threshold (${(threshold * 100).toFixed(0)}%).`,
     );
   }
+  // An upstream integrity block is reported as itself, never converted into a
+  // hallucination failure. `pass` stays a pure function of the verification
+  // metrics, so unsupported claims still block release exactly as before.
+  const upstreamBlock = report.upstream_release_block ?? null;
   return {
     status: pass ? "success" : "failed",
     confidence: verifiedRatio,
@@ -736,8 +740,11 @@ async function agentHallucination(ctx: RunCtx): Promise<AgentResult> {
       verification_ratio: verifiedRatio,
       mode: ctx.analysisMode,
       threshold,
+      upstream_release_block: upstreamBlock,
+      hallucination_verification_passed: pass,
     },
   };
+
 }
 
 export async function runMultiAgentPipeline(args: OrchestratorArgs): Promise<{
