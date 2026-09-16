@@ -58,6 +58,10 @@ export type HallucinationReport = {
   concluded_case_actions_removed?: number;
   materia_leak_actions_removed?: number;
   false_orphan_citations_reconciled?: number;
+  /** An integrity block recorded by an EARLIER stage (e.g. procedural
+   *  semantics). Reported verbatim so the real blocker is visible; it is
+   *  deliberately NOT treated as a hallucination failure. */
+  upstream_release_block?: string[] | null;
 };
 
 const REPORT_PROSE_FIELDS = [
