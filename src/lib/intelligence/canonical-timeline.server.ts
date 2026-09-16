@@ -301,7 +301,7 @@ export type CorpusTimelineCandidate = {
   date: string;
   date_raw: string;
   event: string;
-  event_type: "case_event";
+  event_type: TimelineEventType;
   page: number | null;
   source_quote: string;
 };
@@ -330,17 +330,17 @@ export function extractCorpusTimelineEvents(text: string): CorpusTimelineCandida
       if (seenOffsets.has(offsetKey)) continue;
       seenOffsets.add(offsetKey);
 
-      if (isConsiderandoSection(src, match.index)) {
-        continue;
-      }
-
+      // Removed isConsiderandoSection filter to preserve substantive facts discussed in legal analysis
+      
       const event = localEventContext(src, match.index, match.index + raw.length);
-      if (!event || classifyTimelineEvent(event) !== "case_event") continue;
+      if (!event) continue;
+      const evType = classifyTimelineEvent(event);
+      if (evType === "authority_date" || evType === "legislative_history" || evType === "background_reference") continue;
       out.push({
         date,
         date_raw: raw,
         event,
-        event_type: "case_event",
+        event_type: evType === "unknown" ? "case_event" : evType,
         page: pageAtOffset(src, match.index),
         source_quote: event,
       });
@@ -481,7 +481,7 @@ export async function buildCanonicalTimeline(db: Db, caseId: string): Promise<Ca
     const text = typeof doc.extracted_text === "string" ? doc.extracted_text : "";
     for (const ev of extractCorpusTimelineEvents(text)) {
       const evType = classifyTimelineEvent(`${ev.event} ${ev.source_quote}`);
-      if (evType === "unknown") continue;
+      if (evType === "authority_date" || evType === "legislative_history" || evType === "background_reference") continue;
       if (evType === "case_event") corpusCount += 1;
       push({
         date: ev.date,
