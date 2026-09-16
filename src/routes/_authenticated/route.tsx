@@ -50,6 +50,7 @@ import { UserMenu } from "@/components/UserMenu";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useI18n } from "@/i18n";
 import { useGlobalPipelineDriver } from "@/hooks/useGlobalPipelineDriver";
+import { GlobalSearch } from "@/components/crm/GlobalSearch";
 import { ConsentGate } from "@/components/compliance/ConsentGate";
 
 async function getAuthenticatedUser() {
@@ -127,6 +128,7 @@ export const Route = createFileRoute("/_authenticated")({
 const PRIMARY_NAV = [
   { to: "/dashboard", labelKey: "nav.missionControl", icon: LayoutDashboard },
   { to: "/cases", labelKey: "nav.caseIntelligence", icon: FolderOpen },
+  { to: "/clients", label: "Clientes", icon: Users },
   { to: "/social", labelKey: "nav.comprehensiveCare", icon: HeartHandshake },
   { to: "/new", labelKey: "nav.analyzeNewCase", icon: Plus },
 ] as const;
@@ -172,28 +174,7 @@ function AppLayout() {
   const fetchIsAdmin = useServerFn(checkIsAdmin);
   const fetchCases = useServerFn(listCases);
 
-  // Global search — previously a fully inert <input> with no state, no
-  // handler, and nothing wired to it, so typing produced no results
-  // regardless of what matched. Reuses the same ["cases"] query key as
-  // the dashboard (react-query dedupes/caches it) so this doesn't add an
-  // extra network round trip beyond what the dashboard already fetches.
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
-  const { data: searchableCases } = useQuery({
-    queryKey: ["cases"],
-    queryFn: () => fetchCases(),
-    staleTime: 30000,
-  });
-  const searchResults = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return [];
-    return (searchableCases ?? [])
-      .filter(
-        (c) =>
-          !c.archived_at && (c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q)),
-      )
-      .slice(0, 8);
-  }, [searchableCases, searchQuery]);
+  // GlobalSearch handles the search now
 
   // Close drawer on route change
   useEffect(() => {
@@ -571,51 +552,7 @@ function AppLayout() {
             </div>
           </div>
           <div className="ml-auto flex items-center gap-3">
-            <div className="relative w-80">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setSearchOpen(true);
-                }}
-                onFocus={() => setSearchOpen(true)}
-                // Delay so a click on a result fires before the dropdown
-                // unmounts — a plain onBlur closing immediately would
-                // swallow the click.
-                onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
-                placeholder={t("shell.search.placeholder")}
-                className="w-full rounded-lg border border-border bg-input/40 py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-              {searchOpen && searchQuery.trim() && (
-                <div className="absolute left-0 right-0 top-full z-40 mt-1 max-h-80 overflow-auto rounded-lg border border-border bg-popover shadow-lg">
-                  {searchResults.length === 0 ? (
-                    <div className="px-3 py-3 text-xs text-muted-foreground">
-                      {t("shell.search.noMatches", { query: searchQuery })}
-                    </div>
-                  ) : (
-                    searchResults.map((c) => (
-                      <Link
-                        key={c.id}
-                        to="/cases/$caseId"
-                        params={{ caseId: c.id }}
-                        className="block truncate border-b border-border px-3 py-2 text-sm last:border-b-0 hover:bg-accent/10"
-                        onClick={() => {
-                          setSearchQuery("");
-                          setSearchOpen(false);
-                        }}
-                      >
-                        <span className="font-medium text-foreground">{c.name}</span>
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          {t(`cases.status.${c.status}`)}
-                        </span>
-                      </Link>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
+            <GlobalSearch />
             <div id="desktop-header-feedback" className="flex shrink-0 items-center" />
             <Link
               to={messagesLink}

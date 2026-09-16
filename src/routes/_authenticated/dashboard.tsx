@@ -16,6 +16,8 @@ import { ReminderControl, type ReminderValue } from "@/components/casework/Remin
 import { PipelineTracePanel } from "@/components/PipelineTracePanel";
 import { useCaseExecution } from "@/hooks/useCaseExecution";
 import { useRoles } from "@/hooks/use-roles";
+import { listClients } from "@/lib/clients.functions";
+import { listUpcomingDeadlines } from "@/lib/deadlines.functions";
 import { useI18n } from "@/i18n";
 import {
   FileText,
@@ -63,6 +65,21 @@ function DashboardPage() {
   const { data: home } = useQuery({
     queryKey: ["attorney-home"],
     queryFn: () => fetchHome(),
+    refetchInterval: 60000,
+  });
+
+  const fetchClients = useServerFn(listClients);
+  const { data: recentClients } = useQuery({
+    queryKey: ["clients", "recent"],
+    queryFn: () => fetchClients({ data: { status: "active" } }),
+    refetchInterval: 60000,
+    select: (clients) => clients.slice(0, 3), // Only want recent 3
+  });
+
+  const fetchDeadlines = useServerFn(listUpcomingDeadlines);
+  const { data: crmDeadlines } = useQuery({
+    queryKey: ["crm-deadlines"],
+    queryFn: () => fetchDeadlines(),
     refetchInterval: 60000,
   });
 
@@ -234,6 +251,61 @@ function DashboardPage() {
         </div>
 
         <div className="space-y-5">
+          {/* CRM Widgets */}
+          {crmDeadlines && crmDeadlines.length > 0 && (
+            <div className="rounded-xl border border-warning/30 bg-warning/5 p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-warning">
+                  Próximos Vencimientos
+                </h2>
+              </div>
+              <ul className="space-y-3">
+                {crmDeadlines.slice(0, 3).map((d: any) => (
+                  <li key={d.id} className="text-xs">
+                    <div className="font-medium text-foreground truncate">{d.title}</div>
+                    <div className="mt-1 flex justify-between text-muted-foreground">
+                      <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {new Date(`${d.due_date}T12:00:00`).toLocaleDateString()}</span>
+                      <span className="truncate max-w-[120px]">{d.case_number || d.case_title || ""}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="rounded-xl border border-border bg-card/60 p-5">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Clientes Recientes
+              </h2>
+              <Link to="/clients" className="text-xs text-primary hover:underline">
+                Ver todos
+              </Link>
+            </div>
+            {!recentClients || recentClients.length === 0 ? (
+              <p className="py-4 text-center text-xs text-muted-foreground">
+                No hay clientes activos.
+              </p>
+            ) : (
+              <ul className="space-y-3">
+                {recentClients.map((client: any) => (
+                  <li key={client.id} className="flex items-center justify-between gap-3 text-xs">
+                    <Link
+                      to="/clients/$clientId"
+                      params={{ clientId: client.id }}
+                      className="min-w-0 flex-1 truncate hover:text-primary"
+                    >
+                      <span className="font-medium text-foreground">{client.display_name}</span>
+                    </Link>
+                    <span className="shrink-0 text-muted-foreground">
+                      {client.case_count} exp.
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           <div className="rounded-xl border border-border bg-card/60 p-5">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
