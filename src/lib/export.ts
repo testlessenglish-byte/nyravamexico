@@ -2082,30 +2082,6 @@ export class PdfBuilder {
         this.doc.setDrawColor(...LINE);
         this.doc.setLineWidth(0.6);
         this.doc.line(this.margin, this.pageH - 42, this.pageW - this.margin, this.pageH - 42);
-      }
-
-  private removeBlankInteriorPages() {
-    for (let page = this.doc.getNumberOfPages() - 1; page >= 2; page -= 1) {
-      if ((this.layoutPages[page - 1]?.contentMarks ?? 0) !== 0) continue;
-      this.doc.deletePage(page);
-      this.layoutPages.splice(page - 1, 1);
-    }
-  }
-
-  finalizeLayout(meta: { parity: string; ess: string; generatedAt: string } | null = null) {
-    if (this.finalPageCount !== null) return;
-    this.removeBlankInteriorPages();
-    this.finalPageCount = this.doc.getNumberOfPages();
-    const issues = auditPdfLayout({
-      pages: this.layoutPages,
-      pageCount: this.doc.getNumberOfPages(),
-      expectedPageCount: this.finalPageCount,
-      recordedIssues: this.layoutIssues,
-    });
-    assertPdfLayout(issues);
-    this.header();
-    this.footer(meta);
-  }
       this.doc.setFont("helvetica", "normal");
       this.doc.setFontSize(7.7);
       this.doc.setTextColor(...MUTED);
@@ -2130,6 +2106,29 @@ export class PdfBuilder {
         this.doc.text(stamp, this.pageW / 2, this.pageH - 18, { align: "center" });
       }
     }
+
+  private removeBlankInteriorPages() {
+    for (let page = this.doc.getNumberOfPages() - 1; page >= 2; page -= 1) {
+      if ((this.layoutPages[page - 1]?.contentMarks ?? 0) !== 0) continue;
+      this.doc.deletePage(page);
+      this.layoutPages.splice(page - 1, 1);
+    }
+  }
+
+  finalizeLayout(meta: { parity: string; ess: string; generatedAt: string } | null = null) {
+    if (this.finalPageCount !== null) return;
+    this.removeBlankInteriorPages();
+    this.finalPageCount = this.doc.getNumberOfPages();
+    const issues = auditPdfLayout({
+      pages: this.layoutPages,
+      pageCount: this.doc.getNumberOfPages(),
+      expectedPageCount: this.finalPageCount,
+      recordedIssues: this.layoutIssues,
+    });
+    assertPdfLayout(issues);
+    this.header();
+    this.footer(meta);
+  }
   }
 
   // Full closing page appended after all report content: mark, domain,
