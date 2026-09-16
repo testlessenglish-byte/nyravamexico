@@ -1,5 +1,6 @@
 type Row = Record<string, any>;
 import { auditPenalProceduralSemantics } from "../intelligence/penal-qa-status";
+import type { PartyScoreContext } from "../intelligence/penal-legal-normalization";
 import type { Finding } from "../intelligence/types";
 export interface ReleaseLayer { layer: string; status: string; blocking?: boolean; reason?: string; issues?: number }
 export interface FinalReleaseInput {

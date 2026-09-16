@@ -1076,7 +1076,10 @@ async function _runFinalReleaseReview(args: OrchestratorArgs): Promise<FinalRele
     });
     finalPayload = payload;
     const {refreshProceduralQa,normalizeQaLayers} = await import("@/lib/reporting/final-release-decision");
-    refreshProceduralQa(payload.report!,payload.findings ?? []);
+    refreshProceduralQa(payload.report!,payload.findings ?? [],{
+      matter: (caseRow as any)?.case_type ?? null,
+      underlyingMatter: (caseRow as any)?.underlying_materia ?? null,
+      proceduralVehicle: (caseRow as any)?.procedural_vehicle ?? null});
     (payload.report!.full_report as any).qa_statuses = normalizeQaLayers((payload.report!.full_report as any).qa_statuses);
     const {prepareFinalReportForRelease} = await import("@/lib/export");
     finalPayload = await prepareFinalReportForRelease(payload);
