@@ -77,12 +77,11 @@ export function auditPenalProceduralSemantics(findings: readonly Finding[]): num
       if (!["adopted", "rejected", "not_reached", "historical", "unknown"].includes(adoption)) {
         issues += 1;
       }
-      const hasPartyAwareMapping =
-        ["strengthens", "weakens"].includes(impact) &&
-        Boolean(String(finding.benefited_party ?? "")) &&
-        Boolean(String(finding.score_dimension ?? "")) &&
-        Boolean(String(finding.reason_for_score_effect ?? "")) &&
-        finding.evidence_refs.some((ref) => Boolean(String(ref.quote ?? "").trim()));
+      // Same canonical definition the write-time normalizer uses, so one
+      // layer can never accept a record the other rejects. The procedural
+      // context selects the party vocabulary (amparo vs ordinary penal).
+      const hasPartyAwareMapping = hasCompletePartyAwareScoreMapping(finding, context);
+
       if (
         ["holding", "court_holding"].includes(proposition) &&
         adoption === "adopted" &&
