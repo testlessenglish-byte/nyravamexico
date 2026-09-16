@@ -457,13 +457,26 @@ async function reconcileSavedReportProse(
     if (error) throw new Error(`Failed to persist final rendered QA: ${error.message}`);
   }
 
-  if (saved.quality_blocked || renderedDecision.blocked) {
+  // A block THIS layer discovers in the rendered report still aborts the
+  // review — that is its own integrity check and must keep its teeth.
+  if (renderedDecision.blocked) {
     const reasons = [
       ...(Array.isArray(saved.quality_block_reasons) ? saved.quality_block_reasons.map(String) : []),
       ...renderedDecision.reasons,
     ];
     throw new Error(`Rendered report integrity blocked release${reasons.length ? `: ${reasons.join("; ")}` : "."}`);
   }
+
+  // A block recorded by an EARLIER stage is reported, not re-thrown. Throwing
+  // here aborted hallucination verification and made the upstream failure
+  // resurface as `gate:hallucination`, hiding the real blocker (ADR
+  // 217/2019: procedural semantics failed while 38/38 claims verified). The
+  // release is still blocked — by whoever actually blocked it.
+  const upstreamReleaseBlock = saved.quality_blocked
+    ? (Array.isArray(saved.quality_block_reasons) && saved.quality_block_reasons.length
+        ? saved.quality_block_reasons.map(String)
+        : ["quality_blocked"])
+    : null;
 
   return {
     quarantinedActionsRemoved: removed,
@@ -472,7 +485,9 @@ async function reconcileSavedReportProse(
     concludedCaseActionsRemoved,
     materiaLeakActionsRemoved,
     falseOrphanCitationsReconciled,
+    upstreamReleaseBlock,
   };
+
 }
 
 export async function runHallucinationReview(args: { db: Db; caseId: string }): Promise<HallucinationReport> {
