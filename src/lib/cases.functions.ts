@@ -159,12 +159,56 @@ export const createCaseAndUpload = createServerFn({ method: "POST" })
     const { trace, traceSpan, newCorrelationId } = await import("@/lib/pipeline-trace.server");
     const { createInitialCaseConfiguration } = await import("@/lib/intelligence/case-configuration");
 
+    const existingClientId = String(data.get("client_id") ?? "").trim();
+    let finalClientId: string | null = null;
+    let finalClientName: string = "";
+
+    if (existingClientId && /^[0-9a-f-]{36}$/i.test(existingClientId)) {
+      finalClientId = existingClientId;
+      const { data: cData } = await (supabase as any).from("clients").select("display_name").eq("id", finalClientId).single();
+      if (cData) finalClientName = cData.display_name;
+    } else {
+      const newClientName = String(data.get("new_client_name") ?? "").trim();
+      const newClientType = String(data.get("new_client_type") ?? "individual").trim();
+      const newClientEmail = String(data.get("new_client_email") ?? "").trim();
+      if (newClientName) {
+        const { data: orgMembership } = await supabase
+          .from("org_memberships")
+          .select("org_id")
+          .eq("user_id", userId)
+          .eq("status", "active")
+          .is("deleted_at", null)
+          .limit(1)
+          .maybeSingle();
+
+        const { data: newClient } = await (supabase as any).from("clients").insert({
+          display_name: newClientName,
+          client_type: newClientType,
+          email: newClientEmail || null,
+          user_id: userId,
+          org_id: orgMembership?.org_id ?? null,
+          created_by: userId,
+        }).select("id, display_name").single();
+        
+        if (newClient) {
+          finalClientId = newClient.id;
+          finalClientName = newClient.display_name;
+        }
+      }
+    }
+
     const rawName = String(data.get("name") ?? "").trim();
     const rawDescription = String(data.get("description") ?? "").trim();
-    const isUserNamed = Boolean(rawName.length > 0 && rawName !== "Untitled Case");
+    
+    let derivedName = rawName;
+    if (!derivedName && finalClientName) {
+      derivedName = `${finalClientName} — ${case_type ? case_type.charAt(0).toUpperCase() + case_type.slice(1) : "Caso Nuevo"}`;
+    }
+
+    const isUserNamed = Boolean(derivedName.length > 0 && derivedName !== "Untitled Case");
     const isUserDescribed = Boolean(rawDescription.length > 0);
 
-    const name = isUserNamed ? rawName.slice(0, 200) : "Caso en identificación...";
+    const name = isUserNamed ? derivedName.slice(0, 200) : "Caso en identificación...";
     const description = isUserDescribed ? rawDescription.slice(0, 2000) : null;
 
     const initialCaseIdentity = {
@@ -211,9 +255,9 @@ export const createCaseAndUpload = createServerFn({ method: "POST" })
 
     const { data: created, error } = await supabase
       .from("cases")
-
       .insert({
         user_id: userId,
+        client_id: finalClientId,
         name,
         description,
         status: "uploaded",
@@ -5339,3 +5383,5 @@ export const logReportExport = createServerFn({ method: "POST" })
     });
     return { ok: true };
   });
+
+

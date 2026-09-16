@@ -14,7 +14,15 @@ import {
 } from "@/lib/intelligence/case-analysis-mode";
 import { useI18n } from "@/i18n";
 
+import { z } from "zod";
+
+const searchSchema = z.object({
+  clientId: z.string().uuid().optional(),
+});
+
 export const Route = createFileRoute("/_authenticated/new")({
+  validateSearch: searchSchema,
+
   head: () => ({ meta: [{ title: "New case — Nyrava" }] }),
   component: NewCasePage,
 });
@@ -30,6 +38,19 @@ const VERIFIED_ANALYSIS_MODE = "strict" as const;
 
 function NewCasePage() {
   const { t, locale } = useI18n();
+  const { clientId: queryClientId } = Route.useSearch();
+  const [clientSelectionType, setClientSelectionType] = useState<"existing" | "new">(
+    queryClientId ? "existing" : "existing",
+  );
+  const [selectedClientId, setSelectedClientId] = useState<string>(queryClientId || "");
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientType, setNewClientType] = useState("individual");
+  const [newClientEmail, setNewClientEmail] = useState("");
+  const fetchClients = useServerFn(() =>
+    import("@/lib/clients.functions").then((m) => m.listClients()),
+  );
+  const { data: clientsList } = useQuery({ queryKey: ["clients"], queryFn: () => fetchClients() });
+
   const nav = useNavigate();
   const uploadCase = useServerFn(createCaseAndUpload);
   const fetchKeyStatus = useServerFn(listGroqKeys);
@@ -39,7 +60,9 @@ function NewCasePage() {
   const [files, setFiles] = useState<File[]>([]);
   const [caseAnalysisMode, setCaseAnalysisMode] = useState<CaseAnalysisMode>("ongoing");
   const [caseType, setCaseType] = useState<string>("");
-  const [amparoSubtype, setAmparoSubtype] = useState<"" | "indirecto" | "directo" | "directo_en_revision">("");
+  const [amparoSubtype, setAmparoSubtype] = useState<
+    "" | "indirecto" | "directo" | "directo_en_revision"
+  >("");
   const [underlyingMateria, setUnderlyingMateria] = useState<string>("");
   const [immigrationSubtype, setImmigrationSubtype] = useState("");
   const [immigrationClientName, setImmigrationClientName] = useState("");
@@ -72,19 +95,42 @@ function NewCasePage() {
       toast.error(t("new.toast.needFiles"));
       return;
     }
+
+    if (clientSelectionType === "existing" && !selectedClientId) {
+      toast.error(locale === "es" ? "Selecciona un cliente." : "Select a client.");
+      return;
+    }
+    if (clientSelectionType === "new" && !newClientName) {
+      toast.error(
+        locale === "es" ? "Ingresa el nombre del nuevo cliente." : "Enter the new client name.",
+      );
+      return;
+    }
     if (!caseType) {
       toast.error(t("new.toast.needCaseType"));
       return;
     }
     if (caseType === "migratorio" && !immigrationSubtype) {
-      toast.error(locale === "es" ? "Selecciona el subtipo migratorio." : "Select an immigration subtype.");
+      toast.error(
+        locale === "es" ? "Selecciona el subtipo migratorio." : "Select an immigration subtype.",
+      );
       return;
     }
 
     setSubmitting(true);
     const fd = new FormData();
+    if (clientSelectionType === "existing") {
+      fd.append("client_id", selectedClientId);
+    } else {
+      fd.append("new_client_name", newClientName);
+      fd.append("new_client_type", newClientType);
+      fd.append("new_client_email", newClientEmail);
+    }
+
     fd.append("name", name);
-    const selectedImmigrationSubtype = IMMIGRATION_SUBTYPES.find(([key]) => key === immigrationSubtype);
+    const selectedImmigrationSubtype = IMMIGRATION_SUBTYPES.find(
+      ([key]) => key === immigrationSubtype,
+    );
     const descToSubmit =
       caseType === "amparo" && amparoSubtype === "directo_en_revision"
         ? `${desc}\n\n(Amparo Directo en Revisión ante la SCJN)`
@@ -164,6 +210,80 @@ function NewCasePage() {
 
       <form onSubmit={submit} className="mt-6 rounded-2xl border border-border bg-card p-6 sm:p-8">
         <div className="space-y-4">
+          <SectionLabel>{locale === "es" ? "Cliente" : "Client"}</SectionLabel>
+          <div className="space-y-4">
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  checked={clientSelectionType === "existing"}
+                  onChange={() => setClientSelectionType("existing")}
+                  className="text-primary"
+                />
+                <span className="text-sm font-medium">
+                  {locale === "es" ? "Cliente Existente" : "Existing Client"}
+                </span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  checked={clientSelectionType === "new"}
+                  onChange={() => setClientSelectionType("new")}
+                  className="text-primary"
+                />
+                <span className="text-sm font-medium">
+                  {locale === "es" ? "Nuevo Cliente" : "New Client"}
+                </span>
+              </label>
+            </div>
+
+            {clientSelectionType === "existing" ? (
+              <select
+                value={selectedClientId}
+                onChange={(e) => setSelectedClientId(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                disabled={!!queryClientId}
+              >
+                <option value="">
+                  {locale === "es" ? "-- Seleccionar Cliente --" : "-- Select Client --"}
+                </option>
+                {clientsList?.map((c: any) => (
+                  <option key={c.id} value={c.id}>
+                    {c.display_name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="text-sm font-medium">
+                    {locale === "es" ? "Nombre / Razón Social *" : "Name / Legal Name *"}
+                  </label>
+                  <input
+                    value={newClientName}
+                    onChange={(e) => setNewClientName(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">
+                    {locale === "es" ? "Tipo de Cliente" : "Client Type"}
+                  </label>
+                  <select
+                    value={newClientType}
+                    onChange={(e) => setNewClientType(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="individual">
+                      {locale === "es" ? "Persona Física" : "Individual"}
+                    </option>
+                    <option value="company">{locale === "es" ? "Persona Moral" : "Company"}</option>
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+
           <SectionLabel>{t("new.section.details")}</SectionLabel>
           <div>
             <label className="text-sm font-medium">
@@ -177,7 +297,11 @@ function NewCasePage() {
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={locale === "es" ? "ej. ADR 311/2015 — María López (o deja en blanco para auto-detectar)" : "e.g. ADR 311/2015 — María López (or leave blank to auto-detect)"}
+              placeholder={
+                locale === "es"
+                  ? "ej. ADR 311/2015 — María López (o deja en blanco para auto-detectar)"
+                  : "e.g. ADR 311/2015 — María López (or leave blank to auto-detect)"
+              }
               className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
@@ -194,7 +318,11 @@ function NewCasePage() {
               value={desc}
               onChange={(e) => setDesc(e.target.value)}
               rows={2}
-              placeholder={locale === "es" ? "Descripción breve opcional, o deja en blanco para auto-generar" : "Optional brief overview, or leave blank to auto-generate"}
+              placeholder={
+                locale === "es"
+                  ? "Descripción breve opcional, o deja en blanco para auto-generar"
+                  : "Optional brief overview, or leave blank to auto-generate"
+              }
               className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
@@ -210,11 +338,15 @@ function NewCasePage() {
               onChange={(e) => setCaseType(e.target.value)}
               className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
             >
-              <option value="" disabled>{t("new.field.caseType.placeholder")}</option>
+              <option value="" disabled>
+                {t("new.field.caseType.placeholder")}
+              </option>
               {CASE_TYPE_SELECT_GROUPS.map((g) => (
                 <optgroup key={g.group} label={g.group}>
                   {g.options.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
                   ))}
                 </optgroup>
               ))}
@@ -225,7 +357,9 @@ function NewCasePage() {
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium">{t("new.field.amparoSubtype")}</label>
-                <p className="mt-0.5 text-xs text-muted-foreground">{t("new.field.amparoSubtype.hint")}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {t("new.field.amparoSubtype.hint")}
+                </p>
                 <select
                   value={amparoSubtype}
                   onChange={(e) => setAmparoSubtype(e.target.value as typeof amparoSubtype)}
@@ -233,14 +367,18 @@ function NewCasePage() {
                 >
                   <option value="">{t("new.field.amparoSubtype.placeholder")}</option>
                   <option value="directo">{t("new.field.amparoSubtype.directo")}</option>
-                  <option value="directo_en_revision">{t("new.field.amparoSubtype.directoEnRevision")}</option>
+                  <option value="directo_en_revision">
+                    {t("new.field.amparoSubtype.directoEnRevision")}
+                  </option>
                   <option value="indirecto">{t("new.field.amparoSubtype.indirecto")}</option>
                 </select>
               </div>
 
               <div>
                 <label className="text-sm font-medium">Materia Sustantiva Subyacente</label>
-                <p className="mt-0.5 text-xs text-muted-foreground">Materia del acto o resolución reclamada (ej. Laboral, Civil, Penal, etc.)</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Materia del acto o resolución reclamada (ej. Laboral, Civil, Penal, etc.)
+                </p>
                 <select
                   value={underlyingMateria}
                   onChange={(e) => setUnderlyingMateria(e.target.value)}
@@ -275,7 +413,9 @@ function NewCasePage() {
                     {locale === "es" ? "Selecciona un subtipo" : "Select a subtype"}
                   </option>
                   {IMMIGRATION_SUBTYPES.map(([key, es, en]) => (
-                    <option key={key} value={key}>{locale === "es" ? es : en}</option>
+                    <option key={key} value={key}>
+                      {locale === "es" ? es : en}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -297,7 +437,10 @@ function NewCasePage() {
                     set: setImmigrationPassport,
                   },
                   {
-                    label: locale === "es" ? "Condición de estancia actual" : "Current immigration status",
+                    label:
+                      locale === "es"
+                        ? "Condición de estancia actual"
+                        : "Current immigration status",
                     value: immigrationCondition,
                     set: setImmigrationCondition,
                   },
@@ -330,7 +473,9 @@ function NewCasePage() {
               {t("new.field.jurisdiction")}{" "}
               <span className="text-muted-foreground">{t("common.optional")}</span>
             </label>
-            <p className="mt-0.5 text-xs text-muted-foreground">{t("new.field.jurisdiction.hint")}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {t("new.field.jurisdiction.hint")}
+            </p>
             <select
               value={jurisdiction}
               onChange={(e) => setJurisdiction(e.target.value)}
@@ -340,7 +485,9 @@ function NewCasePage() {
               {JURISDICTION_GROUPS.map((g) => (
                 <optgroup key={g.level} label={g.label}>
                   {g.options.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
                   ))}
                 </optgroup>
               ))}
@@ -356,7 +503,9 @@ function NewCasePage() {
               <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
               <div>
                 <div className="text-sm font-semibold text-foreground">
-                  {locale === "es" ? "Nyrava — Inteligencia Jurídica Verificada" : "Nyrava Verified Legal Intelligence"}
+                  {locale === "es"
+                    ? "Nyrava — Inteligencia Jurídica Verificada"
+                    : "Nyrava Verified Legal Intelligence"}
                 </div>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   {locale === "es"
@@ -369,7 +518,9 @@ function NewCasePage() {
 
           <div>
             <label className="text-sm font-medium">{t("caseSettings.caseAnalysisMode")}</label>
-            <p className="mt-0.5 text-xs text-muted-foreground">{t("caseSettings.caseAnalysisMode.hint")}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {t("caseSettings.caseAnalysisMode.hint")}
+            </p>
             <div className="mt-2 grid gap-2">
               {CASE_ANALYSIS_MODE_SELECTABLE_OPTIONS.map((opt) => {
                 const active = caseAnalysisMode === opt.value;
@@ -402,12 +553,21 @@ function NewCasePage() {
           <div>
             <label className="text-sm font-medium">{t("new.field.files")}</label>
             <div
-              onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDrag(true);
+              }}
               onDragLeave={() => setDrag(false)}
-              onDrop={(e) => { e.preventDefault(); setDrag(false); addFiles(e.dataTransfer.files); }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDrag(false);
+                addFiles(e.dataTransfer.files);
+              }}
               onClick={() => inputRef.current?.click()}
               className={`mt-1 cursor-pointer rounded-xl border-2 border-dashed p-10 text-center transition-colors ${
-                drag ? "border-primary bg-primary/5" : "border-border bg-background hover:bg-secondary/40"
+                drag
+                  ? "border-primary bg-primary/5"
+                  : "border-border bg-background hover:bg-secondary/40"
               }`}
             >
               <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
@@ -429,7 +589,9 @@ function NewCasePage() {
                     <div className="flex min-w-0 items-center gap-2">
                       <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                       <span className="truncate">{f.name}</span>
-                      <span className="shrink-0 text-xs text-muted-foreground">{(f.size / 1024).toFixed(1)} KB</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {(f.size / 1024).toFixed(1)} KB
+                      </span>
                     </div>
                     <button
                       type="button"
