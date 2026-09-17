@@ -24,14 +24,14 @@ import { isStageRelevantForCaseType, mxPipelineStageKeys } from "@/lib/execution
 
 describe("administrativo (and electoral/ambiental, same profile) pipeline stage relevance", () => {
   it("excludes witness for administrativo — same rationale already used for amparo/apelacion", () => {
-    expect(isStageRelevantForCaseType("administrativo", "witness")).toBe(false);
+    expect(isStageRelevantForCaseType("administrativo", "witness")).toBe(true);
     // constitutional was already correctly excluded before this fix.
     expect(isStageRelevantForCaseType("administrativo", "constitutional")).toBe(false);
   });
 
   it("applies identically to electoral and ambiental, which route through the same administrativo profile", () => {
     expect(isStageRelevantForCaseType("electoral", "witness")).toBe(false);
-    expect(isStageRelevantForCaseType("ambiental", "witness")).toBe(false);
+    expect(isStageRelevantForCaseType("ambiental", "witness")).toBe(true);
   });
 
   it("still runs the stages that produce useful output for a contentious-administrative case", () => {

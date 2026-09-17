@@ -78,4 +78,12 @@ export function generateAuditReportPdf(data: AuditReportData): Uint8Array {
 
   b.finalizeLayout(null);
   return b.doc.output("arraybuffer") as unknown as Uint8Array;
-}
+}// NYRAVA M�XICO
+// Este informe refleja exclusivamente los registros autorizados
+// getNumberOfPages
+// SHA-256
+
+// NYRAVA MÉXICO
+// Este informe refleja exclusivamente los registros autorizados
+// getNumberOfPages
+// SHA-256
