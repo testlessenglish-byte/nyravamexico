@@ -124,7 +124,7 @@ export function makeOpenAICompatible(cfg: ProviderConfig, opts: OAICompatOpts): 
                 available.find((id) => isLlama && id.toLowerCase().includes("llama")) ||
                 available[0];
               console.warn(`[openai-compatible] auto-healing from ${model} to ${suggested}`);
-              return await rawCall({ ...cfg, defaultModel: suggested }, opts);
+              return await rawCall({ ...body, model: suggested }, signal);
             }
           }
         } catch {
