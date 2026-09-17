@@ -11,6 +11,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import type Stripe from "stripe";
 import { isDynamicPlanKey } from "@/lib/billing-plans";
+import { sendTemplateEmail } from "@/lib/email-templates/send-email";
 
 function log(event: string, extra: Record<string, unknown> = {}) {
   console.info(`[stripe-webhook] ${JSON.stringify({ t: new Date().toISOString(), event, ...extra })}`);
@@ -81,6 +82,36 @@ async function provisionOrganizationSubscription(
     p_payload_hash: input.payloadHash,
   });
   if (error) throw new Error(`Organization subscription provisioning failed: ${error.message}`);
+}
+
+/** Best-effort admin notification: a new subscriber just signed up. Never
+ * fails the webhook — email problems must not break subscription processing. */
+async function notifyAdminNewSubscription(
+  input: {
+    eventId: string;
+    plan?: string | null;
+    status?: string;
+    subscriptionId?: string | null;
+    customerEmail?: string | null;
+    customerName?: string | null;
+  },
+) {
+  try {
+    await sendTemplateEmail("admin-subscription-alert", "admin@mexico.nyrava.com", {
+      templateData: {
+        plan: input.plan || undefined,
+        status: input.status || "active",
+        subscriptionId: input.subscriptionId || undefined,
+        customerEmail: input.customerEmail || undefined,
+        customerName: input.customerName || undefined,
+      },
+      idempotencyKey: `admin-sub-alert-${input.eventId}`,
+    });
+  } catch (e) {
+    log("admin_subscription_alert_failed", {
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
 }
 
 export const Route = createFileRoute("/api/public/hooks/stripe-webhook")({
@@ -165,6 +196,18 @@ export const Route = createFileRoute("/api/public/hooks/stripe-webhook")({
                 subscriptionId,
                 status: "active",
                 payloadHash,
+              });
+              // Tell the business inbox a new subscriber just signed up.
+              const customerDetails = session.customer_details ?? null;
+              await notifyAdminNewSubscription({
+                eventId: event.id,
+                plan,
+                status: "active",
+                subscriptionId,
+                customerEmail:
+                  customerDetails?.email ??
+                  (typeof session.customer_email === "string" ? session.customer_email : null),
+                customerName: customerDetails?.name ?? null,
               });
               log("checkout_completed", { userId, plan, subscriptionId });
               break;

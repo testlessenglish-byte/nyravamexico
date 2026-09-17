@@ -2,7 +2,7 @@
 // before the 7-day free trial starts. Reuses the existing admin-managed
 // plans (list_public_billing_plans) and the existing Stripe checkout —
 // nothing here creates plans or prices of its own.
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -228,12 +228,14 @@ function ChoosePlanPage() {
                   ))}
                 </ul>
                 {custom ? (
-                  <Link
-                    to="/contact"
+                  <a
+                    href={`mailto:contact@mexico.nyrava.com?subject=${encodeURIComponent(
+                      es ? "Contacto de ventas — Plan Enterprise" : "Contact sales — Enterprise plan",
+                    )}`}
                     className="mt-5 flex w-full items-center justify-center gap-2 rounded-md border border-primary py-3 text-[12px] font-semibold uppercase tracking-[0.18em] text-primary transition hover:bg-primary/10"
                   >
                     {es ? "Contactar ventas" : "Contact sales"}
-                  </Link>
+                  </a>
                 ) : (
                   <button
                     type="button"

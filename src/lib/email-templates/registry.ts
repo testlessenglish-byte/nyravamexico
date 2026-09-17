@@ -20,6 +20,7 @@ export interface TemplateEntry {
 import { CaseReminderEmail } from "./case-reminder";
 import { template as teamInviteTemplate } from "./team-invite";
 import { ResourceContactEmail } from "./resource-contact";
+import { template as adminSubscriptionAlertTemplate } from "./admin-subscription-alert";
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   "case-reminder": {
@@ -31,4 +32,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
     component: ResourceContactEmail,
     subject: (data) => String(data.subject || "Resource contact"),
   },
+  "admin-subscription-alert": adminSubscriptionAlertTemplate,
 };
