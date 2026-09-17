@@ -37,7 +37,7 @@ function ContactPage() {
           <div className="panel p-6">
             <Mail className="h-5 w-5 text-primary" />
             <h3 className="mt-3 font-display text-base font-semibold">{t("contact.email")}</h3>
-            <p className="mt-1 text-sm text-muted-foreground">mexico@nyrava.legal</p>
+            <p className="mt-1 text-sm text-muted-foreground">contact@mexico.nyrava.com</p>
           </div>
           <div className="panel p-6">
             <MapPin className="h-5 w-5 text-primary" />
