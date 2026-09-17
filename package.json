@@ -42,7 +42,7 @@
     "mammoth": "^1.12.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "simple-icons": "^16.31.0",
+    "react-icons": "^5.7.0",
     "sonner": "^2.0.7",
     "stripe": "^22.3.2",
     "tailwind-merge": "^3.5.0",
