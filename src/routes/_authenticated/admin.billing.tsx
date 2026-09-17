@@ -813,7 +813,7 @@ function PlanEditor({
                   className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                   value={draft.contact_url}
                   onChange={(e) => onChange({ contact_url: e.target.value })}
-                  placeholder="mailto:sales@nyrava.com"
+                  placeholder="mailto:contact@mexico.nyrava.com"
                 />
               </Field>
             </div>
