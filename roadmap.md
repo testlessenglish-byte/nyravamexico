@@ -20,7 +20,7 @@
 - [x] Show only the opted-in super administrator’s social links at the bottom of main public pages
 
 ## Full bilingual UI sweep (Sep 17)
-- [ ] Batch 1: Trust Center, docs search popup, pipeline diagram
+- [x] Batch 1: Trust Center, docs search popup, pipeline diagram
 - [ ] Batch 2: Help and Learning Center pages
 - [ ] Batch 3: remaining public Trust, policy, company, and resource pages
 - [ ] Batch 4: signed-in menus, alerts, toasts, and common dialogs
