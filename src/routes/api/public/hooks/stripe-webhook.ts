@@ -11,6 +11,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import type Stripe from "stripe";
 import { isDynamicPlanKey } from "@/lib/billing-plans";
+import { sendTemplateEmail } from "@/lib/email-templates/send-email";
 
 function log(event: string, extra: Record<string, unknown> = {}) {
   console.info(`[stripe-webhook] ${JSON.stringify({ t: new Date().toISOString(), event, ...extra })}`);
