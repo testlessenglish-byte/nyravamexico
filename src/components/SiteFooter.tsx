@@ -15,11 +15,31 @@ export function SiteFooter() {
     staleTime: 5 * 60 * 1000,
   });
   const socialLinks = [
-    { label: "LinkedIn", href: socialProfile?.linkedin_url || "https://linkedin.com/company/nyrava", icon: Linkedin },
-    { label: "Facebook", href: socialProfile?.facebook_url || "https://facebook.com/nyrava", icon: Facebook },
-    { label: "X / Twitter", href: socialProfile?.twitter_url || "https://x.com/nyrava", icon: Twitter },
-    { label: "Discord", href: socialProfile?.discord_url, icon: MessageCircle },
-  ].filter((item): item is { label: string; href: string; icon: typeof Linkedin } => Boolean(item.href));
+    {
+      label: "LinkedIn",
+      href: socialProfile?.linkedin_url || "https://linkedin.com/company/nyrava",
+      icon: Linkedin,
+      className: "border-linkedin/30 bg-linkedin/10 text-linkedin hover:bg-linkedin hover:text-social-foreground focus-visible:ring-linkedin",
+    },
+    {
+      label: "Facebook",
+      href: socialProfile?.facebook_url || "https://facebook.com/nyrava",
+      icon: Facebook,
+      className: "border-facebook/30 bg-facebook/10 text-facebook hover:bg-facebook hover:text-social-foreground focus-visible:ring-facebook",
+    },
+    {
+      label: "X",
+      href: socialProfile?.twitter_url || "https://x.com/nyrava",
+      icon: Twitter,
+      className: "border-twitter/30 bg-twitter/10 text-twitter hover:bg-twitter hover:text-social-foreground focus-visible:ring-twitter",
+    },
+    {
+      label: "Discord",
+      href: socialProfile?.discord_url,
+      icon: MessageCircle,
+      className: "border-discord/30 bg-discord/10 text-discord hover:bg-discord hover:text-social-foreground focus-visible:ring-discord",
+    },
+  ].filter((item): item is { label: string; href: string; icon: typeof Linkedin; className: string } => Boolean(item.href));
   return (
     <footer className="mt-24 border-t border-border/60">
       <div className="mx-auto grid max-w-7xl gap-10 px-6 py-14 lg:grid-cols-5">
@@ -73,13 +93,14 @@ export function SiteFooter() {
           <span>Â© {new Date().getFullYear()} Nyrava Intelligence MÃ©xico. {t("footer.copyright")}</span>
           <div className="flex flex-wrap items-center gap-3">
             {socialLinks.length > 0 && (
-              <div className="flex items-center gap-2" aria-label={t("footer.socialLinks")}>
-                <span className="hidden sm:inline">{socialProfile?.name}</span>
-                {socialLinks.map(({ label, href, icon: Icon }) => (
+              <div className="flex flex-wrap items-center justify-end gap-2" aria-label={t("footer.socialLinks")}>
+                {socialProfile?.name && <span className="mr-1 font-medium text-foreground">{socialProfile.name}</span>}
+                {socialLinks.map(({ label, href, icon: Icon, className }) => (
                   <a key={label} href={href} target="_blank" rel="noopener noreferrer"
                     aria-label={`${label} â€” ${socialProfile?.name}`}
-                    className="grid h-8 w-8 place-items-center rounded-full border border-border/70 transition-colors hover:border-primary/50 hover:text-primary">
-                    <Icon className="h-4 w-4" aria-hidden="true" />
+                    className={`inline-flex h-10 items-center gap-2 rounded-md border px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${className}`}>
+                    <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span>{label}</span>
                   </a>
                 ))}
               </div>
