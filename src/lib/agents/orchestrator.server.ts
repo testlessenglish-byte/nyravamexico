@@ -59,6 +59,9 @@ const CITATION_EXEMPT_SOURCE_MODULES = new Set([
   "engine:trial:risk",
   "engine:trial:strength",
   "analyzer:missing",
+  "report_writer:strategy_recommendation",
+  "report_writer:next_action",
+  "report_writer:missing_evidence",
 ]);
 
 function hasTraceableCitation(f: CitationCandidate): boolean {

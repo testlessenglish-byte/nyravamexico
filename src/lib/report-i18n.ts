@@ -203,6 +203,7 @@ const ES: Record<string, string> = {
   Evidence: "Evidencia",
   Finding: "Hallazgo",
   Findings: "Hallazgos",
+  "Findings (Total)": "Hallazgos (Total)",
   Contradiction: "Contradicción",
   Contradictions: "Contradicciones",
   Total: "Total",
