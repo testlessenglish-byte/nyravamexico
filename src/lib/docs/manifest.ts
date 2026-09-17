@@ -5,18 +5,22 @@
 export type DocEntry = {
   to: string;
   label: string;
+  labelEs?: string;
   description?: string;
+  descriptionEs?: string;
   keywords?: string[];
 };
 
 export type DocGroup = {
   heading: string;
+  headingEs?: string;
   entries: DocEntry[];
 };
 
 export const DOCS_NAV: DocGroup[] = [
   {
     heading: "Getting Started",
+    headingEs: "Para empezar",
     entries: [
       { to: "/help", label: "Help Center", description: "Browse categories and articles.", keywords: ["help", "support", "faq"] },
       { to: "/learning-center", label: "Learning Center", description: "Set up your workspace, add keys, run a case, and train your team.", keywords: ["learning", "training", "onboarding", "academy", "getting started"] },
@@ -29,6 +33,7 @@ export const DOCS_NAV: DocGroup[] = [
   },
   {
     heading: "Product",
+    headingEs: "Producto",
     entries: [
       { to: "/product/evidence-intelligence", label: "Evidence Intelligence", description: "Grounded, cited fact extraction from your corpus.", keywords: ["evidence", "extraction", "citations"] },
       { to: "/product/timeline-intelligence", label: "Timeline Intelligence", description: "Automatic chronology with cited events.", keywords: ["timeline", "chronology"] },
@@ -40,6 +45,7 @@ export const DOCS_NAV: DocGroup[] = [
   },
   {
     heading: "Practice Areas",
+    headingEs: "Áreas de práctica",
     entries: [
       { to: "/product/corporate", label: "Corporate Law Intelligence", description: "Governance, M&A, due diligence — same 17-section report, corporate content.", keywords: ["corporate", "governance", "m&a", "lgsm", "fiduciary", "shareholder", "board", "asamblea"] },
       { to: "/product/commercial", label: "Business & Commercial Law Intelligence", description: "Contract disputes, compraventa mercantil, business torts — same 17-section report, commercial content.", keywords: ["commercial", "business", "contract", "breach", "codigo de comercio", "warranty", "competencia desleal", "trade secret", "arbitration", "non-compete"] },
@@ -47,8 +53,9 @@ export const DOCS_NAV: DocGroup[] = [
   },
   {
     heading: "Trust & Security",
+    headingEs: "Confianza y seguridad",
     entries: [
-      { to: "/trust", label: "Trust Center", description: "The single hub for Nyrava's trust posture.", keywords: ["trust", "security", "compliance"] },
+      { to: "/trust", label: "Trust Center", labelEs: "Centro de Confianza", description: "The single hub for Nyrava's trust posture.", descriptionEs: "El centro de la postura de confianza de Nyrava.", keywords: ["trust", "security", "compliance", "confianza", "seguridad"] },
       { to: "/confidentiality", label: "Attorney Confidentiality", description: "What Nyrava personnel can and cannot access.", keywords: ["confidentiality", "personnel", "access", "operator"] },
       { to: "/security", label: "Security Practices", description: "Authentication, authorization, encryption.", keywords: ["security", "encryption", "rls"] },
       { to: "/ai-transparency", label: "AI Transparency", description: "Where AI is used and its limitations.", keywords: ["ai", "transparency", "limitations"] },
@@ -59,6 +66,7 @@ export const DOCS_NAV: DocGroup[] = [
   },
   {
     heading: "Legal",
+    headingEs: "Legal",
     entries: [
       { to: "/terms", label: "Terms of Service", keywords: ["terms", "tos"] },
       { to: "/acceptable-use", label: "Acceptable Use Policy", keywords: ["aup", "prohibited"] },
@@ -72,6 +80,7 @@ export const DOCS_NAV: DocGroup[] = [
   },
   {
     heading: "Company",
+    headingEs: "Compañía",
     entries: [
       { to: "/about", label: "About Nyrava", keywords: ["about", "mission"] },
       { to: "/roadmap", label: "Roadmap", keywords: ["roadmap"] },
@@ -88,6 +97,70 @@ export const DOCS_VERSION = {
   updated: "2026-07-23",
 };
 
+const ES_LABELS: Record<string, string> = {
+  "Help Center": "Centro de Ayuda",
+  "Learning Center": "Centro de Aprendizaje",
+  "How Nyrava Works": "Cómo funciona Nyrava",
+  "Running your first case": "Cómo ejecutar tu primer caso",
+  "Uploading documents": "Cómo cargar documentos",
+  "API keys & providers": "Claves API y proveedores",
+  "Understanding reports": "Cómo interpretar los informes",
+  "Evidence Intelligence": "Inteligencia de Evidencia",
+  "Timeline Intelligence": "Inteligencia Cronológica",
+  "Witness Intelligence": "Inteligencia de Testigos",
+  "Constitutional Intelligence": "Inteligencia Constitucional",
+  "Motion Intelligence": "Inteligencia de Escritos",
+  "Report Intelligence": "Inteligencia de Informes",
+  "Corporate Law Intelligence": "Inteligencia en Derecho Corporativo",
+  "Business & Commercial Law Intelligence": "Inteligencia en Derecho Mercantil",
+  "Trust Center": "Centro de Confianza",
+  "Attorney Confidentiality": "Confidencialidad Profesional",
+  "Security Practices": "Prácticas de Seguridad",
+  "AI Transparency": "Transparencia de IA",
+  "Responsible AI": "IA Responsable",
+  "Data Control": "Control de Datos",
+  "Privacy Policy": "Política de Privacidad",
+  "Terms of Service": "Términos de Servicio",
+  "Acceptable Use Policy": "Política de Uso Aceptable",
+  "Data Processing Agreement": "Acuerdo de Procesamiento de Datos",
+  "Cookie Policy": "Política de Cookies",
+  "DMCA Policy": "Política DMCA",
+  "Copyright Policy": "Política de Derechos de Autor",
+  "Accessibility Statement": "Declaración de Accesibilidad",
+  "Beta Program Terms": "Términos del Programa Beta",
+  "About Nyrava": "Acerca de Nyrava",
+  Roadmap: "Hoja de Ruta",
+  "Release Notes": "Notas de la Versión",
+  Resources: "Recursos",
+  Contact: "Contacto",
+};
+
+const ES_DESCRIPTIONS: Record<string, string> = {
+  "Browse categories and articles.": "Explora categorías y artículos.",
+  "Set up your workspace, add keys, run a case, and train your team.": "Configura tu espacio, agrega claves, ejecuta un caso y capacita a tu equipo.",
+  "The end-to-end pipeline, from upload to report.": "El proceso completo, desde la carga hasta el informe.",
+  "Create a matter, upload the record, run analysis.": "Crea un asunto, carga el expediente y ejecuta el análisis.",
+  "Supported file types, OCR, batching.": "Tipos de archivo compatibles, OCR y cargas por lotes.",
+  "Bring your own OpenAI, Anthropic, Gemini, Groq, OpenRouter keys.": "Usa tus propias claves de OpenAI, Anthropic, Gemini, Groq u OpenRouter.",
+  "The 17-section canonical analysis.": "El análisis canónico de 17 secciones.",
+  "Grounded, cited fact extraction from your corpus.": "Extracción de hechos fundamentados y citados desde tu expediente.",
+  "Automatic chronology with cited events.": "Cronología automática con eventos citados.",
+  "Cluster statements, surface contradictions.": "Agrupa declaraciones y detecta contradicciones.",
+  "CPEUM and derechos humanos issue spotting.": "Detección de cuestiones sobre la CPEUM y derechos humanos.",
+  "First-draft motions grounded in the record.": "Primeros borradores de escritos fundamentados en el expediente.",
+  "17-section canonical case analysis, export-ready.": "Análisis canónico del caso en 17 secciones, listo para exportar.",
+  "Governance, M&A, due diligence — same 17-section report, corporate content.": "Gobierno corporativo, fusiones y adquisiciones y debida diligencia en el mismo informe de 17 secciones.",
+  "Contract disputes, compraventa mercantil, business torts — same 17-section report, commercial content.": "Controversias contractuales, compraventa mercantil e ilícitos comerciales en el mismo informe de 17 secciones.",
+  "The single hub for Nyrava's trust posture.": "El centro de la postura de confianza de Nyrava.",
+  "What Nyrava personnel can and cannot access.": "Qué puede y qué no puede consultar el personal de Nyrava.",
+  "Authentication, authorization, encryption.": "Autenticación, autorización y cifrado.",
+  "Where AI is used and its limitations.": "Dónde se utiliza la IA y cuáles son sus limitaciones.",
+  "Our principles for evidence-grounded analysis.": "Nuestros principios para el análisis fundamentado en evidencia.",
+  "Export, delete, and manage your workspace data.": "Exporta, elimina y administra los datos de tu espacio.",
+  "What shipped, what's new, what's next.": "Lo publicado, las novedades y lo próximo.",
+  "Redacted sample reports across practice areas.": "Informes de muestra anonimizados de distintas áreas de práctica.",
+};
+
 export function findActiveEntry(pathname: string): DocEntry | undefined {
   for (const group of DOCS_NAV) {
     for (const entry of group.entries) {
@@ -97,8 +170,18 @@ export function findActiveEntry(pathname: string): DocEntry | undefined {
   return undefined;
 }
 
-export function allEntries(): (DocEntry & { group: string })[] {
-  const out: (DocEntry & { group: string })[] = [];
-  for (const g of DOCS_NAV) for (const e of g.entries) out.push({ ...e, group: g.heading });
+export function allEntries(): (DocEntry & { group: string; groupEs?: string })[] {
+  const out: (DocEntry & { group: string; groupEs?: string })[] = [];
+  for (const g of DOCS_NAV) {
+    for (const e of g.entries) {
+      out.push({
+        ...e,
+        labelEs: e.labelEs ?? ES_LABELS[e.label],
+        descriptionEs: e.description ? e.descriptionEs ?? ES_DESCRIPTIONS[e.description] : undefined,
+        group: g.heading,
+        groupEs: g.headingEs,
+      });
+    }
+  }
   return out;
 }
