@@ -59,6 +59,11 @@
   --color-mx-flag: var(--mx-flag);
   --color-cream: var(--cream);
   --color-cream-foreground: var(--cream-foreground);
+  --color-linkedin: var(--linkedin);
+  --color-facebook: var(--facebook);
+  --color-twitter: var(--twitter);
+  --color-discord: var(--discord);
+  --color-social-foreground: var(--social-foreground);
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Cormorant Garamond", "Source Serif 4", ui-serif, Georgia, serif;
@@ -121,6 +126,13 @@
   /* Warm white banner tone for marketing top-nav / light sections */
   --cream: #FDFCFF;
   --cream-foreground: #1C1830;
+
+  /* Official social-network colors used by the public footer links */
+  --linkedin: #0A66C2;
+  --facebook: #1877F2;
+  --twitter: #111111;
+  --discord: #5865F2;
+  --social-foreground: #FFFFFF;
 
   --gradient-primary: linear-gradient(92deg, #7C3AED 0%, #D6479C 55%, #F0883D 100%);
   --gradient-panel: linear-gradient(180deg, #FFFFFF, #FDFCFF);
