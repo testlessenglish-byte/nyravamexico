@@ -57,10 +57,19 @@ export const listClients = createServerFn({ method: "GET" })
       query = query.eq("status", data.status);
     }
     if (data?.search) {
-      const q = data.search.trim();
-      query = query.or(
-        `display_name.ilike.%${q}%,legal_name.ilike.%${q}%,email.ilike.%${q}%,reference_number.ilike.%${q}%`,
-      );
+      // Neutralize PostgREST filter-syntax characters before interpolating the
+      // user-supplied term into an `.or()` expression. Commas, dots, parentheses
+      // and quotes are structural tokens there; `%`/`_` are LIKE wildcards.
+      const q = data.search
+        .trim()
+        .slice(0, 100)
+        .replace(/[\\%_,.()"']/g, (ch) => (ch === "%" || ch === "_" ? `\\${ch}` : " "))
+        .trim();
+      if (q.length > 0) {
+        query = query.or(
+          `display_name.ilike.*${q}*,legal_name.ilike.*${q}*,email.ilike.*${q}*,reference_number.ilike.*${q}*`,
+        );
+      }
     }
 
     const { data: clients, error } = await query;
