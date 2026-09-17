@@ -1,19 +1,12 @@
+import { useI18n } from "@/i18n";
+
 /**
  * Pipeline flow SVG diagram used on the Trust Center and How It Works pages.
  * Renders cleanly in both light and dark themes via CSS custom properties.
  */
 export function PipelineDiagram({ className = "" }: { className?: string }) {
-  const steps = [
-    "Document Upload",
-    "OCR + Extraction",
-    "Evidence Intelligence",
-    "Timeline Intelligence",
-    "Witness Intelligence",
-    "Legal Research",
-    "Motion Intelligence",
-    "Attorney Review",
-    "Final Report",
-  ];
+  const { t } = useI18n();
+  const steps = Array.from({ length: 9 }, (_, index) => t(`pipelineDiagram.step${index + 1}`));
   const W = 720;
   const stepH = 46;
   const gap = 12;
@@ -23,7 +16,7 @@ export function PipelineDiagram({ className = "" }: { className?: string }) {
       <svg
         viewBox={`0 0 ${W} ${H}`}
         role="img"
-        aria-label="Nyrava pipeline flow: upload, OCR, evidence, timeline, witness, research, motion, review, report"
+        aria-label={t("pipelineDiagram.ariaLabel")}
         className="mx-auto block w-full max-w-[720px]"
       >
         <defs>
@@ -41,8 +34,8 @@ export function PipelineDiagram({ className = "" }: { className?: string }) {
         </defs>
         {steps.map((s, i) => {
           const y = i * (stepH + gap) + 6;
-          const isReview = s === "Attorney Review";
-          const isFinal = s === "Final Report";
+          const isReview = i === steps.length - 2;
+          const isFinal = i === steps.length - 1;
           return (
             <g key={s}>
               <rect
@@ -86,7 +79,7 @@ export function PipelineDiagram({ className = "" }: { className?: string }) {
         })}
       </svg>
       <p className="mt-4 text-center text-[11px] text-muted-foreground">
-        Every stage is evidence-grounded. Ungrounded output is suppressed before reaching the report.
+        {t("pipelineDiagram.caption")}
       </p>
     </div>
   );

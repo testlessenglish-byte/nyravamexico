@@ -5,18 +5,22 @@
 export type DocEntry = {
   to: string;
   label: string;
+  labelEs?: string;
   description?: string;
+  descriptionEs?: string;
   keywords?: string[];
 };
 
 export type DocGroup = {
   heading: string;
+  headingEs?: string;
   entries: DocEntry[];
 };
 
 export const DOCS_NAV: DocGroup[] = [
   {
     heading: "Getting Started",
+    headingEs: "Para empezar",
     entries: [
       { to: "/help", label: "Help Center", description: "Browse categories and articles.", keywords: ["help", "support", "faq"] },
       { to: "/learning-center", label: "Learning Center", description: "Set up your workspace, add keys, run a case, and train your team.", keywords: ["learning", "training", "onboarding", "academy", "getting started"] },
@@ -29,6 +33,7 @@ export const DOCS_NAV: DocGroup[] = [
   },
   {
     heading: "Product",
+    headingEs: "Producto",
     entries: [
       { to: "/product/evidence-intelligence", label: "Evidence Intelligence", description: "Grounded, cited fact extraction from your corpus.", keywords: ["evidence", "extraction", "citations"] },
       { to: "/product/timeline-intelligence", label: "Timeline Intelligence", description: "Automatic chronology with cited events.", keywords: ["timeline", "chronology"] },
@@ -40,6 +45,7 @@ export const DOCS_NAV: DocGroup[] = [
   },
   {
     heading: "Practice Areas",
+    headingEs: "Áreas de práctica",
     entries: [
       { to: "/product/corporate", label: "Corporate Law Intelligence", description: "Governance, M&A, due diligence — same 17-section report, corporate content.", keywords: ["corporate", "governance", "m&a", "lgsm", "fiduciary", "shareholder", "board", "asamblea"] },
       { to: "/product/commercial", label: "Business & Commercial Law Intelligence", description: "Contract disputes, compraventa mercantil, business torts — same 17-section report, commercial content.", keywords: ["commercial", "business", "contract", "breach", "codigo de comercio", "warranty", "competencia desleal", "trade secret", "arbitration", "non-compete"] },
@@ -47,8 +53,9 @@ export const DOCS_NAV: DocGroup[] = [
   },
   {
     heading: "Trust & Security",
+    headingEs: "Confianza y seguridad",
     entries: [
-      { to: "/trust", label: "Trust Center", description: "The single hub for Nyrava's trust posture.", keywords: ["trust", "security", "compliance"] },
+      { to: "/trust", label: "Trust Center", labelEs: "Centro de Confianza", description: "The single hub for Nyrava's trust posture.", descriptionEs: "El centro de la postura de confianza de Nyrava.", keywords: ["trust", "security", "compliance", "confianza", "seguridad"] },
       { to: "/confidentiality", label: "Attorney Confidentiality", description: "What Nyrava personnel can and cannot access.", keywords: ["confidentiality", "personnel", "access", "operator"] },
       { to: "/security", label: "Security Practices", description: "Authentication, authorization, encryption.", keywords: ["security", "encryption", "rls"] },
       { to: "/ai-transparency", label: "AI Transparency", description: "Where AI is used and its limitations.", keywords: ["ai", "transparency", "limitations"] },
@@ -59,6 +66,7 @@ export const DOCS_NAV: DocGroup[] = [
   },
   {
     heading: "Legal",
+    headingEs: "Legal",
     entries: [
       { to: "/terms", label: "Terms of Service", keywords: ["terms", "tos"] },
       { to: "/acceptable-use", label: "Acceptable Use Policy", keywords: ["aup", "prohibited"] },
@@ -72,6 +80,7 @@ export const DOCS_NAV: DocGroup[] = [
   },
   {
     heading: "Company",
+    headingEs: "Compañía",
     entries: [
       { to: "/about", label: "About Nyrava", keywords: ["about", "mission"] },
       { to: "/roadmap", label: "Roadmap", keywords: ["roadmap"] },
@@ -97,8 +106,8 @@ export function findActiveEntry(pathname: string): DocEntry | undefined {
   return undefined;
 }
 
-export function allEntries(): (DocEntry & { group: string })[] {
+export function allEntries(): (DocEntry & { group: string; groupEs?: string })[] {
   const out: (DocEntry & { group: string })[] = [];
-  for (const g of DOCS_NAV) for (const e of g.entries) out.push({ ...e, group: g.heading });
+  for (const g of DOCS_NAV) for (const e of g.entries) out.push({ ...e, group: g.heading, groupEs: g.headingEs });
   return out;
 }
