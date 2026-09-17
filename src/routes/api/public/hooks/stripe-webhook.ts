@@ -84,6 +84,36 @@ async function provisionOrganizationSubscription(
   if (error) throw new Error(`Organization subscription provisioning failed: ${error.message}`);
 }
 
+/** Best-effort admin notification: a new subscriber just signed up. Never
+ * fails the webhook — email problems must not break subscription processing. */
+async function notifyAdminNewSubscription(
+  input: {
+    eventId: string;
+    plan?: string | null;
+    status?: string;
+    subscriptionId?: string | null;
+    customerEmail?: string | null;
+    customerName?: string | null;
+  },
+) {
+  try {
+    await sendTemplateEmail("admin-subscription-alert", "admin@mexico.nyrava.com", {
+      templateData: {
+        plan: input.plan || undefined,
+        status: input.status || "active",
+        subscriptionId: input.subscriptionId || undefined,
+        customerEmail: input.customerEmail || undefined,
+        customerName: input.customerName || undefined,
+      },
+      idempotencyKey: `admin-sub-alert-${input.eventId}`,
+    });
+  } catch (e) {
+    log("admin_subscription_alert_failed", {
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
+}
+
 export const Route = createFileRoute("/api/public/hooks/stripe-webhook")({
   server: {
     handlers: {
