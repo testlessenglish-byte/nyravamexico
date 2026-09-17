@@ -104,6 +104,34 @@ export function makeOpenAICompatible(cfg: ProviderConfig, opts: OAICompatOpts): 
       undefined;
     if (!res.ok) {
       const text = (await res.text().catch(() => "")).slice(0, 500);
+
+      if (res.status === 404 || /model_not_found|does not exist/i.test(text)) {
+        try {
+          const mRes = await fetch(`${baseUrl}/models`, {
+            headers: {
+              ...(key && !opts.suppressAuthorization ? { Authorization: `Bearer ${key}` } : {}),
+              ...(opts.extraHeaders ?? {}),
+            },
+            signal: withTimeout(undefined, 5000).signal,
+          });
+          if (mRes.ok) {
+            const mJson = (await mRes.json()) as { data?: Array<{ id: string }> };
+            if (mJson.data && Array.isArray(mJson.data) && mJson.data.length > 0) {
+              const available = mJson.data.map((m) => m.id);
+              const isLlama = model.toLowerCase().includes("llama");
+              const suggested =
+                available.find((id) => isLlama && id.toLowerCase().includes("llama") && id.includes("70b")) ||
+                available.find((id) => isLlama && id.toLowerCase().includes("llama")) ||
+                available[0];
+              console.warn(`[openai-compatible] auto-healing from ${model} to ${suggested}`);
+              return await rawCall({ ...cfg, defaultModel: suggested }, opts);
+            }
+          }
+        } catch {
+          /* ignore heal error */
+        }
+      }
+
       const err = new Error(`${cfg.type} HTTP ${res.status}: ${text}`);
       (err as unknown as { providerRequestId?: string; retryAfterMs?: number }).providerRequestId = providerRequestId ?? undefined;
       (err as unknown as { providerRequestId?: string; retryAfterMs?: number }).retryAfterMs = retryAfterHeaderMs(
