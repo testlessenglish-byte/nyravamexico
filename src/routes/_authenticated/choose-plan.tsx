@@ -12,6 +12,7 @@ import { getMyBillingStatus, createCheckoutSession } from "@/lib/billing.functio
 import { listPublicBillingPlans, type PublicBillingPlan } from "@/lib/billing-plans.functions";
 import { NyravaLogo } from "@/components/NyravaLogo";
 import { useI18n } from "@/i18n";
+import { SocialLinks } from "@/components/SocialLinks";
 
 export const Route = createFileRoute("/_authenticated/choose-plan")({
   head: () => ({
@@ -251,6 +252,7 @@ function ChoosePlanPage() {
       )}
 
       <p className="mt-8 text-center text-xs text-muted-foreground">{t("trial.fineprint")}</p>
+      <SocialLinks className="mt-5" />
     </div>
   );
 }

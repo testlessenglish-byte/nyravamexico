@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { useI18n } from "@/i18n";
+import { SocialLinks } from "@/components/SocialLinks";
 
 function getSafeRedirectTarget(searchRedirect?: string): string {
   if (
@@ -414,6 +415,7 @@ function AuthPage() {
             </button>
           )}
         </div>
+        <SocialLinks className="mt-5" />
       </div>
     </div>
   );
