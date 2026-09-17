@@ -2141,7 +2141,10 @@ export const getAiHealth = createServerFn({ method: "GET" })
             | "lmstudio";
           let keys: string[] = [];
           try {
-            ({ keys } = await resolveProviderKeys(supabase, userId, type as never));
+            // Pipeline runs as the Case Owner. A case owner without personal keys
+            // falls back to the system/env keys. To accurately report baseline
+            // system health, probe the fallback keys, NOT the Admin's personal keys.
+            ({ keys } = await resolveProviderKeys(supabase, "00000000-0000-0000-0000-000000000000", type as never));
           } catch {
             keys = [];
           }
@@ -2155,21 +2158,24 @@ export const getAiHealth = createServerFn({ method: "GET" })
           let okKeys = 0;
           const keyErrors: string[] = [];
           const candidates = keys.length > 0 ? keys : [undefined];
-          for (let i = 0; i < candidates.length; i++) {
-            let r: { ok: boolean; latencyMs: number; error?: string };
-            try {
-              r = candidates[i]
-                ? await pingProvider(type, candidates[i]!)
-                : await pingProvider(type);
-            } catch (e) {
-              r = { ok: false, latencyMs: 0, error: e instanceof Error ? e.message : String(e) };
-            }
+          const pingResults = await Promise.all(
+            candidates.map(async (key, i) => {
+              let r: { ok: boolean; latencyMs: number; error?: string };
+              try {
+                r = key ? await pingProvider(type, key) : await pingProvider(type);
+              } catch (e) {
+                r = { ok: false, latencyMs: 0, error: e instanceof Error ? e.message : String(e) };
+              }
+              return { index: i, r };
+            })
+          );
+          for (const { index, r } of pingResults) {
             if (r.ok) {
               okKeys++;
-              if (!ping.ok) ping = r;
+              if (!ping.ok || ping.error) ping = r;
             } else {
-              keyErrors.push(`key ${i + 1}: ${r.error ?? "failed"}`);
-              if (!ping.ok && i === 0) ping = r;
+              keyErrors.push(`key ${index + 1}: ${r.error ?? "failed"}`);
+              if (!ping.ok && index === 0) ping = r;
             }
           }
           // Any healthy key means the provider is usable — drop the stale error.

@@ -1680,7 +1680,7 @@ function isRetryableTransportError(msg: string): boolean {
 }
 
 function isAuthProviderError(msg: string): boolean {
-  return /HTTP 401|HTTP 403|invalid_api_key|unauthor/i.test(msg);
+  return /HTTP 401|HTTP 403|invalid_api_key|unauthor|HTTP 404|model_not_found|does not exist/i.test(msg);
 }
 
 // ===== STEP 1: Extraction =====

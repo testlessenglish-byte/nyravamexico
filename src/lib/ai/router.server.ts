@@ -1306,13 +1306,16 @@ export async function routeAI(opts: RouteOpts): Promise<RouteResult> {
         !isPayload &&
         (/HTTP 429/i.test(msg) || /insufficient_quota|too many requests|quota exceeded/i.test(msg));
       const isAuth = /HTTP 401|HTTP 403|invalid_api_key|unauthor/i.test(msg);
+      const isModelNotFound = /HTTP 404|model_not_found|does not exist/i.test(msg);
       const kind = isPayload
         ? "payload_too_large"
         : isPayment || isQuota
           ? "quota"
-          : isAuth
-            ? "auth"
-            : "other";
+          : isModelNotFound
+            ? "model_not_found"
+            : isAuth
+              ? "auth"
+              : "other";
       console.warn(
         `[router.key] failed provider=${row.provider_type} ${keyLabel} kind=${kind} err=${msg.slice(0, 200)}`,
       );
@@ -1378,7 +1381,7 @@ export async function routeAI(opts: RouteOpts): Promise<RouteResult> {
         );
       errors.push(`${row.display_name} [${kind}]: ${msg}`);
       fellBackFrom.push(row.provider_type);
-      if (isPayment || isQuota) {
+      if (isPayment || isQuota || isModelNotFound) {
         const cooldownReason: CooldownReason = isPayment ? "payment" : isQuota ? "quota" : "rate_limit";
         const retryAfterMs = (e as { retryAfterMs?: number })?.retryAfterMs ?? parseRetryHintMs(msg);
         const cd = markProviderCooldown({

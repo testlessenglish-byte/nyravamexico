@@ -186,9 +186,39 @@ export function makeOpenAICompatible(cfg: ProviderConfig, opts: OAICompatOpts): 
         // call for the whole run — self-heal by retrying once with the slug
         // the provider itself named.
         const msg = e instanceof Error ? e.message : String(e);
-        const suggested = /HTTP 404/.test(msg)
+        let suggested = /HTTP 404/.test(msg)
           ? msg.match(/use this slug instead:\s*([A-Za-z0-9._\-/:]+)/i)?.[1]
           : undefined;
+
+        if (!suggested && /HTTP 404|model_not_found|does not exist/i.test(msg)) {
+          try {
+            const mRes = await fetch(`${baseUrl}/models`, {
+              headers: {
+                ...(key && !opts.suppressAuthorization ? { Authorization: `Bearer ${key}` } : {}),
+                ...(opts.extraHeaders ?? {}),
+              },
+              signal: withTimeout(undefined, 5000).signal,
+            });
+            if (mRes.ok) {
+              const mJson = (await mRes.json()) as { data?: Array<{ id: string }> };
+              if (mJson.data && Array.isArray(mJson.data) && mJson.data.length > 0) {
+                const available = mJson.data.map((m) => m.id);
+                const current = String(body.model);
+                const isLlama = current.toLowerCase().includes("llama");
+                suggested =
+                  available.find((id) => isLlama && id.toLowerCase().includes("llama") && id.includes("70b")) ||
+                  available.find((id) => isLlama && id.toLowerCase().includes("llama")) ||
+                  available[0];
+                console.warn(
+                  `[provider] ${cfg.type} model ${current} retired/missing, auto-healed to ${suggested}`,
+                );
+              }
+            }
+          } catch (healErr) {
+            console.warn(`[provider] failed to auto-heal ${cfg.type} model:`, healErr);
+          }
+        }
+
         if (!suggested || suggested === body.model) throw e;
         return rawCall({ ...body, model: suggested }, o.signal);
       }
@@ -228,6 +258,40 @@ export function makeOpenAICompatible(cfg: ProviderConfig, opts: OAICompatOpts): 
           undefined;
         if (res.ok) return { ok: true, latencyMs: Date.now() - t0, organization, requestId, model: defaultModel };
         const body = (await res.text().catch(() => "")).slice(0, 400);
+
+        if (res.status === 404 || /model_not_found|does not exist/i.test(body)) {
+          try {
+            const mRes = await fetch(`${baseUrl}/models`, {
+              headers: {
+                ...(key && !opts.suppressAuthorization ? { Authorization: `Bearer ${key}` } : {}),
+                ...(opts.extraHeaders ?? {}),
+              },
+              signal: withTimeout(undefined, 5000).signal,
+            });
+            if (mRes.ok) {
+              const mJson = (await mRes.json()) as { data?: Array<{ id: string }> };
+              if (mJson.data && Array.isArray(mJson.data) && mJson.data.length > 0) {
+                const available = mJson.data.map((m) => m.id);
+                const isLlama = defaultModel.toLowerCase().includes("llama");
+                const suggested =
+                  available.find((id) => isLlama && id.toLowerCase().includes("llama") && id.includes("70b")) ||
+                  available.find((id) => isLlama && id.toLowerCase().includes("llama")) ||
+                  available[0];
+                return {
+                  ok: true,
+                  latencyMs: Date.now() - t0,
+                  organization,
+                  requestId,
+                  model: suggested,
+                  error: `Configured model missing (${defaultModel}); auto-healed to ${suggested}`,
+                };
+              }
+            }
+          } catch {
+            /* ignore heal error */
+          }
+        }
+
         return {
           ok: false,
           latencyMs: Date.now() - t0,

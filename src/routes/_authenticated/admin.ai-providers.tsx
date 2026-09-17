@@ -15,7 +15,7 @@ export const Route = createFileRoute("/_authenticated/admin/ai-providers")({
 });
 
 const PROVIDER_TYPES = [
-  { value: "groq",       label: "Groq",        defaultUrl: "https://api.groq.com/openai/v1",        defaultModel: "llama-3.3-70b-versatile", secret: "GROQ_API_KEY" },
+  { value: "groq",       label: "Groq",        defaultUrl: "https://api.groq.com/openai/v1",        defaultModel: "llama-3.3-70b-specdec", secret: "GROQ_API_KEY" },
   { value: "gemini",     label: "Google Gemini", defaultUrl: "",                                    defaultModel: "gemini-flash-latest",        secret: "GEMINI_API_KEY" },
   { value: "openrouter", label: "OpenRouter",  defaultUrl: "https://openrouter.ai/api/v1",          defaultModel: "deepseek/deepseek-chat-v3:free", secret: "OPENROUTER_API_KEY" },
   { value: "openai",     label: "OpenAI",      defaultUrl: "https://api.openai.com/v1",             defaultModel: "gpt-4o-mini",             secret: "OPENAI_API_KEY" },
