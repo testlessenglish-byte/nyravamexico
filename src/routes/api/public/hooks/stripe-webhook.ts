@@ -197,6 +197,18 @@ export const Route = createFileRoute("/api/public/hooks/stripe-webhook")({
                 status: "active",
                 payloadHash,
               });
+              // Tell the business inbox a new subscriber just signed up.
+              const customerDetails = session.customer_details ?? null;
+              await notifyAdminNewSubscription({
+                eventId: event.id,
+                plan,
+                status: "active",
+                subscriptionId,
+                customerEmail:
+                  customerDetails?.email ??
+                  (typeof session.customer_email === "string" ? session.customer_email : null),
+                customerName: customerDetails?.name ?? null,
+              });
               log("checkout_completed", { userId, plan, subscriptionId });
               break;
             }
