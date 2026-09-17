@@ -50,7 +50,24 @@ export async function runPipelineForCase(
     () =>
       withAIUser(userId, async () => {
         try {
-          return await _runPipelineForCase(supabase, userId, opts);
+          const MAX_REMEDIATION_RETRIES = 3;
+          let retries = 0;
+          let result = await _runPipelineForCase(supabase, userId, opts);
+
+          while (retries < MAX_REMEDIATION_RETRIES) {
+            const { data: caseRow } = await supabase.from("cases").select("status,error").eq("id", opts.caseId).maybeSingle();
+            if (caseRow?.status === "needs_revision") {
+              retries++;
+              console.warn(`[remediation] Case ${opts.caseId} needs revision. Auto-remediation attempt ${retries}/${MAX_REMEDIATION_RETRIES}. Diagnostic: ${caseRow.error}`);
+              opts.executionId = crypto.randomUUID();
+              opts.startFrom = "report";
+              result = await _runPipelineForCase(supabase, userId, opts);
+            } else {
+              break;
+            }
+          }
+
+          return result;
         } catch (e) {
           // Crash safety: an unexpected throw (stage timeout, provider
           // failover exhaustion, DB error) must never leave the case holding

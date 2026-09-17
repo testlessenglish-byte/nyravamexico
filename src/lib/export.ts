@@ -2406,8 +2406,8 @@ function renderCover(
     cards.push({ label: "Scores", value: "Suppressed", color: MUTED });
     cards.push({ label: "Recommendations", value: "Suppressed", color: MUTED });
   }
-  cards.push({ label: "Documents Analyzed", value: String(data.documents.length) });
-  cards.push({ label: "Findings (Total)", value: String(counters.rendered) });
+  cards.push({ label: rt("Documents Analyzed"), value: String(data.documents.length) });
+  cards.push({ label: rt("Findings (Total)"), value: String(counters.rendered) });
   // Report-quality audit §4: a single "Findings: N" number previously read
   // as if every finding carried the same evidentiary weight — the same
   // failure class as calling all of them "verified" regardless of whether

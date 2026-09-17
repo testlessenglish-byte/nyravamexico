@@ -46,6 +46,9 @@ describe("computeJudgeVerdict: citation-exempt source modules", () => {
       "engine:trial:risk",
       "engine:trial:strength",
       "analyzer:missing",
+      "report_writer:strategy_recommendation",
+      "report_writer:next_action",
+      "report_writer:missing_evidence",
     ];
     for (const source_module of exemptModules) {
       const result = computeJudgeVerdict([CITED(), finding({ source_module })], "strict");
