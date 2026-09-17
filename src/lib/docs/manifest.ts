@@ -171,7 +171,7 @@ export function findActiveEntry(pathname: string): DocEntry | undefined {
 }
 
 export function allEntries(): (DocEntry & { group: string; groupEs?: string })[] {
-  const out: (DocEntry & { group: string })[] = [];
+  const out: (DocEntry & { group: string; groupEs?: string })[] = [];
   for (const g of DOCS_NAV) {
     for (const e of g.entries) {
       out.push({
