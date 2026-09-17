@@ -143,7 +143,7 @@ export class ProviderConfigError extends Error {
 }
 
 export const PROVIDER_DEFAULTS: Record<ProviderType, { baseUrl: string; model: string; secretName: string | null }> = {
-  groq: { baseUrl: "https://api.groq.com/openai/v1", model: "openai/gpt-oss-120b", secretName: "GROQ_API_KEY" },
+  groq: { baseUrl: "https://api.groq.com/openai/v1", model: "llama-3.3-70b-specdec", secretName: "GROQ_API_KEY" },
   openai: { baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini", secretName: "OPENAI_API_KEY" },
   anthropic: {
     baseUrl: "https://api.anthropic.com/v1",

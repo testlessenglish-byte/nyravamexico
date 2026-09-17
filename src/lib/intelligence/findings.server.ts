@@ -1181,7 +1181,9 @@ export async function addFindings(db: Db, rows: NewFinding[]) {
       extra.audit_classification === "VERIFIED_COURT_HOLDING";
 
     const speaker_role = isHolding ? "scjn" : normSpeakerRole(r.speaker_role);
-    const proposition_type = isHolding ? "holding" : normPropositionType(r.proposition_type);
+    const proposition_type = isHolding
+      ? (r.proposition_type === "court_holding" || r.proposition_type === "holding" ? normPropositionType(r.proposition_type) : "court_holding")
+      : normPropositionType(r.proposition_type);
     const adoption_status = isHolding ? "adopted" : normAdoptionStatus(r.adoption_status);
     // -----------------------------------------------------------------
     // POST-PROMOTION SEMANTIC INVARIANT. The three lines above can promote

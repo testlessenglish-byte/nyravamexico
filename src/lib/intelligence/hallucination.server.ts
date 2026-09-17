@@ -232,7 +232,7 @@ function reconcileStrengthScoreText(
   const raw = String(Math.round(rawScore));
   const final = String(Math.round(finalScore));
   const rx = new RegExp(
-    `(fortaleza\\s+del\\s+caso(?:\\s+se\\s+califica\\s+en|\\s*[:=]?\\s*))${raw}\\b`,
+    `(fortaleza\\s+del\\s+caso(?:\\s+se\\s+califica\\s+en\\s+|\\s*[:=]?\\s*))${raw}\\b`,
     "i",
   );
   return text.replace(rx, `$1${final}`);

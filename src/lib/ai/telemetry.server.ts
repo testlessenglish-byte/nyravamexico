@@ -58,7 +58,7 @@ export type TelemetryCall = {
   providerRequestId?: string;
   cached?: boolean;
   error?: string;
-  errorKind?: "quota" | "auth" | "payload_too_large" | "other";
+  errorKind?: "quota" | "auth" | "payload_too_large" | "other" | "model_not_found";
   fellBackFrom?: ProviderType[];
   keyIndex?: number;
   keyLabel?: string;

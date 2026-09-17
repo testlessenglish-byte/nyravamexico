@@ -141,8 +141,10 @@ const SPANISH_NUMBERS: Record<string, number> = {
 };
 
 const ES_MONTH_PATTERN = Object.keys(ES_MONTHS).join("|");
+const ACCENTS: Record<string, string> = { a: "á", e: "é", i: "í", o: "ó", u: "ú" };
+const ES_NUMBER_WORDS_PATTERN = Object.keys(SPANISH_NUMBERS).map(w => w.replace(/[aeiou]/g, v => `[${v}${ACCENTS[v]}]`)).join("|");
 const ES_NUMERIC_DATE_RE = new RegExp(`\\b(\\d{1,2})\\s+de\\s+(${ES_MONTH_PATTERN})\\s+de\\s+(\\d{4})\\b`, "i");
-const ES_WORD_DATE_RE = new RegExp(`\\b([a-záéíóúüñ]+(?:\\s+y\\s+[a-záéíóúüñ]+)?)\\s+de\\s+(${ES_MONTH_PATTERN})\\s+de\\s+((?:dos\\s+mil|mil)(?:\\s+[a-záéíóúüñ]+(?:\\s+y\\s+[a-záéíóúüñ]+)?)*)\\b`, "i");
+const ES_WORD_DATE_RE = new RegExp(`\\b((?:${ES_NUMBER_WORDS_PATTERN})(?:\\s+y\\s+(?:${ES_NUMBER_WORDS_PATTERN}))?)\\s+de\\s+(${ES_MONTH_PATTERN})\\s+de\\s+((?:d[oó]s\\s+m[ií]l|m[ií]l)(?:\\s+(?:${ES_NUMBER_WORDS_PATTERN})(?:\\s+y\\s+(?:${ES_NUMBER_WORDS_PATTERN}))?)*)\\b`, "i");
 
 const PROCEDURAL_EVENT_RE = /\b(interpus[oe]|interpuso|present[oó]|promovi[oó]|notific[oó]|notificada?|resolvi[oó]|resuelve|determin[oó]|revoc[oó]|confirm[oó]|orden[oó]|admiti[oó]|admitida?|desech[oó]|declar[oó]|apel[oó]|impugn[oó]|recurri[oó]|remiti[oó]|turn[oó]|radic[oó]|emplaz[oó]|celebr[oó]|dict[oó]|sentencia|resoluci[oó]n|recurso\s+de\s+revisi[oó]n|demanda|audiencia|acuerdo|engrose|ejecutoria)\b/i;
 const AUTHORITY_CONTEXT_RE = /\b(jurisprudencia|tesis(?:\s+aislada)?|precedente|criterio\s+(?:jurisprudencial|aislado|sustentado)|registro\s+digital|semanario\s+judicial|novena\s+[ée]poca|d[ée]cima\s+[ée]poca|und[ée]cima\s+[ée]poca|octava\s+[ée]poca|s[ée]ptima\s+[ée]poca|sexta\s+[ée]poca|quinta\s+[ée]poca|publicad[ao]\s+en|gaceta|al\s+resolver\s+(?:el\s+)?(?:amparo|recurso|expediente|juicio|asunto)|amparo\s+(?:directo|indirecto|en\s+revisi[oó]n|directo\s+en\s+revisi[oó]n)\s+\d+[\w/.-]*|contradicci[oó]n\s+de\s+(?:tesis|criterios)\s+\d+|acci[oó]n\s+de\s+inconstitucionalidad\s+\d+|controversia\s+constitucional\s+\d+|corte\s+interamericana|caso\s+[A-ZÁÉÍÓÚÑ][^.;]{0,80}\s+vs\.?|en\s+el\s+amparo|en\s+la\s+tesis|en\s+la\s+jurisprudencia|en\s+dicho\s+precedente|en\s+aquel\s+asunto|divers[ao]\s+amparo|otro\s+amparo|precedentes?)\b/i;
@@ -179,11 +181,19 @@ function spanishNumberWords(raw: string): number | null {
 
   const parts = normalized.split(" ");
   let total = 0;
+  let currentGroup = 0;
   for (const part of parts) {
     const val = SPANISH_NUMBERS[part];
     if (val == null) return null;
-    total += val;
+    if (val === 1000) {
+      if (currentGroup === 0) currentGroup = 1;
+      total += currentGroup * 1000;
+      currentGroup = 0;
+    } else {
+      currentGroup += val;
+    }
   }
+  total += currentGroup;
   return total > 0 ? total : null;
 }
 
@@ -314,7 +324,7 @@ export function extractCorpusTimelineEvents(text: string): CorpusTimelineCandida
     /\b\d{4}-\d{2}-\d{2}\b/g,
     /\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/g,
     new RegExp(`\\b\\d{1,2}\\s+de\\s+(?:${ES_MONTH_PATTERN})\\s+de\\s+\\d{4}\\b`, "gi"),
-    new RegExp(`\\b[a-záéíóúüñ]+(?:\\s+y\\s+[a-záéíóúüñ]+)?\\s+de\\s+(?:${ES_MONTH_PATTERN})\\s+de\\s+(?:dos\\s+mil|mil)(?:\\s+[a-záéíóúüñ]+(?:\\s+y\\s+[a-záéíóúüñ]+)?)*\\b`, "gi"),
+    new RegExp(`\\b(?:${ES_NUMBER_WORDS_PATTERN})(?:\\s+y\\s+(?:${ES_NUMBER_WORDS_PATTERN}))?\\s+de\\s+(?:${ES_MONTH_PATTERN})\\s+de\\s+(?:d[oó]s\\s+m[ií]l|m[ií]l)(?:\\s+(?:${ES_NUMBER_WORDS_PATTERN})(?:\\s+y\\s+(?:${ES_NUMBER_WORDS_PATTERN}))?)*\\b`, "gi"),
   ];
 
   const out: CorpusTimelineCandidate[] = [];

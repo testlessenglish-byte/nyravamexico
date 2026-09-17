@@ -197,13 +197,19 @@ function makeFakeDb(opts: {
           }),
           update: (patch: Record<string, unknown>) => ({
             eq: () => {
-              state.updatePatch = patch;
+              state.updatePatch = { ...state.updatePatch, ...patch };
               return Promise.resolve({ error: null });
             },
           }),
         };
       }
-      throw new Error(`unexpected table in fake db: ${table}`);
+      return {
+        select: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [], error: null }) }) }),
+        delete: () => ({ eq: () => Promise.resolve({ error: null }), in: () => Promise.resolve({ error: null }) }),
+        insert: () => Promise.resolve({ error: null }),
+        update: () => ({ eq: () => Promise.resolve({ error: null }) }),
+        maybeSingle: () => Promise.resolve({ data: null, error: null }),
+      };
     },
   };
   return { db, state };

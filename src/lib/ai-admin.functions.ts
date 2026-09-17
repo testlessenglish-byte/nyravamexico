@@ -196,11 +196,12 @@ export const testAiProvider = createServerFn({ method: "POST" })
     const { resolveProviderKeys, maskKey } = await import("./ai-key-router.server");
     const { buildProvider } = await import("./ai/providers/factory");
 
-    // Same source-of-truth the pipeline uses. Admin probes THEIR own saved
-    // user keys because the pipeline always runs as a signed-in user.
+    // Same source-of-truth the pipeline uses. The pipeline runs as the Case Owner;
+    // to accurately test if the baseline system is healthy for a user without
+    // their own keys, we probe the global/fallback keys, NOT the Admin's personal keys.
     const { keys, userKeyCount, hasPlatform } = await resolveProviderKeys(
       supabaseAdmin as never,
-      context.userId,
+      "00000000-0000-0000-0000-000000000000",
       row.provider_type as never,
     );
 
