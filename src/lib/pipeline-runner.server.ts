@@ -1349,6 +1349,7 @@ async function _runPipelineForCase(
     budgetFor,
     WORKER_INVOCATION_BUDGET_MS,
     CHECKPOINT_SAFETY_BUFFER_MS,
+    MIN_AI_CALL_BUDGET_MS,
   } = await import("./pipeline-checkpoint.server");
   const invocationDeadlineAt = runStart + WORKER_INVOCATION_BUDGET_MS;
 
