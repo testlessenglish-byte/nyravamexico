@@ -1421,6 +1421,10 @@ export async function routeAI(opts: RouteOpts): Promise<RouteResult> {
         );
       errors.push(`${row.display_name} [${kind}]: ${msg}`);
       fellBackFrom.push(row.provider_type);
+      // Scope the fault so the remaining chain skips guaranteed-identical
+      // attempts instead of hammering every key against the same dead model.
+      if (isModelNotFound) deadProviderModels.add(deadScopeKey(row.provider_type, effectiveModel));
+      if (isAuth) deadKeys.add(cooldownIdentityFor(row));
       if (isPayment || isQuota || isModelNotFound) {
         const cooldownReason: CooldownReason = isPayment ? "payment" : isQuota ? "quota" : "rate_limit";
         const retryAfterMs = (e as { retryAfterMs?: number })?.retryAfterMs ?? parseRetryHintMs(msg);
