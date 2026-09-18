@@ -495,7 +495,7 @@ export function IntelligenceProviders() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {PROVIDER_LIST.map((p) => {
             const keys = byProvider.get(p) ?? [];
-            const h = providerHealth(keys);
+            const h = providerHealth(keys, runtimeFor(p));
             const meta = PROVIDER_META[p];
             return (
               <div key={p} className="flex flex-col rounded-xl border border-border bg-card p-4">
@@ -584,7 +584,7 @@ export function IntelligenceProviders() {
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {order.map((p, i) => {
-            const h = providerHealth(byProvider.get(p) ?? []);
+            const h = providerHealth(byProvider.get(p) ?? [], runtimeFor(p));
             const isRunning = currentProvider?.provider === p;
             return (
               <div key={p} className="flex items-center gap-2">
