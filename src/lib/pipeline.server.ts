@@ -6934,6 +6934,7 @@ ${corpus.slice(0, REPORT_STAGE_CORPUS_CHARS)}${resolutivoAnchorBlock}${penalDisp
         {
           case_id: caseId,
           user_id: userId,
+          execution_id: executionId ?? null,
           report_chunk_cache: { ...chunkCache, [name]: chunkParsedByName[name] } as unknown as Json,
         },
         { onConflict: "case_id" },
@@ -10195,18 +10196,32 @@ ${paginationTail}`;
     );
   }
 
-  // Immutable version snapshot — directive Phase 1.1.
-  // Read back the persisted row so the snapshot reflects exactly what was
-  // saved (version, change_log, quality_blocked, etc.).
-  try {
     const { data: saved } = await db
       .from("reports")
       .select("*")
       .eq("case_id", caseId)
       .maybeSingle();
+
     if (saved) {
-      const { snapshotReportVersion } = await import("./intelligence/report-version.server");
       const savedAny = saved as unknown as Record<string, unknown>;
+      const savedFullReport = savedAny.full_report as Record<string, unknown> | null;
+      if (!savedFullReport || Object.keys(savedFullReport).length === 0) {
+        throw new Error("REPORT_PERSISTENCE_INVARIANT_FAILED: full_report is empty after upsert");
+      }
+      if (executionId && savedAny.execution_id !== executionId) {
+        throw new Error(`REPORT_PERSISTENCE_INVARIANT_FAILED: execution_id mismatch. Expected ${executionId}, got ${savedAny.execution_id}`);
+      }
+    } else {
+      throw new Error("REPORT_PERSISTENCE_INVARIANT_FAILED: no report row found after upsert");
+    }
+
+  // Immutable version snapshot — directive Phase 1.1.
+  // Read back the persisted row so the snapshot reflects exactly what was
+  // saved (version, change_log, quality_blocked, etc.).
+  try {
+    if (saved) {
+      const savedAny = saved as unknown as Record<string, unknown>;
+      const { snapshotReportVersion } = await import("./intelligence/report-version.server");
       const contradictions = Array.isArray(savedAny.contradictions_struct)
         ? (savedAny.contradictions_struct as unknown[]).length
         : 0;

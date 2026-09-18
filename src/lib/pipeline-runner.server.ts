@@ -678,7 +678,7 @@ async function _runPipelineForCase(
       run: () =>
         persist.runCatalogedEngine(
           supabase,
-          { caseId, userId, engine: ENGINE.evidence_intel },
+          { caseId, userId, engine: ENGINE.evidence_intel, executionId },
           async () => {
             const d = await import("@/lib/intelligence/derived-engines.server");
             const result = await d.deriveEvidenceIntel(supabase, caseId);
@@ -742,7 +742,7 @@ async function _runPipelineForCase(
 
         return persist.runCatalogedEngine(
           supabase,
-          { caseId, userId, engine: ENGINE.constitutional },
+          { caseId, userId, engine: ENGINE.constitutional, executionId },
           async () => ({
             value: { derived_from: "analyzers+agents" },
           }),
@@ -775,7 +775,7 @@ async function _runPipelineForCase(
       run: () =>
         persist.runCatalogedEngine(
           supabase,
-          { caseId, userId, engine: ENGINE.perspectives },
+          { caseId, userId, engine: ENGINE.perspectives, executionId },
           async () => {
             const value = await lit.runPerspectivesEngine(baseArgs);
             const { count } = await supabase
@@ -930,7 +930,7 @@ async function _runPipelineForCase(
       run: () =>
         persist.runCatalogedEngine(
           supabase,
-          { caseId, userId, engine: ENGINE.hallucination },
+          { caseId, userId, engine: ENGINE.hallucination, executionId },
           async () => ({
             value: await hal.runHallucinationReview({ db: supabase, caseId }),
           }),
@@ -938,7 +938,7 @@ async function _runPipelineForCase(
     },
     multi_agent: {
       run: async () =>
-        audit.runEngine(supabase, { caseId, userId, engine: ENGINE.multi_agent }, async () => {
+        audit.runEngine(supabase, { caseId, userId, engine: ENGINE.multi_agent, executionId }, async () => {
           const { runMultiAgentPipeline } = await import("@/lib/agents/orchestrator.server");
           const result = await runMultiAgentPipeline({
             db: supabase,
@@ -1526,7 +1526,7 @@ async function _runPipelineForCase(
     // depends on multi_agent (which is optional), a flaky agent review must
     // not permanently block the report.
     const unmet = (DEPENDS_ON[key] ?? []).filter(
-      (d) => (failed.has(d) || blocked.has(d)) && stageRequirement(d) !== "optional",
+      (d) => (failed.has(d) || blocked.has(d)) && !(key === "report" && d === "multi_agent"),
     );
 
     if (unmet.length > 0) {
@@ -1913,13 +1913,16 @@ async function _runPipelineForCase(
       if (fatal && fatal.kind === "fatal_failed") throw new Error(fatal.message);
 
       // Advance next_stage after successful batch execution
-      const lastBatchIdx = Math.max(...members.map((m) => m.idx));
-      const nextAfterBatch = stages[lastBatchIdx + 1]?.key ?? null;
-      if (nextAfterBatch) {
-        await updateCase(
-          { next_stage: nextAfterBatch },
-          `batch.advance:${s.key}->${nextAfterBatch}`,
-        );
+      const allSuccessOrSkipped = outcomes.every((o) => o.kind === "success" || o.kind === "skipped");
+      if (allSuccessOrSkipped) {
+        const lastBatchIdx = Math.max(...members.map((m) => m.idx));
+        const nextAfterBatch = stages[lastBatchIdx + 1]?.key ?? null;
+        if (nextAfterBatch) {
+          await updateCase(
+            { next_stage: nextAfterBatch },
+            `batch.advance:${s.key}->${nextAfterBatch}`,
+          );
+        }
       }
 
       continue;

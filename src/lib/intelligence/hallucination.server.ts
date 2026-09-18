@@ -438,12 +438,15 @@ async function reconcileSavedReportProse(
   }
 
   const reconciledReport = { ...saved, ...patch } as Record<string, unknown>;
-  const renderedIssues = validateRenderedReport(
+  const reconciledFullReport = reconciledReport.full_report as Record<string, unknown> | null;
+  const isReportEmpty = !reconciledFullReport || Object.keys(reconciledFullReport).length === 0;
+
+  const renderedIssues = isReportEmpty ? [] : validateRenderedReport(
     reconciledReport,
     String(caseRow?.case_type ?? ""),
     caseRow?.underlying_materia == null ? null : String(caseRow.underlying_materia),
   );
-  const renderedDecision = decideRenderedReportRelease(renderedIssues);
+  const renderedDecision = isReportEmpty ? { blocked: false, reasons: [] } : decideRenderedReportRelease(renderedIssues);
 
   if (full) {
     full.rendered_qa = {
