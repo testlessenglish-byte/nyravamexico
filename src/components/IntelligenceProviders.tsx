@@ -301,15 +301,21 @@ export function IntelligenceProviders() {
   const providerCooldowns = (cooldownsQ.data?.cooldowns ?? []).filter((c) =>
     PROVIDER_LIST.includes(c.provider as Provider),
   );
+  const coolingProviders = useMemo(
+    () => new Set(providerCooldowns.map((c) => c.provider as Provider)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cooldownsQ.data],
+  );
+  const runtimeFor = (p: Provider) => ({ coolingDown: coolingProviders.has(p) });
 
   // First healthy provider in failover order = "current provider"
   const currentProvider = useMemo(() => {
     for (const p of order) {
-      const h = providerHealth(byProvider.get(p) ?? []);
+      const h = providerHealth(byProvider.get(p) ?? [], { coolingDown: coolingProviders.has(p) });
       if (h.health === "healthy" || h.health === "slow") return { provider: p, ...h };
     }
     return null;
-  }, [order, byProvider]);
+  }, [order, byProvider, coolingProviders]);
 
   const overallHealth: "excellent" | "degraded" | "offline" = currentProvider
     ? currentProvider.health === "healthy"
