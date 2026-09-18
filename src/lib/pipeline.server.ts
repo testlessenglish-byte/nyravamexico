@@ -1743,7 +1743,21 @@ async function _runExtractionInner(args: {
   const { budgetFor, CheckpointRequired } = await import("./pipeline-checkpoint.server");
   const stageBudgetMs = budgetFor("extraction");
   const stageStartedAt = Date.now();
-  for (const d of list) {
+  // Resume-tick short-circuit: when every document already carries a terminal
+  // status there is no work at all, so do not walk the list (each iteration
+  // still costs DB round-trips). This is what starved the downstream stages:
+  // extraction consumed 17–30s of the 42s worker invocation re-confirming
+  // finished documents, leaving Legal Analyzers too little budget to start an
+  // AI call, which checkpointed instantly and looped forever.
+  const pending = list.filter((d) => d.status !== "extracted" && d.status !== "failed");
+  const workList = pending.length === 0 ? [] : list;
+  if (workList.length === 0) {
+    extractedOk = list.filter((d) => d.status === "extracted").length;
+    extractedFail = list.length - extractedOk;
+    skipped = list.length;
+    processed = list.length;
+  }
+  for (const d of workList) {
     if (Date.now() - stageStartedAt > stageBudgetMs && processed > 0 && processed < total) {
       console.warn(`[extraction] checkpoint reached after ${processed}/${total} docs — yielding`);
       throw new CheckpointRequired("extraction", `${processed}/${total} docs`);
