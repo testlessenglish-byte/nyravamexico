@@ -945,6 +945,16 @@ export async function routeAI(opts: RouteOpts): Promise<RouteResult> {
   // Groq keys skipped during an active cooldown). Used for the final error
   // message so "tried: x, y" reflects reality instead of the full chain.
   const attemptedProviders = new Set<ProviderType>();
+  // Failure taxonomy (see .lovable/plan archive 2026-09-18): some faults are
+  // provider/model-scoped, not key-scoped. Rotating every configured key
+  // against a model the provider does not serve (HTTP 404 model_not_found)
+  // or against a key the provider rejected (401/403) is pure amplification:
+  // the next attempt is guaranteed to fail identically. Record both scopes
+  // for the duration of THIS logical call and skip matching chain rows.
+  const deadProviderModels = new Set<string>();
+  const deadKeys = new Set<string>();
+  const deadScopeKey = (provider: ProviderType, model: string | null) =>
+    `${provider}/${model ?? "(default)"}`;
 
   const effectiveModelFor = (row: RuntimeGroqRow): string | null =>
     row.provider_type === "groq"
