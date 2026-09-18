@@ -457,26 +457,29 @@ async function reconcileSavedReportProse(
     if (error) throw new Error(`Failed to persist final rendered QA: ${error.message}`);
   }
 
-  // A block THIS layer discovers in the rendered report still aborts the
-  // review — that is its own integrity check and must keep its teeth.
-  if (renderedDecision.blocked) {
-    const reasons = [
-      ...(Array.isArray(saved.quality_block_reasons) ? saved.quality_block_reasons.map(String) : []),
-      ...renderedDecision.reasons,
-    ];
-    throw new Error(`Rendered report integrity blocked release${reasons.length ? `: ${reasons.join("; ")}` : "."}`);
-  }
-
-  // A block recorded by an EARLIER stage is reported, not re-thrown. Throwing
-  // here aborted hallucination verification and made the upstream failure
-  // resurface as `gate:hallucination`, hiding the real blocker (ADR
-  // 217/2019: procedural semantics failed while 38/38 claims verified). The
-  // release is still blocked — by whoever actually blocked it.
-  const upstreamReleaseBlock = saved.quality_blocked
-    ? (Array.isArray(saved.quality_block_reasons) && saved.quality_block_reasons.length
-        ? saved.quality_block_reasons.map(String)
-        : ["quality_blocked"])
+  // A block discovered in the rendered report is recorded as an upstream release block
+  // on the report itself, NOT thrown as an unhandled error. Throwing here aborted
+  // hallucination verification and made the rendered-QA failure resurface as a false
+  // `gate:hallucination`, hiding the real blocker while 100% of claims verified.
+  // The release is still blocked — by whoever actually blocked it.
+  const allBlockReasons = [
+    ...(Array.isArray(saved.quality_block_reasons) ? saved.quality_block_reasons.map(String) : []),
+    ...(renderedDecision.blocked ? renderedDecision.reasons : []),
+  ];
+  const upstreamReleaseBlock = (saved.quality_blocked || renderedDecision.blocked)
+    ? (allBlockReasons.length ? allBlockReasons : ["quality_blocked"])
     : null;
+
+  if (renderedDecision.blocked) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any)
+      .from("reports")
+      .update({
+        quality_blocked: true,
+        quality_block_reasons: allBlockReasons,
+      })
+      .eq("case_id", caseId);
+  }
 
   return {
     quarantinedActionsRemoved: removed,

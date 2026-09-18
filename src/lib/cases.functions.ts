@@ -1197,7 +1197,7 @@ export const resumeFullPipelineStep = createServerFn({ method: "POST" })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: caseRow, error: caseErr } = await (supabase as any)
       .from("cases")
-      .select("status,status_message,progress,next_stage,worker_lease_until,error,report_at,completed_at")
+      .select("status,status_message,progress,next_stage,worker_lease_until,error,report_at,completed_at,case_type,name,procedural_vehicle,underlying_materia")
       .eq("id", data.caseId)
       .maybeSingle();
     if (caseErr) throw new Error(caseErr.message);
@@ -1221,17 +1221,21 @@ export const resumeFullPipelineStep = createServerFn({ method: "POST" })
         ? persistedNext
         : undefined;
 
+    // Check if all non-fixture case documents have completed extraction
+    const { data: caseDocs } = await (supabase as any)
+      .from("documents")
+      .select("status,filename")
+      .eq("case_id", data.caseId);
+    const NON_EVIDENCE_FILENAME = /^(readme|manifest|case[-_]?manifest|test[-_]?metadata|\.gitkeep)/i;
+    const evidentiaryDocs = (caseDocs ?? []).filter(
+      (d: { filename?: string | null }) => !NON_EVIDENCE_FILENAME.test(d.filename ?? ""),
+    );
+    const allDocsExtracted =
+      evidentiaryDocs.length > 0 &&
+      evidentiaryDocs.every((d: { status?: string | null }) => d.status === "extracted");
+
     // Always compute the ledger-derived state — this is the single source of
-    // truth for what has actually completed (docs/ARCHITECTURE.md §1), and is
-    // now used unconditionally as a floor under the persisted checkpoint, not
-    // only as a fallback when the checkpoint is absent. A persisted
-    // `cases.next_stage` value is a performance optimization (avoids
-    // recomputing from the ledger on every resume for large cases) but must
-    // never be trusted to skip past a blocking-tier stage that the ledger
-    // shows incomplete — that was possible before this change and is the
-    // class of bug that can produce next_stage=trial_prep (or any later
-    // stage) while a required earlier stage (e.g. analyzers) never
-    // completed.
+    // truth for what has actually completed (docs/ARCHITECTURE.md §1).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: rows, error: rowsErr } = await (supabase as any)
       .from("pipeline_engine_runs")
@@ -1263,12 +1267,26 @@ export const resumeFullPipelineStep = createServerFn({ method: "POST" })
       )
         completed.add(engine);
     }
+    if (allDocsExtracted) {
+      completed.add(PIPELINE_STAGE_TO_ENGINE["extraction"] ?? "extraction");
+    }
+
+    const { isStageRelevantForCaseType } = await import("./execution/mx-pipeline");
+    const relevantStages = PIPELINE_STAGES.filter((s) =>
+      isStageRelevantForCaseType(
+        caseRow.case_type,
+        s.key,
+        caseRow.name,
+        caseRow.procedural_vehicle,
+        caseRow.underlying_materia,
+      ),
+    );
 
     // Earliest incomplete stage, and separately the earliest incomplete
     // BLOCKING stage — the latter is the hard floor no checkpoint may skip.
     let ledgerResumeKey: string | undefined;
     let earliestIncompleteBlockingKey: string | undefined;
-    for (const s of PIPELINE_STAGES) {
+    for (const s of relevantStages) {
       const engine = PIPELINE_STAGE_TO_ENGINE[s.key];
       const isIncomplete = !engine || !completed.has(engine);
       if (isIncomplete && !ledgerResumeKey) ledgerResumeKey = s.key;
@@ -1278,19 +1296,22 @@ export const resumeFullPipelineStep = createServerFn({ method: "POST" })
     }
 
     let resumeKey: string | undefined;
-    if (
+    const isCandidateCompleted =
+      persistedCandidate &&
+      completed.has(PIPELINE_STAGE_TO_ENGINE[persistedCandidate] ?? persistedCandidate);
+
+    if (isCandidateCompleted || !persistedCandidate) {
+      // Checkpoint points to an already-completed stage or is absent — resume at the earliest incomplete stage.
+      resumeKey = earliestIncompleteBlockingKey ?? ledgerResumeKey;
+    } else if (
       earliestIncompleteBlockingKey &&
-      (!persistedCandidate ||
-        PIPELINE_STAGES.findIndex((s) => s.key === persistedCandidate) >
-          PIPELINE_STAGES.findIndex((s) => s.key === earliestIncompleteBlockingKey))
+      relevantStages.findIndex((s) => s.key === persistedCandidate) >
+        relevantStages.findIndex((s) => s.key === earliestIncompleteBlockingKey)
     ) {
-      // The checkpoint (if any) would skip past an incomplete required
-      // stage — refuse it and resume at the required stage instead.
+      // The checkpoint would skip past an incomplete required stage — refuse it.
       resumeKey = earliestIncompleteBlockingKey;
-    } else if (persistedCandidate) {
-      resumeKey = persistedCandidate;
     } else {
-      resumeKey = ledgerResumeKey;
+      resumeKey = persistedCandidate;
     }
     if (!resumeKey) {
       return { ok: true, alreadyComplete: true };
@@ -1374,7 +1395,7 @@ export async function autoRequeueStalledCase(
 
   const { data: caseRow } = await supabase
     .from("cases")
-    .select("next_stage,stall_auto_retry_count")
+    .select("next_stage,stall_auto_retry_count,case_type,name,procedural_vehicle,underlying_materia")
     .eq("id", caseId)
     .maybeSingle();
   const persistedNext = typeof caseRow?.next_stage === "string" ? caseRow.next_stage : null;
@@ -1390,6 +1411,19 @@ export async function autoRequeueStalledCase(
   const blockingStageKeys = new Set<string>(
     CANONICAL_STAGES.filter((s) => s.requirement === "blocking").map((s) => s.key),
   );
+
+  // Check if all non-fixture case documents have completed extraction
+  const { data: caseDocs } = await supabase
+    .from("documents")
+    .select("status,filename")
+    .eq("case_id", caseId);
+  const NON_EVIDENCE_FILENAME = /^(readme|manifest|case[-_]?manifest|test[-_]?metadata|\.gitkeep)/i;
+  const evidentiaryDocs = (caseDocs ?? []).filter(
+    (d: { filename?: string | null }) => !NON_EVIDENCE_FILENAME.test(d.filename ?? ""),
+  );
+  const allDocsExtracted =
+    evidentiaryDocs.length > 0 &&
+    evidentiaryDocs.every((d: { status?: string | null }) => d.status === "extracted");
 
   const { data: rows } = await supabase
     .from("pipeline_engine_runs")
@@ -1420,10 +1454,24 @@ export async function autoRequeueStalledCase(
     )
       completed.add(engine);
   }
+  if (allDocsExtracted) {
+    completed.add(PIPELINE_STAGE_TO_ENGINE["extraction"] ?? "extraction");
+  }
+
+  const { isStageRelevantForCaseType } = await import("./execution/mx-pipeline");
+  const relevantStages = PIPELINE_STAGES.filter((s) =>
+    isStageRelevantForCaseType(
+      caseRow?.case_type,
+      s.key,
+      caseRow?.name,
+      caseRow?.procedural_vehicle,
+      caseRow?.underlying_materia,
+    ),
+  );
 
   let ledgerResumeKey: string | undefined;
   let earliestIncompleteBlockingKey: string | undefined;
-  for (const s of PIPELINE_STAGES) {
+  for (const s of relevantStages) {
     const engine = PIPELINE_STAGE_TO_ENGINE[s.key];
     const isIncomplete = !engine || !completed.has(engine);
     if (isIncomplete && !ledgerResumeKey) ledgerResumeKey = s.key;
@@ -1433,17 +1481,20 @@ export async function autoRequeueStalledCase(
   }
 
   let resumeKey: string | undefined;
-  if (
+  const isCandidateCompleted =
+    persistedCandidate &&
+    completed.has(PIPELINE_STAGE_TO_ENGINE[persistedCandidate] ?? persistedCandidate);
+
+  if (isCandidateCompleted || !persistedCandidate) {
+    resumeKey = earliestIncompleteBlockingKey ?? ledgerResumeKey;
+  } else if (
     earliestIncompleteBlockingKey &&
-    (!persistedCandidate ||
-      PIPELINE_STAGES.findIndex((s) => s.key === persistedCandidate) >
-        PIPELINE_STAGES.findIndex((s) => s.key === earliestIncompleteBlockingKey))
+    relevantStages.findIndex((s) => s.key === persistedCandidate) >
+      relevantStages.findIndex((s) => s.key === earliestIncompleteBlockingKey)
   ) {
     resumeKey = earliestIncompleteBlockingKey;
-  } else if (persistedCandidate) {
-    resumeKey = persistedCandidate;
   } else {
-    resumeKey = ledgerResumeKey;
+    resumeKey = persistedCandidate;
   }
   if (!resumeKey) return { ok: true, alreadyComplete: true };
 

@@ -1037,10 +1037,13 @@ async function _runFinalReleaseReview(args: OrchestratorArgs): Promise<FinalRele
     engineRunsQuery = engineRunsQuery.eq("execution_id", args.executionId);
   }
   const { data: engineRuns } = await engineRunsQuery.order("created_at", { ascending: false });
+  const { missingRequiredEngines: getMissingRequiredEngines } = await import("@/lib/execution/canonical");
+  const missingEngines = getMissingRequiredEngines((engineRuns ?? []) as never);
   const engineGate = canGenerateReport((engineRuns ?? []) as never);
-  if (!engineGate.ok) {
+  const allMissing = [...new Set([...engineGate.missingBlocking, ...missingEngines])];
+  if (!engineGate.ok || allMissing.length > 0) {
     errors.push(
-      `Required engine(s) not in a completed state: ${engineGate.missingBlocking.join(", ")}.`,
+      `Required engine(s) not in a completed state: ${allMissing.join(", ")}.`,
     );
   }
   if (engineGate.missingEnriching.length > 0) {
@@ -1103,8 +1106,9 @@ async function _runFinalReleaseReview(args: OrchestratorArgs): Promise<FinalRele
 
   const {resolveFinalReleaseDecision} = await import("@/lib/reporting/final-release-decision");
   const finalReport = (finalPayload?.report ?? reportRow) as Record<string,any>;
+  const requiredEnginesPassed = engineGate.ok && allMissing.length === 0;
   const release = resolveFinalReleaseDecision({report:finalReport,contract:finalGov,
-    gates:{...outcomes,required_engines:engineGate.ok,json_integrity:integrity.valid},errors,warnings});
+    gates:{...outcomes,required_engines:requiredEnginesPassed,json_integrity:integrity.valid},errors,warnings});
   const {decision,released} = release;
   errors.splice(0, errors.length, ...release.errors);
   warnings.splice(0, warnings.length, ...release.warnings);
@@ -1113,8 +1117,8 @@ async function _runFinalReleaseReview(args: OrchestratorArgs): Promise<FinalRele
     ? "Final review passed — report released."
     : decision === "PASS_WITH_WARNINGS"
       ? `Final review passed with warnings — report released (${warnings.length} warning(s)).`
-      : !engineGate.ok
-        ? `Final review blocked — required engine(s) did not complete: ${engineGate.missingBlocking.join(", ")}.`
+      : !requiredEnginesPassed
+        ? `Final review blocked — required engine(s) did not complete: ${allMissing.join(", ")}.`
         : `Final review requires revision: ${errors.join("; ").slice(0, 500)}`;
 
   // One transaction writes all release mirrors; failure cannot leave a released
@@ -1126,7 +1130,7 @@ async function _runFinalReleaseReview(args: OrchestratorArgs): Promise<FinalRele
     release_decision:decision, release_warnings:warnings,
     final_review:{released,decision,status},
     release_gate:{ok:released,released,decision,gates:outcomes,
-      missing_required_engines:engineGate.missingBlocking,warnings,errors},
+      missing_required_engines:allMissing,warnings,errors},
   };
   const {error:releaseStateError} = await (args.db as any).rpc("finalize_report_release", {
     p_case_id:args.caseId, p_execution_id:args.executionId ?? (caseRow as any)?.execution_id ?? null,
@@ -1142,7 +1146,7 @@ async function _runFinalReleaseReview(args: OrchestratorArgs): Promise<FinalRele
       status,
       decision,
       gates: outcomes,
-      missing_required_engines: engineGate.missingBlocking,
+      missing_required_engines: allMissing,
       warnings_count: warnings.length,
       errors_count: errors.length,
     })}`,
@@ -1159,7 +1163,7 @@ async function _runFinalReleaseReview(args: OrchestratorArgs): Promise<FinalRele
       judge: Boolean(outcomes.judge),
       hallucination: Boolean(outcomes.hallucination),
     },
-    missingRequiredEngines: engineGate.missingBlocking,
+    missingRequiredEngines: allMissing,
     warnings,
     errors,
   };

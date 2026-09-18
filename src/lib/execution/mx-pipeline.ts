@@ -362,8 +362,8 @@ const EXCLUDED_STAGES: Record<MxPipelineProfile, readonly string[]> = {
   // Fiscal: Arts. 40 y 44 LFPCA admiten prueba testimonial ante TFJA
   // de forma condicionada / preguntas por escrito / exhortos.
   fiscal: ["constitutional"],
-  // Juicio contencioso administrativo (TFJA, LFPCA): No live witness examination in adversarial-trial sense.
-  administrativo: ["constitutional", "witness"],
+  // Juicio contencioso administrativo (TFJA, LFPCA, LFPA): admite prueba testimonial condicionada.
+  administrativo: ["constitutional"],
   // Segunda instancia: se resuelve sobre agravios y el expediente.
   apelacion: ["constitutional", "witness"],
   // Responsabilidad médica: pericial y testimonial activas.

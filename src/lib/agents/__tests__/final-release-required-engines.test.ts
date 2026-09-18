@@ -53,7 +53,15 @@ function makeDb(opts: { report: Record<string, unknown> | null; engineRows: Engi
     };
     return chain;
   };
-  return { from: (table: string) => makeChain(table), rpc: async () => ({ data: null, error: null }) };
+  return {
+    from: (table: string) => makeChain(table),
+    rpc: async (fn: string, params?: Record<string, unknown>) => {
+      if (fn === "finalize_report_release" && params) {
+        opts.updates.push({ table: "cases", values: { status_message: params.p_status_message } });
+      }
+      return { data: null, error: null };
+    },
+  };
 }
 
 describe("runFinalReleaseReview — required-engine gate", () => {

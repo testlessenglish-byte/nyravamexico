@@ -1203,6 +1203,28 @@ async function _runPipelineForCase(
       latestStatusByEngine.set(row.engine, row.status); // ascending order → last write wins
     }
 
+    // Extraction completion check: If all non-manifest case documents have status "extracted",
+    // mark extraction engine as completed so resume logic doesn't re-run or loop on extraction.
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: caseDocs } = await (supabase as any)
+        .from("documents")
+        .select("status,filename")
+        .eq("case_id", caseId);
+      const NON_EVIDENCE_FILENAME = /^(readme|manifest|case[-_]?manifest|test[-_]?metadata|\.gitkeep)/i;
+      const evidentiaryDocs = (caseDocs ?? []).filter(
+        (d: { filename?: string | null }) => !NON_EVIDENCE_FILENAME.test(d.filename ?? ""),
+      );
+      const allDocsExtracted =
+        evidentiaryDocs.length > 0 &&
+        evidentiaryDocs.every((d: { status?: string | null }) => d.status === "extracted");
+      if (allDocsExtracted && !latestStatusByEngine.has(ENGINE.extraction)) {
+        latestStatusByEngine.set(ENGINE.extraction, "completed");
+      }
+    } catch (docErr) {
+      console.warn("[pipeline] failed checking case documents extraction status", docErr);
+    }
+
     // Staleness override. `report_generator`'s own ledger row can say
     // "completed" from an earlier run, but `reports` is a singleton row
     // that is never re-created per run — nothing invalidates it when a
@@ -1319,9 +1341,14 @@ async function _runPipelineForCase(
   let effectiveStartFrom = startFrom ?? null;
   if (startFrom) {
     const idx = stages.findIndex((s) => s.key === startFrom);
-    if (idx > 0) {
+    if (idx >= 0) {
       const firstIncomplete = stages.findIndex((s) => !alreadyAttempted(s.key as PipelineStageKey));
-      const sliceIdx = firstIncomplete >= 0 ? Math.min(idx, firstIncomplete) : idx;
+      const sliceIdx =
+        alreadyAttempted(stages[idx].key as PipelineStageKey) && firstIncomplete >= 0
+          ? firstIncomplete
+          : firstIncomplete >= 0
+            ? Math.min(idx, firstIncomplete)
+            : idx;
       if (sliceIdx !== idx) {
         trace("pipeline.resume_clamped", {
           requested: startFrom,
@@ -1330,7 +1357,6 @@ async function _runPipelineForCase(
             .slice(sliceIdx, idx)
             .filter((s) => !alreadyAttempted(s.key as PipelineStageKey))
             .map((s) => s.key),
-
         });
       }
       effectiveStartFrom = stages[sliceIdx].key;
@@ -1886,6 +1912,16 @@ async function _runPipelineForCase(
       const fatal = outcomes.find((o) => o.kind === "fatal_failed");
       if (fatal && fatal.kind === "fatal_failed") throw new Error(fatal.message);
 
+      // Advance next_stage after successful batch execution
+      const lastBatchIdx = Math.max(...members.map((m) => m.idx));
+      const nextAfterBatch = stages[lastBatchIdx + 1]?.key ?? null;
+      if (nextAfterBatch) {
+        await updateCase(
+          { next_stage: nextAfterBatch },
+          `batch.advance:${s.key}->${nextAfterBatch}`,
+        );
+      }
+
       continue;
     }
 
@@ -1896,6 +1932,17 @@ async function _runPipelineForCase(
     if (outcome.kind === "fatal_failed") throw new Error(outcome.message);
     const early = earlyReturnFor(outcome);
     if (early) return early;
+
+    // Advance next_stage after stage success or skipped
+    if (outcome.kind === "success" || outcome.kind === "skipped") {
+      const nextStageKey = stages[i + 1]?.key ?? null;
+      if (nextStageKey) {
+        await updateCase(
+          { next_stage: nextStageKey },
+          `stage.advance:${key}->${nextStageKey}`,
+        );
+      }
+    }
     // "skipped" | "blocked" | "success" | "failed" all just continue —
     // identical to the old inline continue/fallthrough behavior.
   }
