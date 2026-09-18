@@ -1550,7 +1550,18 @@ async function _runPipelineForCase(
     );
 
     const remainingInvocationMs = invocationDeadlineAt - Date.now();
-    if (remainingInvocationMs <= CHECKPOINT_SAFETY_BUFFER_MS) {
+    // Starvation guard. A stage entered with only a sliver of the worker
+    // invocation left cannot make forward progress: the first AI call is
+    // refused by `aiCallTimeoutForCheckpoint` (it needs MIN_AI_CALL_BUDGET_MS)
+    // and the stage checkpoints after ~1s having burned a whole tick with
+    // 0 input/0 output tokens. Observed live on Legal Analyzers for three
+    // consecutive ticks. Require a workable slice up front and hand the tick
+    // back immediately so the NEXT tick starts this stage with a full budget.
+    const minStageSliceMs = Math.min(
+      MIN_AI_CALL_BUDGET_MS + CHECKPOINT_SAFETY_BUFFER_MS,
+      budgetFor(s.key),
+    );
+    if (remainingInvocationMs <= minStageSliceMs) {
       try {
         const { requeueForContinuation } = await import("@/lib/pipeline-stall.server");
         await requeueForContinuation(supabase, caseId, resumeKey);
@@ -1561,6 +1572,8 @@ async function _runPipelineForCase(
         stage: s.key,
         index: i + 1,
         remaining_invocation_ms: remainingInvocationMs,
+        min_stage_slice_ms: minStageSliceMs,
+        reason: "insufficient_invocation_budget",
       });
       try {
         await prog.emitEvent(
