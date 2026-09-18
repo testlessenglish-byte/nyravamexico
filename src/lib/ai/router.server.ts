@@ -1093,7 +1093,7 @@ export async function routeAI(opts: RouteOpts): Promise<RouteResult> {
       });
       continue;
     }
-    if (deadKeys.has(cooldownIdentityFor(row))) {
+    if (deadKeys.has(keyScopeKey(row))) {
       preAttemptSkips.push(
         `${row.display_name} [key_invalid]: key ${row.runtimeKeyIndex != null ? `#${row.runtimeKeyIndex + 1}` : "env"} rejected this call`,
       );
@@ -1430,7 +1430,7 @@ export async function routeAI(opts: RouteOpts): Promise<RouteResult> {
       // Scope the fault so the remaining chain skips guaranteed-identical
       // attempts instead of hammering every key against the same dead model.
       if (isModelNotFound) deadProviderModels.add(deadScopeKey(row.provider_type, effectiveModel));
-      if (isAuth) deadKeys.add(cooldownIdentityFor(row));
+      if (isAuth) deadKeys.add(keyScopeKey(row));
       if (isPayment || isQuota || isModelNotFound) {
         const cooldownReason: CooldownReason = isPayment ? "payment" : isQuota ? "quota" : "rate_limit";
         const retryAfterMs = (e as { retryAfterMs?: number })?.retryAfterMs ?? parseRetryHintMs(msg);
