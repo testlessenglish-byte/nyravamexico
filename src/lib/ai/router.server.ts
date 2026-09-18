@@ -1071,6 +1071,36 @@ export async function routeAI(opts: RouteOpts): Promise<RouteResult> {
       continue;
     }
     const effectiveModel = effectiveModelFor(row);
+    // MODEL_NOT_FOUND is provider+model scoped, KEY_INVALID is key scoped.
+    // Neither can be cured by trying another key of the same provider.
+    if (deadProviderModels.has(deadScopeKey(row.provider_type, effectiveModel))) {
+      preAttemptSkips.push(
+        `${row.display_name} [model_not_found]: ${row.provider_type}/${effectiveModel ?? "default"} already answered 404 this call`,
+      );
+      traceAsync({
+        phase: "ai",
+        step: "router.provider_skipped",
+        status: "warn",
+        provider: row.provider_type,
+        model: effectiveModel,
+        detail: { reason: "model_not_found_this_call" },
+      });
+      continue;
+    }
+    if (deadKeys.has(cooldownIdentityFor(row))) {
+      preAttemptSkips.push(
+        `${row.display_name} [key_invalid]: key ${row.runtimeKeyIndex != null ? `#${row.runtimeKeyIndex + 1}` : "env"} rejected this call`,
+      );
+      traceAsync({
+        phase: "ai",
+        step: "router.provider_skipped",
+        status: "warn",
+        provider: row.provider_type,
+        model: effectiveModel,
+        detail: { reason: "key_invalid_this_call" },
+      });
+      continue;
+    }
     const rawCandidateCooldown = getProviderCooldown({
       provider: row.provider_type,
       model: effectiveModel,
