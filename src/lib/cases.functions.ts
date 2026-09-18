@@ -426,9 +426,13 @@ async function runLabeledStep({
     .update({ cancel_requested: false } as any)
     .eq("id", caseId);
   // Resolve user keys; active key takes precedence over platform key.
+  const stepProvider: import("@/lib/ai-keys.server").ProviderName =
+    label === "Analyzers" ? "openrouter" : "groq";
   const { resolveProviderKeys } = await import("@/lib/ai-key-router.server");
-  const { keys, userKeyCount } = await resolveProviderKeys(supabase, userId, "groq");
-  const activeKey = keys[0] ?? getApiKey();
+  const { keys, userKeyCount } = await resolveProviderKeys(supabase, userId, stepProvider);
+  const activeKey =
+    keys[0] ??
+    (stepProvider === "openrouter" ? (process.env.OPENROUTER_API_KEY ?? "") : getApiKey());
 
   // Subscription usage gate. Every individual-engine button (Report, Trial
   // Prep, Work Product, Strategy, Discovery Gap, ...) is its own metered AI

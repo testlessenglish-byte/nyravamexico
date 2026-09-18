@@ -2597,6 +2597,21 @@ ${corpusText}`;
     await import("@/lib/ai/concurrency.server");
   type AnalyzerFailure = { batch: CorpusChunk[]; batchIdx: number; msg: string };
 
+  // OpenRouter routing for Legal Analyzing:
+  // Resolve user/system OpenRouter keys; fall back to passed keys if OpenRouter-compatible.
+  const { resolveProviderKeys: _resolveProviderKeys } = await import("./ai-key-router.server");
+  let openRouterKeys: string[] = [];
+  try {
+    const resolved = await _resolveProviderKeys(db, userId, "openrouter");
+    openRouterKeys = resolved.keys;
+  } catch (err) {
+    console.warn("[analyzers] resolveProviderKeys(openrouter) failed:", err);
+  }
+  const effectiveAnalyzerKeys = openRouterKeys.length > 0
+    ? openRouterKeys
+    : (apiKey && (apiKey.startsWith("sk-or-") || (!apiKey.startsWith("gsk_") && !apiKey.startsWith("AIza"))) ? [apiKey, ...(apiKeys ?? [])] : []);
+  const effectiveAnalyzerKey = effectiveAnalyzerKeys[0] ?? (process.env.OPENROUTER_API_KEY ?? "");
+
   const runAnalyzerBatch = async (
     batch: CorpusChunk[],
     idx: number,
@@ -2620,8 +2635,11 @@ ${corpusText}`;
       );
       const r = await _withAiSlot(() =>
         callGroq({
-          apiKey,
-          apiKeys,
+          apiKey: effectiveAnalyzerKey || undefined,
+          apiKeys: effectiveAnalyzerKeys.length > 0 ? effectiveAnalyzerKeys : undefined,
+          runtimeProvider: "openrouter",
+          forceProvider: "openrouter",
+          task: "analysis",
           systemInstruction,
           userContent: buildPrompt(batchCorpus),
           json: true,
