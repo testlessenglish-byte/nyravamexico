@@ -442,8 +442,13 @@ export function clearAiProviderCooldowns(provider?: ProviderType | null, model?:
  */
 export function invalidateProviderCaches(userId?: string | null): void {
   _providerRowsCache = null;
-  if (userId) _userProviderGroupsCache.delete(userId);
-  else _userProviderGroupsCache.clear();
+  if (userId) {
+    _userProviderGroupsCache.delete(userId);
+  } else {
+    _userProviderGroupsCache.clear();
+    _providerGroupCursor.clear();
+    _groqKeyCursor.clear();
+  }
 }
 
 /**

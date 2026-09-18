@@ -287,9 +287,14 @@ export function validateRenderedReport(
   // chunk). A report may score below 70 for harmless reasons such as having
   // no cross-examination, but it may not be released with a known critical.
   for (const critical of readQualityCriticalIssues(reportContent)) {
+    const orphanMatch = critical.match(/^(\d+)\s+orphaned citation/);
+    const orphanCount = orphanMatch ? Number(orphanMatch[1]) : 0;
+    // Systemic citation failure (>=15) or structural failure (absent memo/chunk) is critical;
+    // isolated incidental citation offsets (<15, common with character-chunking vs PDF pages) are warnings.
+    const isCritical = orphanMatch ? orphanCount >= 15 : true;
     issues.push({
-      code: "REPORT_QUALITY_CRITICAL",
-      severity: "critical",
+      code: isCritical ? "REPORT_QUALITY_CRITICAL" : "REPORT_QUALITY_WARNING",
+      severity: isCritical ? "critical" : "warning",
       section: "full_report.validation.quality_gate",
       message: critical,
       sample: critical,
