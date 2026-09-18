@@ -1636,6 +1636,7 @@
   "providers.features.title": "Intelligence Features",
   "providers.health.allOk": "All systems operational.",
   "providers.health.connectHint": "Connect a provider to restore full coverage.",
+  "providers.health.cooling_down": "Cooling down",
   "providers.health.degradedLabel": "Degraded",
   "providers.health.excellent": "Excellent",
   "providers.health.healthy": "Healthy",

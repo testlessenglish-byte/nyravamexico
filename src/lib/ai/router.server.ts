@@ -945,6 +945,16 @@ export async function routeAI(opts: RouteOpts): Promise<RouteResult> {
   // Groq keys skipped during an active cooldown). Used for the final error
   // message so "tried: x, y" reflects reality instead of the full chain.
   const attemptedProviders = new Set<ProviderType>();
+  // Failure taxonomy (see .lovable/plan archive 2026-09-18): some faults are
+  // provider/model-scoped, not key-scoped. Rotating every configured key
+  // against a model the provider does not serve (HTTP 404 model_not_found)
+  // or against a key the provider rejected (401/403) is pure amplification:
+  // the next attempt is guaranteed to fail identically. Record both scopes
+  // for the duration of THIS logical call and skip matching chain rows.
+  const deadProviderModels = new Set<string>();
+  const deadKeys = new Set<string>();
+  const deadScopeKey = (provider: ProviderType, model: string | null) =>
+    `${provider}/${model ?? "(default)"}`;
 
   const effectiveModelFor = (row: RuntimeGroqRow): string | null =>
     row.provider_type === "groq"
@@ -952,6 +962,12 @@ export async function routeAI(opts: RouteOpts): Promise<RouteResult> {
       : row.default_model ?? opts.model ?? null;
   const cooldownIdentityFor = (row: RuntimeGroqRow): string =>
     row.runtimeKeyFingerprint ?? row.id ?? row.provider_type;
+  // KEY_INVALID must retire exactly ONE key. cooldownIdentityFor() falls back
+  // to the provider row id when no fingerprint exists, which is shared by
+  // every key of that provider — using it here would retire the whole
+  // provider on a single 401. Always disambiguate by key index.
+  const keyScopeKey = (row: RuntimeGroqRow): string =>
+    row.runtimeKeyFingerprint ?? `${row.id ?? row.provider_type}#${row.runtimeKeyIndex ?? "env"}`;
 
   traceAsync({
     phase: "ai",
@@ -1061,6 +1077,36 @@ export async function routeAI(opts: RouteOpts): Promise<RouteResult> {
       continue;
     }
     const effectiveModel = effectiveModelFor(row);
+    // MODEL_NOT_FOUND is provider+model scoped, KEY_INVALID is key scoped.
+    // Neither can be cured by trying another key of the same provider.
+    if (deadProviderModels.has(deadScopeKey(row.provider_type, effectiveModel))) {
+      preAttemptSkips.push(
+        `${row.display_name} [model_not_found]: ${row.provider_type}/${effectiveModel ?? "default"} already answered 404 this call`,
+      );
+      traceAsync({
+        phase: "ai",
+        step: "router.provider_skipped",
+        status: "warn",
+        provider: row.provider_type,
+        model: effectiveModel,
+        detail: { reason: "model_not_found_this_call" },
+      });
+      continue;
+    }
+    if (deadKeys.has(keyScopeKey(row))) {
+      preAttemptSkips.push(
+        `${row.display_name} [key_invalid]: key ${row.runtimeKeyIndex != null ? `#${row.runtimeKeyIndex + 1}` : "env"} rejected this call`,
+      );
+      traceAsync({
+        phase: "ai",
+        step: "router.provider_skipped",
+        status: "warn",
+        provider: row.provider_type,
+        model: effectiveModel,
+        detail: { reason: "key_invalid_this_call" },
+      });
+      continue;
+    }
     const rawCandidateCooldown = getProviderCooldown({
       provider: row.provider_type,
       model: effectiveModel,
@@ -1381,6 +1427,10 @@ export async function routeAI(opts: RouteOpts): Promise<RouteResult> {
         );
       errors.push(`${row.display_name} [${kind}]: ${msg}`);
       fellBackFrom.push(row.provider_type);
+      // Scope the fault so the remaining chain skips guaranteed-identical
+      // attempts instead of hammering every key against the same dead model.
+      if (isModelNotFound) deadProviderModels.add(deadScopeKey(row.provider_type, effectiveModel));
+      if (isAuth) deadKeys.add(keyScopeKey(row));
       if (isPayment || isQuota || isModelNotFound) {
         const cooldownReason: CooldownReason = isPayment ? "payment" : isQuota ? "quota" : "rate_limit";
         const retryAfterMs = (e as { retryAfterMs?: number })?.retryAfterMs ?? parseRetryHintMs(msg);

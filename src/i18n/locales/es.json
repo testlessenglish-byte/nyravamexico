@@ -1636,6 +1636,7 @@
   "providers.features.title": "Funciones de inteligencia",
   "providers.health.allOk": "Todos los sistemas operativos.",
   "providers.health.connectHint": "Conecte un proveedor para restablecer la cobertura completa.",
+  "providers.health.cooling_down": "En enfriamiento",
   "providers.health.degradedLabel": "Degradado",
   "providers.health.excellent": "Excelente",
   "providers.health.healthy": "Saludable",

@@ -1743,24 +1743,41 @@ async function _runExtractionInner(args: {
   const { budgetFor, CheckpointRequired } = await import("./pipeline-checkpoint.server");
   const stageBudgetMs = budgetFor("extraction");
   const stageStartedAt = Date.now();
-  for (const d of list) {
+  // Resume-tick short-circuit: when every document already carries a terminal
+  // status there is no work at all, so do not walk the list (each iteration
+  // still costs DB round-trips). This is what starved the downstream stages:
+  // extraction consumed 17–30s of the 42s worker invocation re-confirming
+  // finished documents, leaving Legal Analyzers too little budget to start an
+  // AI call, which checkpointed instantly and looped forever.
+  const pending = list.filter((d) => d.status !== "extracted" && d.status !== "failed");
+  const workList = pending.length === 0 ? [] : list;
+  if (workList.length === 0) {
+    extractedOk = list.filter((d) => d.status === "extracted").length;
+    extractedFail = list.length - extractedOk;
+    skipped = list.length;
+    processed = list.length;
+  }
+  for (const d of workList) {
     if (Date.now() - stageStartedAt > stageBudgetMs && processed > 0 && processed < total) {
       console.warn(`[extraction] checkpoint reached after ${processed}/${total} docs — yielding`);
       throw new CheckpointRequired("extraction", `${processed}/${total} docs`);
     }
     processed += 1;
-    const pct = 5 + Math.floor((processed / total) * 90);
-    await setCase(db, caseId, {
-      status_message: `Extracting ${processed}/${total}: ${d.filename}`,
-      progress: pct,
-    });
-
-    // Idempotency: skip already-completed docs (prevents duplicate AI cost on rerun)
+    // Idempotency: skip already-completed docs (prevents duplicate AI cost on
+    // rerun). This check runs BEFORE the per-document progress write: on a
+    // resume tick every document is already extracted, and writing one
+    // `cases` row per document just to announce "skipping" cost 17–30s of the
+    // 42s worker invocation, starving the stage that actually had work to do.
     if (d.status === "extracted") {
       extractedOk += 1;
       skipped += 1;
       continue;
     }
+    const pct = 5 + Math.floor((processed / total) * 90);
+    await setCase(db, caseId, {
+      status_message: `Extracting ${processed}/${total}: ${d.filename}`,
+      progress: pct,
+    });
     // Cap retries: do not reprocess docs that have failed MAX_RETRIES times
     if ((d.extraction_retry_count ?? 0) >= MAX_RETRIES) {
       await db

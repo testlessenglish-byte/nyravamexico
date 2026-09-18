@@ -152,7 +152,7 @@ const MODE_META: Record<Mode, { labelKey: string; icon: typeof Sparkles }> = {
   private: { labelKey: "providers.mode.private", icon: Lock },
 };
 
-type Health = "healthy" | "slow" | "offline" | "unverified" | "not_connected";
+type Health = "healthy" | "slow" | "offline" | "unverified" | "cooling_down" | "not_connected";
 
 function timeAgo(iso: string | null, t: T): string {
   if (!iso) return t("providers.time.never");
@@ -166,7 +166,14 @@ function timeAgo(iso: string | null, t: T): string {
   return t(day === 1 ? "providers.time.day" : "providers.time.days", { n: day });
 }
 
-function providerHealth(keys: UserAIKeyView[]): {
+// Single source of truth for "is this provider usable right now": a valid key
+// is necessary but not sufficient. If the live router is currently refusing
+// the provider (cooldown after 429 / model_not_found / payment), this screen
+// must say so instead of showing a green "Healthy" that contradicts runtime.
+function providerHealth(
+  keys: UserAIKeyView[],
+  runtime?: { coolingDown?: boolean },
+): {
   health: Health;
   latencyMs: number | null;
   lastTested: string | null;
@@ -174,6 +181,8 @@ function providerHealth(keys: UserAIKeyView[]): {
   const active = keys.filter((k) => k.isActive);
   if (keys.length === 0) return { health: "not_connected", latencyMs: null, lastTested: null };
   if (active.length === 0) return { health: "offline", latencyMs: null, lastTested: null };
+  if (runtime?.coolingDown) return { health: "cooling_down", latencyMs: null, lastTested: null };
+
 
   const tested = active.filter((k) => k.lastTestOk != null);
   const lastTested = keys.reduce<string | null>((acc, k) => {
@@ -212,6 +221,11 @@ function HealthBadge({ health }: { health: Health }) {
       labelKey: "providers.health.unverified",
       className: "text-muted-foreground",
       dot: "bg-muted-foreground",
+    },
+    cooling_down: {
+      labelKey: "providers.health.cooling_down",
+      className: "text-warning",
+      dot: "bg-warning",
     },
     not_connected: {
       labelKey: "providers.health.not_connected",
@@ -287,15 +301,21 @@ export function IntelligenceProviders() {
   const providerCooldowns = (cooldownsQ.data?.cooldowns ?? []).filter((c) =>
     PROVIDER_LIST.includes(c.provider as Provider),
   );
+  const coolingProviders = useMemo(
+    () => new Set(providerCooldowns.map((c) => c.provider as Provider)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cooldownsQ.data],
+  );
+  const runtimeFor = (p: Provider) => ({ coolingDown: coolingProviders.has(p) });
 
   // First healthy provider in failover order = "current provider"
   const currentProvider = useMemo(() => {
     for (const p of order) {
-      const h = providerHealth(byProvider.get(p) ?? []);
+      const h = providerHealth(byProvider.get(p) ?? [], { coolingDown: coolingProviders.has(p) });
       if (h.health === "healthy" || h.health === "slow") return { provider: p, ...h };
     }
     return null;
-  }, [order, byProvider]);
+  }, [order, byProvider, coolingProviders]);
 
   const overallHealth: "excellent" | "degraded" | "offline" = currentProvider
     ? currentProvider.health === "healthy"
@@ -475,7 +495,7 @@ export function IntelligenceProviders() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {PROVIDER_LIST.map((p) => {
             const keys = byProvider.get(p) ?? [];
-            const h = providerHealth(keys);
+            const h = providerHealth(keys, runtimeFor(p));
             const meta = PROVIDER_META[p];
             return (
               <div key={p} className="flex flex-col rounded-xl border border-border bg-card p-4">
@@ -564,7 +584,7 @@ export function IntelligenceProviders() {
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {order.map((p, i) => {
-            const h = providerHealth(byProvider.get(p) ?? []);
+            const h = providerHealth(byProvider.get(p) ?? [], runtimeFor(p));
             const isRunning = currentProvider?.provider === p;
             return (
               <div key={p} className="flex items-center gap-2">
