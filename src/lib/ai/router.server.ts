@@ -962,6 +962,12 @@ export async function routeAI(opts: RouteOpts): Promise<RouteResult> {
       : row.default_model ?? opts.model ?? null;
   const cooldownIdentityFor = (row: RuntimeGroqRow): string =>
     row.runtimeKeyFingerprint ?? row.id ?? row.provider_type;
+  // KEY_INVALID must retire exactly ONE key. cooldownIdentityFor() falls back
+  // to the provider row id when no fingerprint exists, which is shared by
+  // every key of that provider — using it here would retire the whole
+  // provider on a single 401. Always disambiguate by key index.
+  const keyScopeKey = (row: RuntimeGroqRow): string =>
+    row.runtimeKeyFingerprint ?? `${row.id ?? row.provider_type}#${row.runtimeKeyIndex ?? "env"}`;
 
   traceAsync({
     phase: "ai",
