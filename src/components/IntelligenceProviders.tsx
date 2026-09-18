@@ -222,6 +222,11 @@ function HealthBadge({ health }: { health: Health }) {
       className: "text-muted-foreground",
       dot: "bg-muted-foreground",
     },
+    cooling_down: {
+      labelKey: "providers.health.cooling_down",
+      className: "text-warning",
+      dot: "bg-warning",
+    },
     not_connected: {
       labelKey: "providers.health.not_connected",
       className: "text-muted-foreground",
