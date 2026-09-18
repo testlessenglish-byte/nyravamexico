@@ -152,7 +152,7 @@ const MODE_META: Record<Mode, { labelKey: string; icon: typeof Sparkles }> = {
   private: { labelKey: "providers.mode.private", icon: Lock },
 };
 
-type Health = "healthy" | "slow" | "offline" | "unverified" | "not_connected";
+type Health = "healthy" | "slow" | "offline" | "unverified" | "cooling_down" | "not_connected";
 
 function timeAgo(iso: string | null, t: T): string {
   if (!iso) return t("providers.time.never");
@@ -166,7 +166,14 @@ function timeAgo(iso: string | null, t: T): string {
   return t(day === 1 ? "providers.time.day" : "providers.time.days", { n: day });
 }
 
-function providerHealth(keys: UserAIKeyView[]): {
+// Single source of truth for "is this provider usable right now": a valid key
+// is necessary but not sufficient. If the live router is currently refusing
+// the provider (cooldown after 429 / model_not_found / payment), this screen
+// must say so instead of showing a green "Healthy" that contradicts runtime.
+function providerHealth(
+  keys: UserAIKeyView[],
+  runtime?: { coolingDown?: boolean },
+): {
   health: Health;
   latencyMs: number | null;
   lastTested: string | null;
@@ -174,6 +181,8 @@ function providerHealth(keys: UserAIKeyView[]): {
   const active = keys.filter((k) => k.isActive);
   if (keys.length === 0) return { health: "not_connected", latencyMs: null, lastTested: null };
   if (active.length === 0) return { health: "offline", latencyMs: null, lastTested: null };
+  if (runtime?.coolingDown) return { health: "cooling_down", latencyMs: null, lastTested: null };
+
 
   const tested = active.filter((k) => k.lastTestOk != null);
   const lastTested = keys.reduce<string | null>((acc, k) => {
