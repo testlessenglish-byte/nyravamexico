@@ -777,6 +777,15 @@ export async function routeAI(opts: RouteOpts): Promise<RouteResult> {
   const skippedProviders = new Set(opts.skipProviders ?? []);
   const rows = (await loadProviderRows()).filter((r) => !skippedProviders.has(r.provider_type));
 
+  if (opts.task && !opts.model) {
+    try {
+      const tr = await loadTaskRoute(opts.task);
+      if (tr?.model) opts.model = tr.model;
+    } catch {
+      // Task routing is optional configuration; fall through to provider defaults
+    }
+  }
+
   // Resolve runtime keys: explicit apiKey(s) first (single provider, unchanged);
   // then per-user keys, which may now span MULTIPLE providers.
   let runtimeProvider: ProviderType | undefined = opts.runtimeProvider;
@@ -817,7 +826,9 @@ export async function routeAI(opts: RouteOpts): Promise<RouteResult> {
   // a permanent primary/fallback chain, so a healthy first provider served
   // every request and Gemini/Groq/OpenRouter never rotated. A forced provider
   // remains absolute (Admin connection tests rely on that behavior).
-  if (!opts.forceProvider && opts.userId && runtimeGroups.length > 1) {
+  if (opts.forceProvider) {
+    runtimeGroups = runtimeGroups.filter((g) => g.provider === opts.forceProvider);
+  } else if (opts.userId && runtimeGroups.length > 1) {
     const providers = runtimeGroups.map((g) => g.provider);
     const cursorId = `${opts.userId}:${providers.slice().sort().join(",")}`;
     const selectedOrder = opts._providerOrder?.filter((p) => providers.includes(p));

@@ -27,6 +27,7 @@ jobs:
       - name: Run launch-hardening regressions
         run: >-
           bunx vitest run
+          src/lib/ai/__tests__/openrouter-analyzers.test.ts
           src/lib/intelligence/__tests__/recommendation-grounding.test.ts
           src/lib/intelligence/__tests__/verified-scoring-amparo.test.ts
           src/lib/intelligence/__tests__/penal-legal-normalization.test.ts
