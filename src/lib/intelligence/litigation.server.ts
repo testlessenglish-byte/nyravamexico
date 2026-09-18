@@ -131,7 +131,7 @@ async function setCase(db: Db, caseId: string, patch: Record<string, unknown>) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: row } = await (db as any)
     .from("cases")
-    .select("cancel_requested")
+    .select("cancel_requested, status")
     .eq("id", caseId)
     .maybeSingle();
   if (row?.cancel_requested) {
@@ -147,10 +147,22 @@ async function setCase(db: Db, caseId: string, patch: Record<string, unknown>) {
     throw new CancelledError();
   }
 
-  await db
-    .from("cases")
-    .update(patch as any)
-    .eq("id", caseId);
+  // Prevent status reversion: if we are trying to set status to 'intelligence_running',
+  // but the case is already in a downstream terminal status, drop the status/progress patch.
+  if (patch.status === "intelligence_running") {
+    const terminalStatuses = ["reporting", "needs_revision", "complete", "released"];
+    if (row?.status && terminalStatuses.includes(row.status)) {
+      delete patch.status;
+      delete patch.progress;
+    }
+  }
+
+  if (Object.keys(patch).length > 0) {
+    await db
+      .from("cases")
+      .update(patch as any)
+      .eq("id", caseId);
+  }
 }
 
 async function getKeys(db: Db, userId: string, override?: string): Promise<string[]> {

@@ -677,10 +677,15 @@ export function canGenerateReport(rows: ExecutionRow[]): ReportGate {
       return true;
     });
   const blocking = missing(REPORT_BLOCKING_ENGINES);
+  const optionalToCheck = Array.from(OPTIONAL_ENGINES).filter(e => e !== "multi_agent");
+  const missingEnriching = [...missing(REPORT_ENRICHING_ENGINES), ...missing(optionalToCheck)];
+  
+  // Check if any enriching or optional engine is running/queued/failed. 
+  // If so, they also block report generation.
   return {
-    ok: blocking.length === 0,
+    ok: blocking.length === 0 && missingEnriching.length === 0,
     missingBlocking: blocking,
-    missingEnriching: missing(REPORT_ENRICHING_ENGINES),
+    missingEnriching,
   };
 }
 
