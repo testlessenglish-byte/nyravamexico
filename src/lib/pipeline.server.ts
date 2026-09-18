@@ -1749,18 +1749,21 @@ async function _runExtractionInner(args: {
       throw new CheckpointRequired("extraction", `${processed}/${total} docs`);
     }
     processed += 1;
-    const pct = 5 + Math.floor((processed / total) * 90);
-    await setCase(db, caseId, {
-      status_message: `Extracting ${processed}/${total}: ${d.filename}`,
-      progress: pct,
-    });
-
-    // Idempotency: skip already-completed docs (prevents duplicate AI cost on rerun)
+    // Idempotency: skip already-completed docs (prevents duplicate AI cost on
+    // rerun). This check runs BEFORE the per-document progress write: on a
+    // resume tick every document is already extracted, and writing one
+    // `cases` row per document just to announce "skipping" cost 17–30s of the
+    // 42s worker invocation, starving the stage that actually had work to do.
     if (d.status === "extracted") {
       extractedOk += 1;
       skipped += 1;
       continue;
     }
+    const pct = 5 + Math.floor((processed / total) * 90);
+    await setCase(db, caseId, {
+      status_message: `Extracting ${processed}/${total}: ${d.filename}`,
+      progress: pct,
+    });
     // Cap retries: do not reprocess docs that have failed MAX_RETRIES times
     if ((d.extraction_retry_count ?? 0) >= MAX_RETRIES) {
       await db
