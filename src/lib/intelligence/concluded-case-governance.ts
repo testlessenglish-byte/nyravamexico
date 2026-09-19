@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Concluded Case Report Governance Engine - Hard Platform Contract
  *
  * Central authority for report governance across all materias, jurisdictions,
@@ -172,7 +172,14 @@ export type SpeakerRoleBadge =
   | "CUESTIÓN NO ESTUDIADA"
   | "HECHO PROCESAL"
   | "RESOLUTIVO"
-  | "ESTATUS JURÍDICO NO RESUELTO";
+  | "ESTATUS JURÍDICO NO RESUELTO"
+  | "CUESTIÓN RESUELTA POR EL TRIBUNAL"
+  | "CUESTIÓN NO RESUELTA POR EL TRIBUNAL"
+  | "CUESTIÓN DISPUTADA POR LAS PARTES"
+  | "NO VERIFICADO INDEPENDIENTEMENTE"
+  | "SIN EVIDENCIA SUFICIENTE EN EL CORPUS"
+  | "NO DETERMINADO"
+  | "PENDIENTE DE RESOLUCIÓN";
 
 /**
  * Resolves the mandatory visible speaker-role classification badge for a proposition.
@@ -226,7 +233,7 @@ export function formatSpeakerRoleBadge(
     (propType === "holding" && adoptStatus === "adopted") ||
     kind === "COURT_HOLDING" || (kind === "REMEDY" && adoptStatus === "adopted")
   ) {
-    if (courtLevel === "scjn" || /scjn|primera sala|segunda sala|pleno/i.test(speaker)) {
+    if (courtLevel === "scjn" || /(?:^|\b)(scjn|suprema corte)/i.test(speaker)) {
       return "DETERMINACIÓN ADOPTADA POR SCJN";
     }
     return "DETERMINACIÓN ADOPTADA POR EL TRIBUNAL REVISOR";
@@ -265,7 +272,14 @@ export function formatSpeakerRoleBadge(
     return "HECHO PROCESAL";
   }
 
-  return "ESTATUS JURÍDICO NO RESUELTO";
+  if (adoptStatus === "pending" || /pendiente|sub judice/i.test(title)) return "PENDIENTE DE RESOLUCIÓN";
+  if (adoptStatus === "disputed" || auditClass === "DISPUTED") return "CUESTIÓN DISPUTADA POR LAS PARTES";
+  if (adoptStatus === "unresolved" || /no resuelt/i.test(title)) return "CUESTIÓN NO RESUELTA POR EL TRIBUNAL";
+  if (auditClass === "NOT_FOUND" || auditClass === "EVIDENCE_GAP" || /insuficiente/i.test(title)) return "SIN EVIDENCIA SUFICIENTE EN EL CORPUS";
+  if (auditClass === "UNVERIFIED" || /no verificado/i.test(title)) return "NO VERIFICADO INDEPENDIENTEMENTE";
+  if (adoptStatus === "resolved") return "CUESTIÓN RESUELTA POR EL TRIBUNAL";
+
+  return "NO DETERMINADO";
 }
 
 /**
@@ -303,6 +317,24 @@ export function sortFindingsForConcludedReport<T extends Record<string, unknown>
   });
 }
 
+
+const INTERNAL_ENGINE_PHRASES = [
+  /Mandatory,?\s*source-verified\s*proposition/gi,
+  /Must\s*be\s*represented\s*in\s*the\s*completed-case\s*report/gi,
+  /Source-verified\s*proposition/gi,
+  /internal\s*QA/gi,
+  /finding\s*is\s*mandatory/gi,
+];
+
+export function sanitizeEngineLanguage(text: string): string {
+  let cleaned = text;
+  for (const rx of INTERNAL_ENGINE_PHRASES) {
+    cleaned = cleaned.replace(rx, "");
+  }
+  return cleaned.replace(/\s{2,}/g, " ").trim();
+}
+
+
 const SPECULATIVE_LITIGATION_PHRASES = [
   /\bpodr[ií]a\s+llevar\s+a\s+la\s+revocaci[oó]n\b/gi,
   /\bpodr[ií]a\s+obtener\s+la\s+nulidad\b/gi,
@@ -326,7 +358,7 @@ export function sanitizeConcludedReportProse(
     return text;
   }
 
-  let cleaned = text;
+  let cleaned = sanitizeEngineLanguage(text);
 
   // Substitute overbroad conclusion unless explicitly verified
   if (!governance.remedy_exhaustion_verified) {

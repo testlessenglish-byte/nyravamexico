@@ -134,6 +134,8 @@ export type ExecutiveSummary = {
    *  rather than a guessed materia. The report renderer should surface
    *  this rather than presenting an unknown materia as if it were known. */
   case_type_unverified?: boolean;
+  procedural_vehicle?: string | null;
+  issuing_court?: string | null;
 };
 
 export type Facts = {

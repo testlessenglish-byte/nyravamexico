@@ -187,6 +187,8 @@ export function validateBeforeRender(analysis: CaseAnalysis): QaIssue[] {
     });
   }
 
+
+
   return issues;
 }
 
@@ -300,6 +302,8 @@ export function validateRenderedReport(
       sample: critical,
     });
   }
+
+
 
   return issues;
 }

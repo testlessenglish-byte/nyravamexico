@@ -937,7 +937,7 @@ export class PdfBuilder {
     ty += 4;
     this.doc.setFont("times", "normal");
     this.doc.setFontSize(18);
-    const proceedingLines = this.doc.splitTextToSize(opts.proceeding || "Amparo Directo en Revisión", pageW - margin * 2) as string[];
+    const proceedingLines = this.doc.splitTextToSize(opts.proceeding || "No determinado con la documentación disponible", pageW - margin * 2) as string[];
     for (const line of proceedingLines) {
       this.doc.text(line, cx, ty, { align: "center" });
       ty += 21;
@@ -947,11 +947,11 @@ export class PdfBuilder {
     this.doc.setFont("times", "normal");
     let courtSize = 15;
     this.doc.setFontSize(courtSize);
-    let courtLines = this.doc.splitTextToSize(opts.court || "Suprema Corte de Justicia de la Nación", pageW - margin * 2) as string[];
+    let courtLines = this.doc.splitTextToSize(opts.court || "No determinado con la documentación disponible", pageW - margin * 2) as string[];
     while ((ty + courtLines.length * (courtSize + 3)) > 486 && courtSize > 11) {
       courtSize -= 1;
       this.doc.setFontSize(courtSize);
-      courtLines = this.doc.splitTextToSize(opts.court || "Suprema Corte de Justicia de la Nación", pageW - margin * 2) as string[];
+      courtLines = this.doc.splitTextToSize(opts.court || "No determinado con la documentación disponible", pageW - margin * 2) as string[];
     }
     for (const line of courtLines) {
       this.doc.text(line, cx, ty, { align: "center" });
@@ -975,10 +975,10 @@ export class PdfBuilder {
     
     const fields = [
       { k: "CLIENTE", v: opts.client || "Confidencial" },
-      { k: "EXPEDIENTE", v: opts.matterId || "ADR 3265/2023" },
-      { k: "TIPO DE ASUNTO", v: opts.proceeding || "Amparo" },
-      { k: "ÓRGANO JURISDICCIONAL", v: opts.court || "Suprema Corte de Justicia de la Nación" },
-      { k: "MATERIA", v: opts.matterType || "Constitucional" },
+      { k: "EXPEDIENTE", v: opts.matterId || "No determinado" },
+      { k: "TIPO DE ASUNTO", v: opts.proceeding || "No determinado" },
+      { k: "ÓRGANO JURISDICCIONAL", v: opts.court || "No determinado con la documentación disponible" },
+      { k: "MATERIA", v: opts.matterType || "No determinado" },
       { k: "FECHA DEL ANÁLISIS", v: opts.date || "14 de septiembre de 2026" },
       { k: "NYRAVA MATTER ID", v: (opts.matterId || "44C5492F").slice(0, 8) }
     ];
@@ -2367,13 +2367,15 @@ function renderCover(
         : "Ventaja del Ministerio Público"
       : "";
     const headline = advantage ? `${riskLevel} — ${advantage}` : riskLevel;
+    const clientName = resolveReportIdentity(asObj(data.case)).client;
+    const perspectiveBase = clientName ? "Fortaleza de la posición de " + clientName : "Fortaleza de la posición";
     const strengthCaption = isCriminal
-      ? `Fortaleza del caso ${strength} / 100 (caso del Ministerio Público; un valor menor favorece a la defensa)  ·  Puntuación de riesgo ${risk} / 100`
-      : `Fortaleza del caso ${strength} / 100  ·  Puntuación de riesgo ${risk} / 100`;
+      ? `${perspectiveBase} ${strength} / 100 (caso del Ministerio Público; un valor menor favorece a la defensa)  •  Puntuación de riesgo ${risk} / 100`
+      : `${perspectiveBase} ${strength} / 100  •  Puntuación de riesgo ${risk} / 100`;
     b.statusBanner(headline, strengthCaption, b.scoreColor(risk, true));
 
     b.gaugeRow([
-      { label: "Fortaleza del Caso", value: strength, color: b.scoreColor(strength) },
+      { label: clientName ? "Fortaleza de la posición" : "Fortaleza de la Posición", value: strength, color: b.scoreColor(strength) },
       { label: "Puntuación de Riesgo", value: risk, color: b.scoreColor(risk, true) },
     ]);
   }
