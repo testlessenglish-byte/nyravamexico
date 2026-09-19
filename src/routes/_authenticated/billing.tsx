@@ -221,7 +221,11 @@ function BillingPage() {
 
               ) : (
                 <a
-                  href="mailto:support@mexico.nyrava.com"
+                  href={`mailto:contact@mexico.nyrava.com?subject=${encodeURIComponent(
+                    locale === "es"
+                      ? "Contacto de ventas — Plan Enterprise"
+                      : "Contact sales — Enterprise plan",
+                  )}`}
                   className="mt-5 inline-flex items-center justify-center gap-2 rounded border border-border/60 px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted/40"
                 >
                   {t("billing.contact")}
