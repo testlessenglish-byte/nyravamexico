@@ -327,7 +327,7 @@ const INTERNAL_ENGINE_PHRASES = [
 ];
 
 export function sanitizeEngineLanguage(text: string): string {
-  let cleaned = sanitizeEngineLanguage(text);
+  let cleaned = text;
   for (const rx of INTERNAL_ENGINE_PHRASES) {
     cleaned = cleaned.replace(rx, "");
   }

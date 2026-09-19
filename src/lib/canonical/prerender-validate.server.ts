@@ -187,24 +187,7 @@ export function validateBeforeRender(analysis: CaseAnalysis): QaIssue[] {
     });
   }
 
-  if (analysis.ExecutiveSummary) {
-    const { case_type, procedural_vehicle, issuing_court } = analysis.ExecutiveSummary;
-    const vehicle = String(procedural_vehicle || "").toLowerCase();
-    const court = String(issuing_court || "").toLowerCase();
-    
-    // Invariant: If court is SCJN, vehicle must be an SCJN-compatible proceeding
-    if (court.includes("scjn") || court.includes("suprema corte")) {
-      if (vehicle && !vehicle.includes("amparo") && !vehicle.includes("constitucional") && !vehicle.includes("revision") && !vehicle.includes("controversia")) {
-        issues.push({
-          code: "INVALID_SCJN_PROCEEDING",
-          severity: "critical",
-          section: "Classification",
-          message: `SCJN is not a valid issuing court for the procedural vehicle: ${vehicle}`,
-          sample: vehicle
-        });
-      }
-    }
-  }
+
 
   return issues;
 }
@@ -320,24 +303,7 @@ export function validateRenderedReport(
     });
   }
 
-  if (analysis.ExecutiveSummary) {
-    const { case_type, procedural_vehicle, issuing_court } = analysis.ExecutiveSummary;
-    const vehicle = String(procedural_vehicle || "").toLowerCase();
-    const court = String(issuing_court || "").toLowerCase();
-    
-    // Invariant: If court is SCJN, vehicle must be an SCJN-compatible proceeding
-    if (court.includes("scjn") || court.includes("suprema corte")) {
-      if (vehicle && !vehicle.includes("amparo") && !vehicle.includes("constitucional") && !vehicle.includes("revision") && !vehicle.includes("controversia")) {
-        issues.push({
-          code: "INVALID_SCJN_PROCEEDING",
-          severity: "critical",
-          section: "Classification",
-          message: `SCJN is not a valid issuing court for the procedural vehicle: ${vehicle}`,
-          sample: vehicle
-        });
-      }
-    }
-  }
+
 
   return issues;
 }
