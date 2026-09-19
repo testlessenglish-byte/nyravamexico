@@ -20,7 +20,8 @@ export const Route = createFileRoute("/contact")({
 });
 
 function ContactPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const es = locale === "es";
   return (
     <div className="min-h-screen">
       <SiteHeader />
