@@ -49,7 +49,7 @@ export function SiteFooter() {
             <li><Link to="/responsible-ai" className="hover:text-primary">{t("footer.link.responsibleAi")}</Link></li>
             <li><Link to="/privacy" className="hover:text-primary">{t("footer.link.privacy")}</Link></li>
             <li><Link to="/terms" className="hover:text-primary">{t("footer.link.terms")}</Link></li>
-            <li><Link to="/contact" className="hover:text-primary">{t("footer.link.contact")}</Link></li>
+            <li><a href="mailto:contact@mexico.nyrava.com" className="hover:text-primary">{t("footer.link.contact")}</a></li>
           </ul>
         </div>
       </div>
