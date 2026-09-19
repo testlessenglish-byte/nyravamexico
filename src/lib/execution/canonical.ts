@@ -655,37 +655,66 @@ export function pipelineProgressPercent(rows: ExecutionRow[]): number {
 // -----------------------------------------------------------------------------
 // Report gate — the ONLY report-generation gate.
 // -----------------------------------------------------------------------------
+export type ReportBlocker = {
+  engine: string;
+  category: "blocking" | "enriching" | "optional";
+  status: string;
+  reason: string;
+  execution_id?: string;
+};
+
 export type ReportGate = {
   ok: boolean;
   missingBlocking: string[];
   missingEnriching: string[];
+  blockers: ReportBlocker[];
 };
 
 export function canGenerateReport(rows: ExecutionRow[]): ReportGate {
   const latest = latestRowsByEngine(rows);
-  const missing = (engines: readonly string[]) =>
-    engines.filter((e) => {
-      const s = latest.get(e)?.status;
-      if (s === "completed" || s === "completed_negative" || s === "skipped") return false;
-      // A failed or blocked substantive stage is terminal for orchestration,
-      // but it is NOT acceptable evidence for an attorney-facing release.
-      // Previously optional stages were treated as satisfied here, allowing
-      // FULL/released reports with empty perspectives, theories, opportunities,
-      // strategy, work product, hallucination, or multi-agent output. Legitimate
-      // no-result runs must finish as completed_negative or skipped with an
-      // audited reason; failed/blocked always requires revision.
-      return true;
-    });
-  const blocking = missing(REPORT_BLOCKING_ENGINES);
+  const isTerminal = (s?: string) => s === "completed" || s === "completed_negative" || s === "skipped";
+
+  const missingRequired = (engines: readonly string[]) =>
+    engines.filter((e) => !isTerminal(latest.get(e)?.status));
+
+  const blocking = missingRequired(REPORT_BLOCKING_ENGINES);
+
   const optionalToCheck = Array.from(OPTIONAL_ENGINES).filter(e => e !== "multi_agent");
-  const missingEnriching = [...missing(REPORT_ENRICHING_ENGINES), ...missing(optionalToCheck)];
-  
-  // Check if any enriching or optional engine is running/queued/failed. 
-  // If so, they also block report generation.
+
+  // Enriching engines are strictly required to be terminal.
+  // Optional engines are NOT required to have a row. But IF they have a row, it must be terminal.
+  const missingEnriching = [
+    ...missingRequired(REPORT_ENRICHING_ENGINES),
+    ...optionalToCheck.filter(e => {
+      const row = latest.get(e);
+      return row && !isTerminal(row.status);
+    })
+  ];
+
+  const allMissing = [...blocking, ...missingEnriching];
+  const ok = allMissing.length === 0;
+
+  const blockers: ReportBlocker[] = [];
+  for (const e of allMissing) {
+    const row = latest.get(e);
+    let category: ReportBlocker["category"] = "optional";
+    if (REPORT_BLOCKING_ENGINES.includes(e as any)) category = "blocking";
+    else if (REPORT_ENRICHING_ENGINES.includes(e as any)) category = "enriching";
+
+    blockers.push({
+      engine: e,
+      category,
+      status: row?.status ?? "missing",
+      reason: row ? "Engine execution is not in a successful terminal state" : "Engine execution row is completely absent",
+      execution_id: row?.execution_id ?? undefined,
+    });
+  }
+
   return {
-    ok: blocking.length === 0 && missingEnriching.length === 0,
+    ok,
     missingBlocking: blocking,
     missingEnriching,
+    blockers,
   };
 }
 

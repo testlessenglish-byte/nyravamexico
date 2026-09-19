@@ -2,7 +2,6 @@ import { createFileRoute, Link, Outlet, useRouterState, useNavigate } from "@tan
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { adminStats, checkIsAdmin, deleteAuditLogEntries } from "@/lib/cases.functions";
-import { listFixtureCorpora, seedFixtureCorpus } from "@/lib/seed-fixture.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CaseActionsMenu } from "@/components/CaseActionsMenu";
@@ -282,8 +281,6 @@ function AdminDashboard() {
           />
         </div>
       </Section>
-
-      <FixtureSeederPanel onSeeded={() => void refetch()} />
 
       <Section
         title="Cases"
@@ -625,130 +622,7 @@ function AuditLogSection({
   );
 }
 
-function FixtureSeederPanel({ onSeeded }: { onSeeded: () => void }) {
-  const fetchList = useServerFn(listFixtureCorpora);
-  const seedFn = useServerFn(seedFixtureCorpus);
-  const navigate = useNavigate();
-  const { data: corpora, isLoading } = useQuery({
-    queryKey: ["fixtureCorpora"],
-    queryFn: () => fetchList(),
-  });
-  // "auto" = let the platform classify the materia from the seeded corpus.
-  const [selected, setSelected] = useState<string>("auto");
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<{
-    caseId: string;
-    documentCount: number;
-    extractedChars: number;
-    detectedLabel?: string;
-    detectionSource?: string;
-  } | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  const seed = async () => {
-    if (!selected) return;
-    setBusy(true);
-    setError(null);
-    setResult(null);
-    try {
-      const r = await seedFn({
-        data: { practiceArea: selected === "auto" ? null : selected },
-      });
-      setResult({
-        caseId: r.caseId,
-        documentCount: r.documentCount,
-        extractedChars: r.extractedChars,
-        detectedLabel: r.detectedLabel,
-        detectionSource: r.detectionSource,
-      });
-      onSeeded();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Section title="Fixture corpora (diagnostics)">
-      <div className="rounded-xl border border-border bg-card p-5 text-sm">
-        <div className="flex items-start gap-3">
-          <FlaskConical className="mt-0.5 h-5 w-5 text-accent shrink-0" />
-          <div className="flex-1 space-y-3">
-            <p className="text-muted-foreground">
-              Create a fresh case seeded with the substantive evidence corpus bundled at
-              <span className="font-mono"> tests/fixtures/corpora/&lt;area&gt;/</span>. Use this to
-              verify witness, opportunity, trial-prep, and discovery engines against real
-              named-individual content instead of the one-line routing-benchmark stubs.
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Select value={selected} onValueChange={setSelected} disabled={isLoading || busy}>
-                <SelectTrigger className="w-auto min-w-[220px] bg-background text-sm">
-                  <SelectValue
-                    placeholder={isLoading ? "Cargando acervos…" : "Automático — detectar materia"}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="auto">
-                    {isLoading ? "Cargando acervos…" : "Automático — detectar materia"}
-                  </SelectItem>
-                  {(corpora ?? []).map((c) => (
-                    <SelectItem key={c.practiceArea} value={c.practiceArea}>
-                      {c.title ?? c.practiceArea}
-                      {c.courtCaseNumber ? ` — ${c.courtCaseNumber}` : ""} ({c.fileCount} docs)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <button
-                onClick={seed}
-                disabled={!selected || busy}
-                className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-foreground hover:bg-accent/90 disabled:opacity-50"
-              >
-                {busy ? "Seeding & extracting…" : "Seed new case"}
-              </button>
-              {result && (
-                <button
-                  onClick={() =>
-                    navigate({ to: "/cases/$caseId", params: { caseId: result.caseId } })
-                  }
-                  className="rounded-md border border-border bg-card px-3 py-2 text-sm hover:bg-muted"
-                >
-                  Open case →
-                </button>
-              )}
-            </div>
-            {result && (
-              <div className="rounded-md border border-success/40 bg-success/10 p-3 text-xs">
-                <div className="font-medium text-success">
-                  Uploaded {result.documentCount} documents ·{" "}
-                  {result.extractedChars.toLocaleString()} bytes total.
-                </div>
-                {result.detectedLabel && (
-                  <div className="mt-1 text-muted-foreground">
-                    Materia detectada automáticamente:{" "}
-                    <span className="font-medium text-foreground">{result.detectedLabel}</span>
-                    {result.detectionSource ? ` (${result.detectionSource})` : ""}
-                  </div>
-                )}
-                <div className="mt-1 font-mono text-muted-foreground">case_id: {result.caseId}</div>
-                <div className="mt-1 text-muted-foreground">
-                  Open the case and click <span className="font-medium">Run Case</span> to extract +
-                  analyze against substantive evidence.
-                </div>
-              </div>
-            )}
-            {error && (
-              <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
-                {error}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </Section>
-  );
-}
 
 function pageWindow<T>(items: T[], requestedPage: number, pageSize: number = ADMIN_PAGE_SIZE) {
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));

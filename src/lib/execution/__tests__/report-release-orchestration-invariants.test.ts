@@ -37,4 +37,18 @@ describe('Platform-Wide Release Gate & Pipeline State Orchestration Fix', () => 
     const invariantError = new Error("REPORT_PERSISTENCE_INVARIANT_FAILED: full_report is empty after upsert");
     expect(invariantError.message).toContain("REPORT_PERSISTENCE_INVARIANT_FAILED");
   });
+
+  it('If canGenerateReport().ok === false, at least one explicit blocking reason must exist', () => {
+    // Missing all engines => ok is false
+    const gate = canGenerateReport([]);
+    expect(gate.ok).toBe(false);
+    expect(gate.blockers.length).toBeGreaterThan(0);
+    // Every blocker should have all structured fields
+    for (const b of gate.blockers) {
+      expect(b.engine).toBeTruthy();
+      expect(b.status).toBeTruthy();
+      expect(b.category).toBeTruthy();
+      expect(b.reason).toBeTruthy();
+    }
+  });
 });

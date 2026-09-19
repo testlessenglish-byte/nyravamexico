@@ -73,7 +73,6 @@ import { Route as SupportPublicIdRouteImport } from './routes/support.$publicId'
 import { Route as AuthenticatedAdminAiProvidersRouteImport } from './routes/_authenticated/admin.ai-providers'
 import { Route as AuthenticatedAdminBetaRouteImport } from './routes/_authenticated/admin.beta'
 import { Route as AuthenticatedAdminBillingRouteImport } from './routes/_authenticated/admin.billing'
-import { Route as AuthenticatedAdminDemoCasesRouteImport } from './routes/_authenticated/admin.demo-cases'
 import { Route as AuthenticatedAdminFeedbackRouteImport } from './routes/_authenticated/admin.feedback'
 import { Route as AuthenticatedAdminLegalCoverageRouteImport } from './routes/_authenticated/admin.legal-coverage'
 import { Route as AuthenticatedAdminLegalKnowledgeRouteImport } from './routes/_authenticated/admin.legal-knowledge'
@@ -82,7 +81,6 @@ import { Route as AuthenticatedAdminPipelineLedgerRouteImport } from './routes/_
 import { Route as AuthenticatedAdminResetRouteImport } from './routes/_authenticated/admin.reset'
 import { Route as AuthenticatedAdminSubscriptionsRouteImport } from './routes/_authenticated/admin.subscriptions'
 import { Route as AuthenticatedAdminTeamRouteImport } from './routes/_authenticated/admin.team'
-import { Route as AuthenticatedAdminTestCasesRouteImport } from './routes/_authenticated/admin.test-cases'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
 import { Route as AuthenticatedCasesIndexRouteImport } from './routes/_authenticated/cases.index'
 import { Route as AuthenticatedCasesCaseIdRouteImport } from './routes/_authenticated/cases.$caseId'
@@ -422,12 +420,6 @@ const AuthenticatedAdminBillingRoute =
     path: '/billing',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
-const AuthenticatedAdminDemoCasesRoute =
-  AuthenticatedAdminDemoCasesRouteImport.update({
-    id: '/demo-cases',
-    path: '/demo-cases',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
 const AuthenticatedAdminFeedbackRoute =
   AuthenticatedAdminFeedbackRouteImport.update({
     id: '/feedback',
@@ -474,12 +466,6 @@ const AuthenticatedAdminTeamRoute = AuthenticatedAdminTeamRouteImport.update({
   path: '/team',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
-const AuthenticatedAdminTestCasesRoute =
-  AuthenticatedAdminTestCasesRouteImport.update({
-    id: '/test-cases',
-    path: '/test-cases',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
 const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
@@ -629,7 +615,6 @@ export interface FileRoutesByFullPath {
   '/admin/ai-providers': typeof AuthenticatedAdminAiProvidersRoute
   '/admin/beta': typeof AuthenticatedAdminBetaRoute
   '/admin/billing': typeof AuthenticatedAdminBillingRoute
-  '/admin/demo-cases': typeof AuthenticatedAdminDemoCasesRoute
   '/admin/feedback': typeof AuthenticatedAdminFeedbackRoute
   '/admin/legal-coverage': typeof AuthenticatedAdminLegalCoverageRoute
   '/admin/legal-knowledge': typeof AuthenticatedAdminLegalKnowledgeRoute
@@ -638,7 +623,6 @@ export interface FileRoutesByFullPath {
   '/admin/reset': typeof AuthenticatedAdminResetRoute
   '/admin/subscriptions': typeof AuthenticatedAdminSubscriptionsRoute
   '/admin/team': typeof AuthenticatedAdminTeamRoute
-  '/admin/test-cases': typeof AuthenticatedAdminTestCasesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/cases/$caseId': typeof AuthenticatedCasesCaseIdRoute
   '/clients/$clientId': typeof AuthenticatedClientsClientIdRoute
@@ -717,7 +701,6 @@ export interface FileRoutesByTo {
   '/admin/ai-providers': typeof AuthenticatedAdminAiProvidersRoute
   '/admin/beta': typeof AuthenticatedAdminBetaRoute
   '/admin/billing': typeof AuthenticatedAdminBillingRoute
-  '/admin/demo-cases': typeof AuthenticatedAdminDemoCasesRoute
   '/admin/feedback': typeof AuthenticatedAdminFeedbackRoute
   '/admin/legal-coverage': typeof AuthenticatedAdminLegalCoverageRoute
   '/admin/legal-knowledge': typeof AuthenticatedAdminLegalKnowledgeRoute
@@ -726,7 +709,6 @@ export interface FileRoutesByTo {
   '/admin/reset': typeof AuthenticatedAdminResetRoute
   '/admin/subscriptions': typeof AuthenticatedAdminSubscriptionsRoute
   '/admin/team': typeof AuthenticatedAdminTeamRoute
-  '/admin/test-cases': typeof AuthenticatedAdminTestCasesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/cases/$caseId': typeof AuthenticatedCasesCaseIdRoute
   '/clients/$clientId': typeof AuthenticatedClientsClientIdRoute
@@ -809,7 +791,6 @@ export interface FileRoutesById {
   '/_authenticated/admin/ai-providers': typeof AuthenticatedAdminAiProvidersRoute
   '/_authenticated/admin/beta': typeof AuthenticatedAdminBetaRoute
   '/_authenticated/admin/billing': typeof AuthenticatedAdminBillingRoute
-  '/_authenticated/admin/demo-cases': typeof AuthenticatedAdminDemoCasesRoute
   '/_authenticated/admin/feedback': typeof AuthenticatedAdminFeedbackRoute
   '/_authenticated/admin/legal-coverage': typeof AuthenticatedAdminLegalCoverageRoute
   '/_authenticated/admin/legal-knowledge': typeof AuthenticatedAdminLegalKnowledgeRoute
@@ -818,7 +799,6 @@ export interface FileRoutesById {
   '/_authenticated/admin/reset': typeof AuthenticatedAdminResetRoute
   '/_authenticated/admin/subscriptions': typeof AuthenticatedAdminSubscriptionsRoute
   '/_authenticated/admin/team': typeof AuthenticatedAdminTeamRoute
-  '/_authenticated/admin/test-cases': typeof AuthenticatedAdminTestCasesRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/cases/$caseId': typeof AuthenticatedCasesCaseIdRoute
   '/_authenticated/clients/$clientId': typeof AuthenticatedClientsClientIdRoute
@@ -901,7 +881,6 @@ export interface FileRouteTypes {
     | '/admin/ai-providers'
     | '/admin/beta'
     | '/admin/billing'
-    | '/admin/demo-cases'
     | '/admin/feedback'
     | '/admin/legal-coverage'
     | '/admin/legal-knowledge'
@@ -910,7 +889,6 @@ export interface FileRouteTypes {
     | '/admin/reset'
     | '/admin/subscriptions'
     | '/admin/team'
-    | '/admin/test-cases'
     | '/admin/users'
     | '/cases/$caseId'
     | '/clients/$clientId'
@@ -989,7 +967,6 @@ export interface FileRouteTypes {
     | '/admin/ai-providers'
     | '/admin/beta'
     | '/admin/billing'
-    | '/admin/demo-cases'
     | '/admin/feedback'
     | '/admin/legal-coverage'
     | '/admin/legal-knowledge'
@@ -998,7 +975,6 @@ export interface FileRouteTypes {
     | '/admin/reset'
     | '/admin/subscriptions'
     | '/admin/team'
-    | '/admin/test-cases'
     | '/admin/users'
     | '/cases/$caseId'
     | '/clients/$clientId'
@@ -1080,7 +1056,6 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/ai-providers'
     | '/_authenticated/admin/beta'
     | '/_authenticated/admin/billing'
-    | '/_authenticated/admin/demo-cases'
     | '/_authenticated/admin/feedback'
     | '/_authenticated/admin/legal-coverage'
     | '/_authenticated/admin/legal-knowledge'
@@ -1089,7 +1064,6 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/reset'
     | '/_authenticated/admin/subscriptions'
     | '/_authenticated/admin/team'
-    | '/_authenticated/admin/test-cases'
     | '/_authenticated/admin/users'
     | '/_authenticated/cases/$caseId'
     | '/_authenticated/clients/$clientId'
@@ -1602,13 +1576,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminBillingRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
-    '/_authenticated/admin/demo-cases': {
-      id: '/_authenticated/admin/demo-cases'
-      path: '/demo-cases'
-      fullPath: '/admin/demo-cases'
-      preLoaderRoute: typeof AuthenticatedAdminDemoCasesRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
     '/_authenticated/admin/feedback': {
       id: '/_authenticated/admin/feedback'
       path: '/feedback'
@@ -1663,13 +1630,6 @@ declare module '@tanstack/react-router' {
       path: '/team'
       fullPath: '/admin/team'
       preLoaderRoute: typeof AuthenticatedAdminTeamRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/test-cases': {
-      id: '/_authenticated/admin/test-cases'
-      path: '/test-cases'
-      fullPath: '/admin/test-cases'
-      preLoaderRoute: typeof AuthenticatedAdminTestCasesRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/users': {
@@ -1784,7 +1744,6 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminAiProvidersRoute: typeof AuthenticatedAdminAiProvidersRoute
   AuthenticatedAdminBetaRoute: typeof AuthenticatedAdminBetaRoute
   AuthenticatedAdminBillingRoute: typeof AuthenticatedAdminBillingRoute
-  AuthenticatedAdminDemoCasesRoute: typeof AuthenticatedAdminDemoCasesRoute
   AuthenticatedAdminFeedbackRoute: typeof AuthenticatedAdminFeedbackRoute
   AuthenticatedAdminLegalCoverageRoute: typeof AuthenticatedAdminLegalCoverageRoute
   AuthenticatedAdminLegalKnowledgeRoute: typeof AuthenticatedAdminLegalKnowledgeRoute
@@ -1793,7 +1752,6 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminResetRoute: typeof AuthenticatedAdminResetRoute
   AuthenticatedAdminSubscriptionsRoute: typeof AuthenticatedAdminSubscriptionsRoute
   AuthenticatedAdminTeamRoute: typeof AuthenticatedAdminTeamRoute
-  AuthenticatedAdminTestCasesRoute: typeof AuthenticatedAdminTestCasesRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
 }
 
@@ -1801,7 +1759,6 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminAiProvidersRoute: AuthenticatedAdminAiProvidersRoute,
   AuthenticatedAdminBetaRoute: AuthenticatedAdminBetaRoute,
   AuthenticatedAdminBillingRoute: AuthenticatedAdminBillingRoute,
-  AuthenticatedAdminDemoCasesRoute: AuthenticatedAdminDemoCasesRoute,
   AuthenticatedAdminFeedbackRoute: AuthenticatedAdminFeedbackRoute,
   AuthenticatedAdminLegalCoverageRoute: AuthenticatedAdminLegalCoverageRoute,
   AuthenticatedAdminLegalKnowledgeRoute: AuthenticatedAdminLegalKnowledgeRoute,
@@ -1810,7 +1767,6 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminResetRoute: AuthenticatedAdminResetRoute,
   AuthenticatedAdminSubscriptionsRoute: AuthenticatedAdminSubscriptionsRoute,
   AuthenticatedAdminTeamRoute: AuthenticatedAdminTeamRoute,
-  AuthenticatedAdminTestCasesRoute: AuthenticatedAdminTestCasesRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
 }
 
@@ -1957,13 +1913,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

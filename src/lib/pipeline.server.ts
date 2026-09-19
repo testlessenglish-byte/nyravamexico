@@ -6023,12 +6023,13 @@ async function _runReportInner(args: {
   // runReport() above auto-backfills missing engines first, so this gate
   // only trips when an engine genuinely cannot complete.
   {
-    const { REPORT_REQUIRED_ENGINES, canGenerateReport } = await import("@/lib/execution-state");
+    const { REPORT_REQUIRED_ENGINES, OPTIONAL_ENGINES, canGenerateReport } = await import("@/lib/execution-state");
+    const requiredForPreflight = Array.from(new Set([...REPORT_REQUIRED_ENGINES, ...OPTIONAL_ENGINES]));
     let runsQuery = db
       .from("pipeline_engine_runs")
       .select("id,engine,status,started_at,ended_at,created_at,execution_id")
       .eq("case_id", caseId)
-      .in("engine", REPORT_REQUIRED_ENGINES as unknown as string[]);
+      .in("engine", requiredForPreflight as unknown as string[]);
     if (executionId) {
       runsQuery = runsQuery.eq("execution_id", executionId);
     }
@@ -6051,8 +6052,10 @@ async function _runReportInner(args: {
       pipelineWarnings.push(...gate.missingEnriching.map((e) => `${e}_incomplete`));
     }
     if (!gate.ok) {
+      const blockerDetails = gate.blockers.map(b => `${b.engine} [${b.category}] (${b.status}: ${b.reason})`).join(", ");
+      
       throw new Error(
-        `Pipeline incomplete — cannot generate report. The following core engines failed to complete even after auto-backfill: ${gate.missingBlocking.join(", ")}.`,
+        `Pipeline incomplete — cannot generate report. Preflight gate blocked by: ${blockerDetails}`
       );
     }
 
