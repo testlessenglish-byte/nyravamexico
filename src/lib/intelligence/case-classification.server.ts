@@ -288,8 +288,7 @@ export function classifyCaseFromDocuments(docs: DocInput[]): CaseClassificationR
   // ---- proceeding_type + expediente_number (combined caption) ------------
   const proceedingField = classifyByPattern(
     "proceeding_type",
-  "procedural_system",
-    docs,
+      docs,
     PROCEEDING_CAPTION_PATTERN,
     (raw) => normalizeUpper(raw),
   );
@@ -1024,5 +1023,6 @@ export async function resolveVerifiedProceedingType(
   const identity = await resolveCaseIdentity(db, caseId);
   return identity.proceedingType;
 }
+
 
 
