@@ -2367,14 +2367,15 @@ function renderCover(
         : "Ventaja del Ministerio Público"
       : "";
     const headline = advantage ? `${riskLevel} — ${advantage}` : riskLevel;
-    const perspectiveBase = opts.client ? "Fortaleza de la posición de " + opts.client : "Fortaleza de la posición";
+    const clientName = resolveReportIdentity(data.case).client;
+    const perspectiveBase = clientName ? "Fortaleza de la posición de " + clientName : "Fortaleza de la posición";
     const strengthCaption = isCriminal
       ? `${perspectiveBase} ${strength} / 100 (caso del Ministerio Público; un valor menor favorece a la defensa)  •  Puntuación de riesgo ${risk} / 100`
       : `${perspectiveBase} ${strength} / 100  •  Puntuación de riesgo ${risk} / 100`;
     b.statusBanner(headline, strengthCaption, b.scoreColor(risk, true));
 
     b.gaugeRow([
-      { label: opts.client ? "Fortaleza de la posición" : "Fortaleza de la Posición", value: strength, color: b.scoreColor(strength) },
+      { label: clientName ? "Fortaleza de la posición" : "Fortaleza de la Posición", value: strength, color: b.scoreColor(strength) },
       { label: "Puntuación de Riesgo", value: risk, color: b.scoreColor(risk, true) },
     ]);
   }
