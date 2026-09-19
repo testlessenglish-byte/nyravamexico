@@ -2349,7 +2349,7 @@ function renderCover(
     const scoreObj = asObj(data.score);
     const breakdowns = asObj(scoreObj.dimension_breakdowns);
     const fullReport = asObj(r.full_report);
-    const caseType = asStr(fullReport.case_type) || asStr(breakdowns.case_type) || "general_civil";
+    const caseType = asStr(fullReport.case_type) || asStr(breakdowns.case_type);
     // FIX (2026-07-29): this only checked the retired English case-type
     // keys ("criminal", "civil_rights") — never the actual Mexican
     // taxonomy key "penal" — so isCriminal was always false for every
@@ -3540,7 +3540,7 @@ function renderScorecard(b: PdfBuilder, data: CaseExportData) {
   const report = asObj(data.report);
   const fullReport = asObj(report.full_report);
   const caseType =
-    asStr(fullReport.case_type) || asStr(asObj(breakdowns).case_type) || "general_civil";
+    asStr(fullReport.case_type) || asStr(asObj(breakdowns).case_type);
   const isCriminal = caseType === "penal" || caseType === "criminal" || caseType === "civil_rights";
 
   if (Object.keys(dimensions).length === 0 && !Object.keys(score).length) return;
@@ -4003,7 +4003,7 @@ function renderWorkProduct(b: PdfBuilder, data: CaseExportData) {
 function renderConstitutional(b: PdfBuilder, data: CaseExportData) {
   const r = asObj(data.report);
   const full = asObj(r.full_report);
-  const caseType = asStr(full.case_type) || "general_civil";
+  const caseType = asStr(full.case_type);
   // FIX (2026-07-29): this only checked the retired English case-type keys
   // ("criminal", "civil_rights") — never "penal"/"amparo"/"constitucional",
   // the actual Mexican taxonomy keys pipeline.server.ts's own
@@ -5031,7 +5031,7 @@ function buildSectionPlan(mode: ReportMode): SectionPlan[] {
       title: "Análisis Constitucional",
       gatedInLimited: false,
       available: (d) => {
-        const ct = asStr(asObj(asObj(d.report).full_report).case_type) || "general_civil";
+        const ct = asStr(asObj(asObj(d.report).full_report).case_type);
         // FIX (2026-07-29): same stale-key bug as renderConstitutional's own
         // internal gate (already fixed above) — this OUTER section-plan
         // gate is what actually decides whether the section appears in the

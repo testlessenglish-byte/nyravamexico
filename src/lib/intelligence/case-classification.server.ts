@@ -29,6 +29,7 @@ type Db = SupabaseClient<Database>;
 export const CLASSIFICATION_FIELDS = [
   "case_type",
   "proceeding_type",
+  "procedural_system",
   "procedural_vehicle",
   "underlying_materia",
   "jurisdiction",
@@ -96,6 +97,7 @@ function classifyByPattern(
   docs: DocInput[],
   pattern: RegExp,
   normalize: (raw: string) => string = (s) => s.trim(),
+  searchScope: "full" | "header" = "full",
 ): FieldClassification {
   const hits: Array<{ value: string; source: SourceReference }> = [];
   for (const doc of docs) {
@@ -104,7 +106,8 @@ function classifyByPattern(
       pattern.source,
       pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`,
     );
-    for (const m of doc.extracted_text.matchAll(re)) {
+    const textToSearch = searchScope === "header" ? doc.extracted_text.slice(0, 2500) : doc.extracted_text;
+    for (const m of textToSearch.matchAll(re)) {
       const raw = m[1] ?? m[0];
       const value = normalize(raw);
       if (!value) continue;
@@ -285,7 +288,7 @@ export function classifyCaseFromDocuments(docs: DocInput[]): CaseClassificationR
   // ---- proceeding_type + expediente_number (combined caption) ------------
   const proceedingField = classifyByPattern(
     "proceeding_type",
-    docs,
+      docs,
     PROCEEDING_CAPTION_PATTERN,
     (raw) => normalizeUpper(raw),
   );
@@ -423,7 +426,7 @@ export function classifyCaseFromDocuments(docs: DocInput[]): CaseClassificationR
   }
 
   // ---- court / tribunal ----------------------------------------------------
-  fields.push(classifyByPattern("court", docs, COURT_PATTERN, (raw) => normalizeUpper(raw)));
+  fields.push(classifyByPattern("court", docs, COURT_PATTERN, (raw) => normalizeUpper(raw), "header"));
 
   // ---- concluded_status ----------------------------------------------------
   {
@@ -841,6 +844,7 @@ export async function resolveCaseIdentityUncached(
       .in("field", [
         "case_type",
         "proceeding_type",
+  "procedural_system",
         "procedural_vehicle",
         "underlying_materia",
         "jurisdiction",

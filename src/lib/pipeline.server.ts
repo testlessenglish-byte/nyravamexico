@@ -6337,6 +6337,9 @@ async function _runReportInner(args: {
   const reportUnderlyingMateria = reportIdentity.underlyingMateria;
   // Control constitucional aplica en materia penal, amparo y constitucional.
   const materiaForReport = normalizeMexicanCaseType(caseType);
+  const { data: proceduralSysEvidence } = await (db as any).from("case_classification_evidence").select("value").eq("case_id", caseId).eq("field", "procedural_system").order("created_at", { ascending: false }).limit(1).maybeSingle();
+  const proceduralSystem = (proceduralSysEvidence as any)?.value ?? "accusatory_oral_CNPP";
+  const isTraditional = proceduralSystem === "traditional_written";
   const isCriminalOrCivilRights =
     materiaForReport === "penal" ||
     materiaForReport === "amparo" ||
@@ -6681,7 +6684,7 @@ ${corpus.slice(0, s(160000))}${resolutivoAnchorBlock}${penalDispositionAnchorBlo
     "You are an elite litigation intelligence engine for Mexican attorneys, NOT a summarizer. You produce court-ready work product grounded in the sistema penal acusatorio and Mexican civil procedure." +
     `\nCASE TYPE: ${caseType}. ` +
     (isCriminalOrCivilRights
-      ? "Análisis constitucional y de procedimiento penal SÍ son relevantes cuando el corpus los respalda. Fundamenta en el Art. 20 CPEUM (derechos del imputado y la víctima), el catálogo de prisión preventiva oficiosa del Art. 19 CPEUM, y las reglas de cadena de custodia (Arts. 227-230 CNPP) — nunca en doctrina estadounidense (Miranda, Brady/Giglio, enmiendas constitucionales de EE.UU.)."
+      ? `Análisis constitucional y de procedimiento penal SÍ son relevantes cuando el corpus los respalda. Fundamenta en el Art. 20 CPEUM (derechos del imputado y la víctima), ${isTraditional ? "los códigos procesales penales del sistema mixto/inquisitivo (previos a la reforma de 2008)" : "el catálogo de prisión preventiva oficiosa del Art. 19 CPEUM, y las reglas de cadena de custodia (Arts. 227-230 CNPP)"} — nunca en doctrina estadounidense (Miranda, Brady/Giglio, enmiendas constitucionales de EE.UU.).`
       : "Este NO es un asunto penal ni de derechos humanos por violación de autoridad. NO manufactures cuestiones constitucionales ni recursos de amparo. Regresa arreglos vacíos para `constitutional_issues` y excluye recursos penales de `motion_opportunities`. Concéntrate en el procedimiento civil, ofrecimiento de pruebas, y mociones dispositivas conforme al derecho mexicano.") +
     '\nMANDATORY CITATION RULE: Every factual claim MUST include a `[DOC N p.M]` bracket immediately after a 10–30 word verbatim quote from that page, written as natural prose — the quote goes in the sentence itself, in quotation marks, NOT inside the brackets. Correct: the report states the officer "failed to inspect the equipment" [DOC 3 p.2]. WRONG — never do this: [DOC 3 p.2: "failed to inspect the equipment"]. A claim without a citation is UNVERIFIED and must be rewritten or omitted. No exceptions.' +
     "\nDO NOT duplicate findings already provided — extend them with deeper analysis; do not restate them as new items." +
