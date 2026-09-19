@@ -1,23 +1,23 @@
-// Automatic Case Classification — source-grounded, evidence-gated.
+// Automatic Case Classification â€” source-grounded, evidence-gated.
 //
 // "The user should not have to manually select the case type when the
 // uploaded source documents establish it." Extends the existing
 // deterministic, no-AI-spend detection already used by
 // mx-auto-detect.server.ts (materia via mx-case-classifier.ts, jurisdiction
 // via mx-jurisdiction.ts) with the missing piece: WHY. Every detected field
-// carries the exact document + page + verbatim quote that established it —
+// carries the exact document + page + verbatim quote that established it â€”
 // the same evidence-gating primitives already used by
 // completed-case-audit.server.ts (verifyQuoteDetailed / buildGroundingCorpus
 // / locateQuoteInText / pageForOffset) and citation-verification.server.ts.
 //
-// THE anti-hallucination gate — deterministic, not prompt-based: this
+// THE anti-hallucination gate â€” deterministic, not prompt-based: this
 // module extracts every field with plain regex over the documents' own raw
 // text, never an LLM call. A field is CONFIRMED only when a document was
 // actually matched and the matched span is independently re-locatable in
 // that document's own text (so the "quote" attached is always real, never
 // a paraphrase). Two documents disagreeing produces CONFLICT, showing both.
 // No match anywhere produces INSUFFICIENT_DATA. There is no path that
-// invents a value — see classifyCaseFromDocuments()'s per-field resolution.
+// invents a value â€” see classifyCaseFromDocuments()'s per-field resolution.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { resolveMxCaseType, type MxCaseType } from "@/lib/mx-case-classifier";
@@ -29,6 +29,7 @@ type Db = SupabaseClient<Database>;
 export const CLASSIFICATION_FIELDS = [
   "case_type",
   "proceeding_type",
+  "procedural_system",
   "procedural_vehicle",
   "underlying_materia",
   "jurisdiction",
@@ -56,7 +57,7 @@ export type FieldClassification = {
   value: string | null;
   confidence: number | null;
   source: SourceReference | null;
-  /** Populated only when status === "CONFLICT" — every distinct value seen, each with its own source. Never silently picked. */
+  /** Populated only when status === "CONFLICT" â€” every distinct value seen, each with its own source. Never silently picked. */
   conflicts: Array<{ value: string; source: SourceReference }>;
 };
 
@@ -69,7 +70,7 @@ export type DocInput = { id: string; filename: string; extracted_text: string | 
 const PAGE_CHARS = 3000;
 
 /** Locates `quote` inside `doc.extracted_text` and returns a fully-grounded
- *  SourceReference, or null if the quote isn't actually there — the same
+ *  SourceReference, or null if the quote isn't actually there â€” the same
  *  "never trust a match you can't re-locate" discipline as
  *  completed-case-audit.server.ts's resolveSource(). */
 function ground(doc: DocInput, quote: string): SourceReference | null {
@@ -89,13 +90,14 @@ function ground(doc: DocInput, quote: string): SourceReference | null {
  * extract) against every document, grounding each match. Returns one
  * FieldClassification: INSUFFICIENT_DATA (no matches anywhere), CONFIRMED
  * (every match normalizes to the same value), or CONFLICT (matches
- * disagree — every distinct value shown with its own source).
+ * disagree â€” every distinct value shown with its own source).
  */
 function classifyByPattern(
   field: ClassificationField,
   docs: DocInput[],
   pattern: RegExp,
   normalize: (raw: string) => string = (s) => s.trim(),
+  searchScope: "full" | "header" = "full",
 ): FieldClassification {
   const hits: Array<{ value: string; source: SourceReference }> = [];
   for (const doc of docs) {
@@ -104,14 +106,15 @@ function classifyByPattern(
       pattern.source,
       pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`,
     );
-    for (const m of doc.extracted_text.matchAll(re)) {
+    const textToSearch = searchScope === "header" ? doc.extracted_text.slice(0, 2500) : doc.extracted_text;
+    for (const m of textToSearch.matchAll(re)) {
       const raw = m[1] ?? m[0];
       const value = normalize(raw);
       if (!value) continue;
       // Ground on the FULL matched span (m[0]), not just the captured group,
       // so the quote reads naturally and re-locates reliably.
       const source = ground(doc, m[0]);
-      if (!source) continue; // couldn't independently re-locate — do not trust
+      if (!source) continue; // couldn't independently re-locate â€” do not trust
       hits.push({ value, source });
     }
   }
@@ -142,23 +145,23 @@ function classifyByPattern(
 }
 
 // ---------------------------------------------------------------------------
-// Proceeding type + expediente number — Mexican captions combine both:
-// "AMPARO DIRECTO EN REVISIÓN 3684/2012" IS the proceeding type AND the
+// Proceeding type + expediente number â€” Mexican captions combine both:
+// "AMPARO DIRECTO EN REVISIÃ“N 3684/2012" IS the proceeding type AND the
 // docket number in one string. Ordered most-specific-first so e.g. "AMPARO
-// DIRECTO EN REVISIÓN" matches before the more general "AMPARO DIRECTO".
-// Deliberately NOT exhaustive of every possible Mexican caption — a
+// DIRECTO EN REVISIÃ“N" matches before the more general "AMPARO DIRECTO".
+// Deliberately NOT exhaustive of every possible Mexican caption â€” a
 // reasonable, extensible core covering every materia mx-case-classifier.ts
 // already recognizes; documents whose caption doesn't match any of these
 // correctly fall through to INSUFFICIENT_DATA rather than a guess.
 // ---------------------------------------------------------------------------
 const PROCEEDING_CAPTION_PATTERN =
-  /\b(AMPARO DIRECTO EN REVISI[ÓO]N|AMPARO EN REVISI[ÓO]N|AMPARO DIRECTO|AMPARO INDIRECTO|JUICIO DE AMPARO|CONTROVERSIA CONSTITUCIONAL|ACCI[ÓO]N DE INCONSTITUCIONALIDAD|CARPETA DE INVESTIGACI[ÓO]N|CAUSA PENAL|JUICIO ORAL MERCANTIL|JUICIO EJECUTIVO MERCANTIL|JUICIO ORDINARIO CIVIL|JUICIO ORDINARIO MERCANTIL|JUICIO ORAL FAMILIAR|JUICIO ORDINARIO FAMILIAR|JUICIO LABORAL|JUICIO ORDINARIO LABORAL|JUICIO DE NULIDAD|JUICIO CONTENCIOSO ADMINISTRATIVO|JUICIO AGRARIO|RECURSO DE REVISI[ÓO]N FISCAL|RECURSO DE APELACI[ÓO]N|RECURSO DE QUEJA|RECURSO DE RECLAMACI[ÓO]N)\s+(?:N[ÚU]MERO\s+)?(\d+[A-Z]?(?:\s?BIS)?\s*\/\s*\d{4})/gi;
+  /\b(AMPARO DIRECTO EN REVISI[Ã“O]N|AMPARO EN REVISI[Ã“O]N|AMPARO DIRECTO|AMPARO INDIRECTO|JUICIO DE AMPARO|CONTROVERSIA CONSTITUCIONAL|ACCI[Ã“O]N DE INCONSTITUCIONALIDAD|CARPETA DE INVESTIGACI[Ã“O]N|CAUSA PENAL|JUICIO ORAL MERCANTIL|JUICIO EJECUTIVO MERCANTIL|JUICIO ORDINARIO CIVIL|JUICIO ORDINARIO MERCANTIL|JUICIO ORAL FAMILIAR|JUICIO ORDINARIO FAMILIAR|JUICIO LABORAL|JUICIO ORDINARIO LABORAL|JUICIO DE NULIDAD|JUICIO CONTENCIOSO ADMINISTRATIVO|JUICIO AGRARIO|RECURSO DE REVISI[Ã“O]N FISCAL|RECURSO DE APELACI[Ã“O]N|RECURSO DE QUEJA|RECURSO DE RECLAMACI[Ã“O]N)\s+(?:N[ÃšU]MERO\s+)?(\d+[A-Z]?(?:\s?BIS)?\s*\/\s*\d{4})/gi;
 
 const EXPEDIENTE_STANDALONE_PATTERN =
-  /\bEXPEDIENTE\s+(?:N[ÚU]MERO\s+)?(\d+[A-Z]?(?:\s?BIS)?\s*\/\s*\d{4})\b/gi;
+  /\bEXPEDIENTE\s+(?:N[ÃšU]MERO\s+)?(\d+[A-Z]?(?:\s?BIS)?\s*\/\s*\d{4})\b/gi;
 
 const PENAL_UNDERLYING_PATTERN =
-  /\b(materia\s+penal|proceso\s+penal|causa\s+penal|juicio\s+penal|sentencia\s+penal|averiguaci[óo]n\s+previa|carpeta\s+de\s+investigaci[óo]n|ministerio\s+p[úu]blico|tribunal\s+de\s+enjuiciamiento|juez\s+de\s+control|persona\s+sentenciada)\b/gi;
+  /\b(materia\s+penal|proceso\s+penal|causa\s+penal|juicio\s+penal|sentencia\s+penal|averiguaci[Ã³o]n\s+previa|carpeta\s+de\s+investigaci[Ã³o]n|ministerio\s+p[Ãºu]blico|tribunal\s+de\s+enjuiciamiento|juez\s+de\s+control|persona\s+sentenciada)\b/gi;
 
 export function normalizeProceduralVehicle(value: string): string {
   const normalized = value
@@ -176,24 +179,24 @@ export function normalizeProceduralVehicle(value: string): string {
   return aliases[normalized] ?? normalized;
 }
 
-// Court/tribunal — federal and state-level naming conventions.
+// Court/tribunal â€” federal and state-level naming conventions.
 const COURT_PATTERN =
-  /\b(SUPREMA CORTE DE JUSTICIA DE LA NACI[ÓO]N|TRIBUNAL COLEGIADO[\wÁÉÍÓÚÑ.\s]{0,60}?CIRCUITO|TRIBUNAL DE ALZADA[\wÁÉÍÓÚÑ.\s]{0,40}|JUZGADO[\wÁÉÍÓÚÑ.\s]{0,10}DE DISTRITO[\wÁÉÍÓÚÑ.\s]{0,40}|JUZGADO DE CONTROL[\wÁÉÍÓÚÑ.\s]{0,40}|TRIBUNAL DE ENJUICIAMIENTO[\wÁÉÍÓÚÑ.\s]{0,40}|TRIBUNAL FEDERAL DE JUSTICIA ADMINISTRATIVA|TRIBUNAL UNITARIO AGRARIO[\wÁÉÍÓÚÑ.\s]{0,20}|SALA[\wÁÉÍÓÚÑ.\s]{0,15}DEL TRIBUNAL SUPERIOR DE JUSTICIA[\wÁÉÍÓÚÑ.\s]{0,40}|JUZGADO[\wÁÉÍÓÚÑ.\s]{0,10}DE LO (?:CIVIL|FAMILIAR|PENAL|MERCANTIL|LABORAL)[\wÁÉÍÓÚÑ.\s]{0,40}|TRIBUNAL LABORAL[\wÁÉÍÓÚÑ.\s]{0,40})\b/gi;
+  /\b(SUPREMA CORTE DE JUSTICIA DE LA NACI[Ã“O]N|TRIBUNAL COLEGIADO[\wÃÃ‰ÃÃ“ÃšÃ‘.\s]{0,60}?CIRCUITO|TRIBUNAL DE ALZADA[\wÃÃ‰ÃÃ“ÃšÃ‘.\s]{0,40}|JUZGADO[\wÃÃ‰ÃÃ“ÃšÃ‘.\s]{0,10}DE DISTRITO[\wÃÃ‰ÃÃ“ÃšÃ‘.\s]{0,40}|JUZGADO DE CONTROL[\wÃÃ‰ÃÃ“ÃšÃ‘.\s]{0,40}|TRIBUNAL DE ENJUICIAMIENTO[\wÃÃ‰ÃÃ“ÃšÃ‘.\s]{0,40}|TRIBUNAL FEDERAL DE JUSTICIA ADMINISTRATIVA|TRIBUNAL UNITARIO AGRARIO[\wÃÃ‰ÃÃ“ÃšÃ‘.\s]{0,20}|SALA[\wÃÃ‰ÃÃ“ÃšÃ‘.\s]{0,15}DEL TRIBUNAL SUPERIOR DE JUSTICIA[\wÃÃ‰ÃÃ“ÃšÃ‘.\s]{0,40}|JUZGADO[\wÃÃ‰ÃÃ“ÃšÃ‘.\s]{0,10}DE LO (?:CIVIL|FAMILIAR|PENAL|MERCANTIL|LABORAL)[\wÃÃ‰ÃÃ“ÃšÃ‘.\s]{0,40}|TRIBUNAL LABORAL[\wÃÃ‰ÃÃ“ÃšÃ‘.\s]{0,40})\b/gi;
 
-// Concluded vs ongoing — explicit finality language only; absence proves
+// Concluded vs ongoing â€” explicit finality language only; absence proves
 // nothing either way (see NOT_ESTABLISHED discipline throughout this file).
 const CONCLUDED_PATTERN =
-  /\b(sentencia ejecutoriada|causa ejecutoria|ha causado ejecutoria|cosa juzgada|qued[oó] firme|se sobresee|arch[ií]vese el presente asunto|por unanimidad de votos se resuelve|se declara concluido)\b/gi;
+  /\b(sentencia ejecutoriada|causa ejecutoria|ha causado ejecutoria|cosa juzgada|qued[oÃ³] firme|se sobresee|arch[iÃ­]vese el presente asunto|por unanimidad de votos se resuelve|se declara concluido)\b/gi;
 const ONGOING_PATTERN =
-  /\b(se admite a tr[aá]mite|se cita para audiencia|audiencia programada|queda pendiente de resoluci[oó]n|se otorga plazo|se requiere a las partes)\b/gi;
+  /\b(se admite a tr[aÃ¡]mite|se cita para audiencia|audiencia programada|queda pendiente de resoluci[oÃ³]n|se otorga plazo|se requiere a las partes)\b/gi;
 
-// Parties — labeled-field extraction only (the reliable, unambiguous case).
+// Parties â€” labeled-field extraction only (the reliable, unambiguous case).
 // Deliberately conservative: captures ROLE + the line's content up to a
 // natural boundary, never attempts free-text name recognition anywhere else
 // in the document (that would risk exactly the "invented defendant
 // information" failure mode the completed-case-audit hardening forbids).
 const PARTY_LABEL_PATTERN =
-  /\b(QUEJOS[OA]|TERCERO INTERESADO|AUTORIDAD RESPONSABLE|ACTOR|ACTORA|DEMANDAD[OA]|IMPUTAD[OA]|V[ÍI]CTIMA U OFENDIDO|MINISTERIO P[ÚU]BLICO)\s*:\s*([^\n\r.;]{2,120})/gi;
+  /\b(QUEJOS[OA]|TERCERO INTERESADO|AUTORIDAD RESPONSABLE|ACTOR|ACTORA|DEMANDAD[OA]|IMPUTAD[OA]|V[ÃI]CTIMA U OFENDIDO|MINISTERIO P[ÃšU]BLICO)\s*:\s*([^\n\r.;]{2,120})/gi;
 
 function normalizeUpper(s: string): string {
   return s.replace(/\s+/g, " ").trim().toUpperCase();
@@ -204,14 +207,14 @@ function normalizeUpper(s: string): string {
  * text. Materia (case_type) and jurisdiction reuse the existing tested
  * classifiers (mx-case-classifier.ts / mx-jurisdiction.ts) for the VALUE,
  * but are re-graded here against the same CONFIRMED/CONFLICT/
- * INSUFFICIENT_DATA discipline as every other field — a materia guessed
+ * INSUFFICIENT_DATA discipline as every other field â€” a materia guessed
  * from weak/no signal is INSUFFICIENT_DATA, never silently presented as
  * confirmed.
  */
 export function classifyCaseFromDocuments(docs: DocInput[]): CaseClassificationResult {
   const fields: FieldClassification[] = [];
 
-  // ---- case_type (materia) — reuse the existing deterministic classifier
+  // ---- case_type (materia) â€” reuse the existing deterministic classifier
   // per document, so a genuine disagreement between documents (e.g. a
   // demanda mislabeled among otherwise-amparo documents) surfaces as
   // CONFLICT rather than being averaged away by concatenating everything
@@ -221,7 +224,7 @@ export function classifyCaseFromDocuments(docs: DocInput[]): CaseClassificationR
     for (const doc of docs) {
       if (!doc.extracted_text) continue;
       const c = resolveMxCaseType({ text: doc.extracted_text, declaredArea: null });
-      // classifier.source === "content" with a real confident match only —
+      // classifier.source === "content" with a real confident match only â€”
       // "default" (no signal, fell back to civil) must never count as a hit.
       if (
         c.source === "content" &&
@@ -285,6 +288,7 @@ export function classifyCaseFromDocuments(docs: DocInput[]): CaseClassificationR
   // ---- proceeding_type + expediente_number (combined caption) ------------
   const proceedingField = classifyByPattern(
     "proceeding_type",
+  "procedural_system",
     docs,
     PROCEEDING_CAPTION_PATTERN,
     (raw) => normalizeUpper(raw),
@@ -341,14 +345,14 @@ export function classifyCaseFromDocuments(docs: DocInput[]): CaseClassificationR
     classifyByPattern("underlying_materia", docs, PENAL_UNDERLYING_PATTERN, () => "penal"),
   );
 
-  // ---- jurisdiction — reuse buildJurisdictionProfile per document for the
+  // ---- jurisdiction â€” reuse buildJurisdictionProfile per document for the
   // VALUE (already deterministic, keyword-based, tested); grounding is
   // best-effort since that module doesn't expose which phrase matched.
   // buildJurisdictionProfile requires a resolvable materia (it throws on
-  // null/unrecognized — see requireMexicanCaseType) purely to pick a
+  // null/unrecognized â€” see requireMexicanCaseType) purely to pick a
   // fuero-tiebreak default; it does not change whether jurisdiction_level
   // itself is corpus-detected. Use the case_type already resolved above
-  // when CONFIRMED, otherwise an arbitrary neutral materia — never let a
+  // when CONFIRMED, otherwise an arbitrary neutral materia â€” never let a
   // still-unresolved case_type block jurisdiction detection.
   {
     const materiaForProfile =
@@ -390,7 +394,7 @@ export function classifyCaseFromDocuments(docs: DocInput[]): CaseClassificationR
           status: "CONFIRMED",
           value: perDoc[0].value === "federal" ? "Federal" : "Estatal",
           confidence: 0.7,
-          // No pinpointed quote available from buildJurisdictionProfile —
+          // No pinpointed quote available from buildJurisdictionProfile â€”
           // still a real, deterministic, corpus-based detection, just
           // without a page reference (spec: quote/page "when available").
           source: {
@@ -423,7 +427,7 @@ export function classifyCaseFromDocuments(docs: DocInput[]): CaseClassificationR
   }
 
   // ---- court / tribunal ----------------------------------------------------
-  fields.push(classifyByPattern("court", docs, COURT_PATTERN, (raw) => normalizeUpper(raw)));
+  fields.push(classifyByPattern("court", docs, COURT_PATTERN, (raw) => normalizeUpper(raw), "header"));
 
   // ---- concluded_status ----------------------------------------------------
   {
@@ -440,7 +444,7 @@ export function classifyCaseFromDocuments(docs: DocInput[]): CaseClassificationR
       fields.push(ongoing);
     } else if (concluded.status === "CONFIRMED" && ongoing.status === "CONFIRMED") {
       // Both finality and ongoing-proceeding language appear (e.g. a
-      // concluded lower-instance ruling inside a case still on appeal) —
+      // concluded lower-instance ruling inside a case still on appeal) â€”
       // a genuine conflict, not a coin-flip.
       fields.push({
         field: "concluded_status",
@@ -465,7 +469,7 @@ export function classifyCaseFromDocuments(docs: DocInput[]): CaseClassificationR
     }
   }
 
-  // ---- parties (labeled fields only — see PARTY_LABEL_PATTERN doc comment) -
+  // ---- parties (labeled fields only â€” see PARTY_LABEL_PATTERN doc comment) -
   {
     const found: Array<{ role: string; name: string; source: SourceReference }> = [];
     for (const doc of docs) {
@@ -489,7 +493,7 @@ export function classifyCaseFromDocuments(docs: DocInput[]): CaseClassificationR
         conflicts: [],
       });
     } else {
-      // Parties are inherently multi-valued (several roles per case) — not a
+      // Parties are inherently multi-valued (several roles per case) â€” not a
       // single-value CONFIRMED/CONFLICT field like the others. Represent as
       // CONFIRMED with a JSON-encoded value listing every labeled party
       // found, sourced to its own first occurrence.
@@ -505,10 +509,10 @@ export function classifyCaseFromDocuments(docs: DocInput[]): CaseClassificationR
     }
   }
 
-  // ---- matter / procedural_stage — no reliable deterministic pattern exists
+  // ---- matter / procedural_stage â€” no reliable deterministic pattern exists
   // yet for these two (they're the most free-text-dependent fields). Rather
   // than guess, they are explicitly INSUFFICIENT_DATA until a real pattern
-  // set is developed — matching the "do not guess" mandate over false
+  // set is developed â€” matching the "do not guess" mandate over false
   // completeness.
   fields.push({
     field: "matter",
@@ -533,7 +537,7 @@ export function classifyCaseFromDocuments(docs: DocInput[]): CaseClassificationR
 /**
  * Runs classification for one case and persists the evidence trail. Also
  * updates cases.case_type/jurisdiction/case_type_source/
- * case_type_verification_status — but ONLY when the case has not been
+ * case_type_verification_status â€” but ONLY when the case has not been
  * manually overridden away from a prior source-confirmed value (see
  * resolveVerifiedCaseType below for the read-side guarantee that a
  * verified classification is never silently replaced by this write path
@@ -553,7 +557,7 @@ export async function runCaseClassification(
 
   const result = classifyCaseFromDocuments(docs);
 
-  // Delete-then-insert per field, scoped to this case only — a fresh run
+  // Delete-then-insert per field, scoped to this case only â€” a fresh run
   // (new documents added) replaces prior evidence rather than accumulating
   // stale rows alongside current ones.
   await (db as any).from("case_classification_evidence").delete().eq("case_id", caseId);
@@ -574,7 +578,7 @@ export async function runCaseClassification(
     if (error) console.error("[case-classification] evidence insert failed", error);
   }
 
-  // ---- Sync cases.case_type / jurisdiction — never overwrites a value the
+  // ---- Sync cases.case_type / jurisdiction â€” never overwrites a value the
   // attorney manually set to something OTHER than a prior source-confirmed
   // classification (case_type_source === 'manual_override' /
   // 'manual_override_conflicting'). This is the write-side half of
@@ -624,7 +628,7 @@ export async function runCaseClassification(
 
   // STALE-ARTIFACT INVALIDATION (Fix instructions Step 5): true only when
   // this run is about to WRITE a case_type value that actually DIFFERS from
-  // what was there before — not merely re-confirming the same value. The
+  // what was there before â€” not merely re-confirming the same value. The
   // "Day 1 generated as administrativo, Day 2 corpus-corrected to amparo,
   // stale report still served" scenario this closes.
   const caseTypeActuallyChanged =
@@ -664,23 +668,23 @@ export async function runCaseClassification(
   }
 
   // Generalizes updateCaseSettings' caseTypeChanged reset (cases.functions.ts)
-  // — a manual case_type edit already triggers a full derived-data reset so
+  // â€” a manual case_type edit already triggers a full derived-data reset so
   // stale findings/reports generated under the old materia never survive.
   // This is the SAME invalidation, fired from the AUTOMATIC classification
   // write path above, which previously had none at all: every downstream
   // artifact (findings, agent output, procedural-compliance checklist,
   // recommendations) generated under a wrong/stale materia stayed in place
   // and resume/rerun treated it as "already done." Reuses
-  // clearCaseDerivedData — the exact same table-deletion list as the
-  // manual-edit path — so this can never drift from it for DERIVED rows.
+  // clearCaseDerivedData â€” the exact same table-deletion list as the
+  // manual-edit path â€” so this can never drift from it for DERIVED rows.
   //
   // DELIBERATELY NARROWER than the manual-edit path for cases.* column
-  // resets: uses CASE_TYPE_CORRECTION_RESET_FIELDS, not CASE_RESET_FIELDS —
+  // resets: uses CASE_TYPE_CORRECTION_RESET_FIELDS, not CASE_RESET_FIELDS â€”
   // extraction is materia-independent, so this must never invalidate
   // extracted_at/extraction_report. CONFIRMED LIVE (ADR-4640-2017-180212):
   // reusing the full CASE_RESET_FIELDS here sent a case back to the
   // "extraction" stage on every automatic reclassification that disagreed
-  // with an unlocked declared value — for a materia-ambiguous document that
+  // with an unlocked declared value â€” for a materia-ambiguous document that
   // can fire on every run, producing exactly the "keeps getting stuck then
   // going back to extraction and never completes" symptom.
   if (caseTypeActuallyChanged) {
@@ -700,7 +704,7 @@ export async function runCaseClassification(
   // Unconditional (not just when caseTypeActuallyChanged): case_classification_evidence
   // is delete+re-inserted on every call, so even a same-value reconfirmation
   // changes what resolveCaseIdentity would compute (e.g. declared/unverified
-  // -> verified/source_confirmed) — any earlier-cached identity for this
+  // -> verified/source_confirmed) â€” any earlier-cached identity for this
   // case within the current db instance's lifetime must not survive this.
   // See invalidateCaseIdentity's doc comment for the exact bug this closes.
   invalidateCaseIdentity(db, caseId);
@@ -719,48 +723,48 @@ export async function runCaseClassification(
 }
 
 // -----------------------------------------------------------------------------
-// resolveCaseIdentity — THE single authoritative case-identity resolver.
+// resolveCaseIdentity â€” THE single authoritative case-identity resolver.
 //
 // Fixes two bugs at once (see case-identity.ts's header comment and the
 // "Fix the Verified Case Identity Architecture" instructions doc for the
 // full diagnosis):
 //
 // 1. INTEGRATION BYPASS: the old resolveVerifiedCaseType() below was
-//    correct in principle but had ~0 real callers — ~9 legal-reasoning call
+//    correct in principle but had ~0 real callers â€” ~9 legal-reasoning call
 //    sites (analyzer stage, scoring, jurisdiction intel, legal QA, case-law
 //    attachment, cross-domain activation, the report writer) all read raw
 //    cases.case_type directly instead. A stale/wrong value in that column
 //    propagated unchecked through the entire pipeline.
 // 2. PRECEDENCE BUG: even if wired in, the old function checked CONFIRMED
 //    evidence BEFORE checking whether the attorney had manually locked
-//    case_type to something else — wiring it in as-is would have silently
+//    case_type to something else â€” wiring it in as-is would have silently
 //    overridden an attorney's deliberate choice, a new bug replacing the
 //    old one. This version checks the manual lock first.
 //
 // Precedence (first match wins, no fallthrough past a match):
 //   1. Manual lock (case_type_source is manual_override/
 //      manual_override_conflicting) AND CONFIRMED evidence disagrees with
-//      it -> "conflict". caseType is null — a conflicted identity is never
+//      it -> "conflict". caseType is null â€” a conflicted identity is never
 //      usable for legal reasoning (see isUsableForLegalReasoning). Neither
 //      value is silently picked.
 //   2. Manual lock, no disagreeing CONFIRMED evidence -> "attorney_locked".
-//      Treated as authoritative — the attorney's choice always wins over a
+//      Treated as authoritative â€” the attorney's choice always wins over a
 //      merely-absent or agreeing classification.
 //   3. CONFIRMED evidence (not manually locked) -> "verified".
 //   4. A declared cases.case_type with no CONFIRMED evidence yet ->
 //      "unverified" (still returned so a caller that only wants "is
 //      anything declared" can still see it, but the status tells legal-
-//      reasoning consumers not to trust it — see isUsableForLegalReasoning).
+//      reasoning consumers not to trust it â€” see isUsableForLegalReasoning).
 //   5. Nothing at all -> "unverified", caseType null.
 //   Any thrown error anywhere in resolution -> "failed", caseType null,
 //   logged via console.error (never swallowed silently).
 //
 // proceedingType and jurisdiction are folded into the same returned object.
 // proceedingType has no declared/manual fallback (cases.case_type is a
-// materia field, not a proceeding-type field — nothing to fall back to,
+// materia field, not a proceeding-type field â€” nothing to fall back to,
 // same as the original resolveVerifiedProceedingType). jurisdiction has a
 // declared/confirmed precedence like case_type, but no attorney-lock
-// concept — there is no jurisdiction_source column.
+// concept â€” there is no jurisdiction_source column.
 // -----------------------------------------------------------------------------
 import type { VerifiedCaseIdentity, CaseIdentityEvidence } from "./case-identity";
 
@@ -810,7 +814,7 @@ function emptyIdentity(caseId: string): VerifiedCaseIdentity {
   };
 }
 
-/** The uncached resolution logic — see resolveCaseIdentity() below for the
+/** The uncached resolution logic â€” see resolveCaseIdentity() below for the
  *  memoized, public entry point every caller should actually use. */
 export async function resolveCaseIdentityUncached(
   db: Db,
@@ -841,6 +845,7 @@ export async function resolveCaseIdentityUncached(
       .in("field", [
         "case_type",
         "proceeding_type",
+  "procedural_system",
         "procedural_vehicle",
         "underlying_materia",
         "jurisdiction",
@@ -934,13 +939,13 @@ export async function resolveCaseIdentityUncached(
 }
 
 // Memoized per (db instance, caseId) for the lifetime of a single pipeline
-// run/request — "resolved once, consumed everywhere" without threading a
+// run/request â€” "resolved once, consumed everywhere" without threading a
 // context object through every function signature in the codebase.
 // Concurrent calls for the same case within one run share the same
 // in-flight promise instead of hitting the DB N times.
 const identityCache = new WeakMap<Db, Map<string, Promise<VerifiedCaseIdentity>>>();
 
-/** THE canonical entry point every legal-reasoning consumer must use —
+/** THE canonical entry point every legal-reasoning consumer must use â€”
  *  see case-identity.ts and isUsableForLegalReasoning(). */
 export async function resolveCaseIdentity(db: Db, caseId: string): Promise<VerifiedCaseIdentity> {
   let perDb = identityCache.get(db);
@@ -956,11 +961,11 @@ export async function resolveCaseIdentity(db: Db, caseId: string): Promise<Verif
   return pending;
 }
 
-/** Invalidates the cached identity for a single case — must be called
+/** Invalidates the cached identity for a single case â€” must be called
  *  whenever code writes fresh case_type/case_classification_evidence data
  *  for a case, since resolveCaseIdentity's memoization has no way to detect
  *  that the underlying data it already resolved has since changed. See
- *  runCaseClassification's call below — the bug this closes: a caller
+ *  runCaseClassification's call below â€” the bug this closes: a caller
  *  earlier in the SAME pipeline run/request (e.g. a practice-area gate that
  *  runs before autoDetectCaseContext) resolves and caches an unverified/
  *  unknown identity before classification has written its evidence;
@@ -973,7 +978,7 @@ export function invalidateCaseIdentity(db: Db, caseId: string): void {
 
 /** Test-only: clears every cached identity for a db instance (broader than
  *  invalidateCaseIdentity) so tests aren't polluted by stale cached
- *  identities across test cases sharing a mock db. Guarded by name — only
+ *  identities across test cases sharing a mock db. Guarded by name â€” only
  *  ever call this from a __tests__ file. */
 export function __clearCaseIdentityCacheForTests(db: Db): void {
   identityCache.delete(db);
@@ -983,10 +988,10 @@ export function __clearCaseIdentityCacheForTests(db: Db): void {
  * Read-side guarantee for downstream engines: prefer the source-confirmed
  * materia over cases.case_type when the two actually disagree (an attorney
  * override that conflicts with a CONFIRMED classification). Falls back to
- * cases.case_type in every other case — including when there is no
+ * cases.case_type in every other case â€” including when there is no
  * evidence yet, so this is always safe to call unconditionally.
  *
- * Thin backward-compatible wrapper over resolveCaseIdentity() — kept for
+ * Thin backward-compatible wrapper over resolveCaseIdentity() â€” kept for
  * any caller not yet migrated to the richer identity object. New callers
  * must use resolveCaseIdentity() directly, never this.
  */
@@ -998,17 +1003,17 @@ export async function resolveVerifiedCaseType(db: Db, caseId: string): Promise<s
 /**
  * Read-side guarantee for the PROCEDURAL TYPE LOCK: the verbatim,
  * source-confirmed proceeding type/caption (e.g. "AMPARO DIRECTO EN
- * REVISIÓN") — a strictly narrower, procedural-stage-specific fact than
+ * REVISIÃ“N") â€” a strictly narrower, procedural-stage-specific fact than
  * case_type/materia ("amparo"). Unlike resolveVerifiedCaseType, there is no
  * declared/manual fallback: cases.case_type is a materia field, not a
  * proceeding-type field, so there is nothing to fall back to. Returns null
- * whenever the corpus does not CONFIRM a specific proceeding caption —
+ * whenever the corpus does not CONFIRM a specific proceeding caption â€”
  * callers must never fabricate a procedural stage from case_type alone.
  * See getProceduralTypeLock() in case-analysis-mode.ts, which turns this
  * into the hard-constraint preamble injected into every analyzer/agent/chat
  * prompt.
  *
- * Thin backward-compatible wrapper over resolveCaseIdentity() — kept for
+ * Thin backward-compatible wrapper over resolveCaseIdentity() â€” kept for
  * any caller not yet migrated. New callers must use resolveCaseIdentity()
  * directly, never this.
  */
@@ -1019,3 +1024,5 @@ export async function resolveVerifiedProceedingType(
   const identity = await resolveCaseIdentity(db, caseId);
   return identity.proceedingType;
 }
+
+

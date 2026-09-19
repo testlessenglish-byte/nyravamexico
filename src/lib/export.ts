@@ -7,7 +7,7 @@ import { prepareCaseJsonExport } from "./reporting/case-json-export";
 // `downloadPdf` produces an attorney-grade litigation work product: cover,
 // executive summary, deterministic scorecard, evidence map, contradictions,
 // constitutional analysis, witness intelligence, theories, strategy, audit
-// trail, and source appendix. Raw JSON is never exposed to the user — every
+// trail, and source appendix. Raw JSON is never exposed to the user â€” every
 // internal structure is rendered as readable prose, tables, or callouts.
 import jsPDF from "jspdf";
 import { composeFinalReportPayload, releaseFinalReportPayload, releaseRenderedReportOutput, type FinalReportPayload } from "./reporting/final-report-contract";
@@ -49,7 +49,7 @@ import {
 } from "@/lib/intelligence/canonical";
 import { getApplicableSections, normalizePracticeArea } from "@/lib/intelligence/practice-areas";
 // Same derivation module the in-app Report tab uses
-// (src/components/LitigationImpactDashboard.tsx) — single source of truth
+// (src/components/LitigationImpactDashboard.tsx) â€” single source of truth
 // so the PDF export and the live report can never disagree about
 // what a card says or which cards exist for a given case.
 import {
@@ -59,7 +59,7 @@ import {
 import { MX_PARTY_ROLES, mxProfileOrNull, mxRoleLabel } from "@/lib/execution/mx-pipeline";
 import { filterExecutiveDashboardEligible } from "@/lib/intelligence/judicial-hierarchy";
 
-// Report Engine v1.0 — frozen release identifier surfaced on every PDF footer.
+// Report Engine v1.0 â€” frozen release identifier surfaced on every PDF footer.
 // The structure, section order, and scoring formulas are locked; only bug
 // fixes, factual accuracy, citation, and formatting improvements are allowed.
 // See docs/RELEASE-REPORT-ENGINE-v1.0.md and docs/FREEZE.md.
@@ -79,37 +79,37 @@ const LEGAL_MODE: boolean =
   ).toLowerCase() === "true";
 
 // PDF-safe text scrubber. jsPDF's bundled Helvetica is a WinAnsi (Latin-1)
-// font; characters like Σ, ×, ≥, → render as garbage glyphs (e.g. "£("). We
+// font; characters like Î£, Ã—, â‰¥, â†’ render as garbage glyphs (e.g. "Â£("). We
 // normalise to ASCII equivalents so reports never display corrupted math.
 function pdfSafe(s: string): string {
   if (!s) return s;
   return (
     s
-      .replace(/Σ/g, "sum")
-      .replace(/×/g, "x")
-      .replace(/÷/g, "/")
-      .replace(/≥/g, ">=")
-      .replace(/≤/g, "<=")
-      .replace(/≠/g, "!=")
-      .replace(/→/g, "->")
-      .replace(/←/g, "<-")
-      .replace(/–|—/g, "-")
-      .replace(/“|”/g, '"')
-      .replace(/‘|’/g, "'")
-      .replace(/•/g, "*")
-      .replace(/·/g, "-")
+      .replace(/Î£/g, "sum")
+      .replace(/Ã—/g, "x")
+      .replace(/Ã·/g, "/")
+      .replace(/â‰¥/g, ">=")
+      .replace(/â‰¤/g, "<=")
+      .replace(/â‰ /g, "!=")
+      .replace(/â†’/g, "->")
+      .replace(/â†/g, "<-")
+      .replace(/â€“|â€”/g, "-")
+      .replace(/â€œ|â€/g, '"')
+      .replace(/â€˜|â€™/g, "'")
+      .replace(/â€¢/g, "*")
+      .replace(/Â·/g, "-")
       // Normalize every other Unicode hyphen/dash/minus variant (hyphen
       // U+2010, non-breaking hyphen U+2011, figure dash U+2012, horizontal
       // bar U+2015, minus sign U+2212, etc.) to a plain ASCII hyphen BEFORE
       // the catch-all strip below deletes them. These aren't covered by the
       // em/en-dash replace above, so LLM prose using them for compound
-      // terms — "chain‑of‑custody", "body‑camera", "three‑minute" — had the
+      // terms â€” "chainâ€‘ofâ€‘custody", "bodyâ€‘camera", "threeâ€‘minute" â€” had the
       // separator character deleted outright with no replacement, silently
       // gluing the words into "chainofcustody", "bodycamera", "threeminute"
       // throughout the report.
       .replace(/[\u2010-\u2015\u2212]/g, "-")
       // Drop any remaining non-Latin1 codepoints so jsPDF never emits the
-      // currency-glyph fallback that produced the "£(" bug.
+      // currency-glyph fallback that produced the "Â£(" bug.
       .replace(/[^\x00-\xFF]/g, "")
   );
 }
@@ -128,7 +128,7 @@ function classifyFindingForPdf(text: string, hasEvidence: boolean): string {
 // "...an appeal risk of well-supported [DOC well-supported p.2]." instead of
 // "...an appeal risk of well-supported [DOC 1 p.2]." This is a pipeline bug
 // upstream of export.ts (wherever that prose string is generated), not an
-// export-layer bug — but export.ts is the last place that can guarantee a
+// export-layer bug â€” but export.ts is the last place that can guarantee a
 // broken citation never reaches a printed PDF, so it is scrubbed here as a
 // safety net. This is generic pattern-matching (any "[DOC <non-numeric>...]"
 // citation), not hardcoded to this case or this specific label.
@@ -136,11 +136,11 @@ function scrubMalformedCitations(s: string): string {
   if (!s) return s;
   return (
     s
-      // Drop only the invalid bracket itself — a citation whose "doc id" slot
+      // Drop only the invalid bracket itself â€” a citation whose "doc id" slot
       // does not start with a digit (e.g. "[DOC well-supported p.2]"). The
       // word(s) preceding the bracket are left untouched, since they are the
       // actual intended content (e.g. "well-supported" describing the appeal
-      // risk) — only the bogus citation attached to them is malformed.
+      // risk) â€” only the bogus citation attached to them is malformed.
       .replace(/\s*\[DOC\s+(?!\d)[^\]]*\]/gi, "")
       .replace(/\s{2,}/g, " ")
       .replace(/\s+([.,;:])/g, "$1")
@@ -154,13 +154,13 @@ function scrubMalformedCitations(s: string): string {
 // with inline pinpoint citations like "[DOC 6 p.2; DOC 52 p.1]" so the
 // hallucination-verification pass upstream can check every claim against a
 // real source. That format is exactly right for verification and exactly
-// wrong for a document an attorney is meant to read — "DOC 6" means nothing
+// wrong for a document an attorney is meant to read â€” "DOC 6" means nothing
 // to them, and a citation bracket every sentence breaks the memorandum voice
 // the rest of the report is trying for. This section resolves those
 // brackets against the actual document titles and renders them either as
 // numbered footnotes (attorney mode, default) collected into an "Evidence
 // Sources" appendix, or as inline human-readable citations naming the real
-// document and page (audit mode) — never as raw "DOC N".
+// document and page (audit mode) â€” never as raw "DOC N".
 
 export type CitationMode = "attorney" | "audit";
 
@@ -168,9 +168,9 @@ type CitationFootnote = { n: number; label: string };
 
 // Ambient per-export state. Export functions are synchronous, single-user,
 // and never re-entrant/interleaved (downloadPdf each run start
-// to finish before another export can begin), so a module-level context —
+// to finish before another export can begin), so a module-level context â€”
 // the same ambient pattern already used for AI user scope elsewhere in this
-// codebase — is safe here and avoids threading a context object through
+// codebase â€” is safe here and avoids threading a context object through
 // every one of the ~30 render functions that touch report prose.
 let _citationMode: CitationMode = "attorney";
 let _docTitleMap: Map<number, string> = new Map();
@@ -196,11 +196,11 @@ function buildDocTitleMap(data: CaseExportData): Map<number, string> {
   return map;
 }
 
-// Findings/evidence-intelligence rows carry a raw `document_id`/`doc_id` —
-// the documents table's UUID primary key — as their pointer back to the
+// Findings/evidence-intelligence rows carry a raw `document_id`/`doc_id` â€”
+// the documents table's UUID primary key â€” as their pointer back to the
 // source file, not the sequential "DOC N" index used in generated prose.
 // Several render call sites fell back to printing that UUID directly (e.g.
-// "Evidence: ... — a46fe542-88bf-4607-8d8b-d3e043aefded") whenever a
+// "Evidence: ... â€” a46fe542-88bf-4607-8d8b-d3e043aefded") whenever a
 // human-readable filename wasn't already present on the row. Build the
 // UUID -> title map once here so every such fallback resolves to the real
 // document name instead of an opaque internal id.
@@ -236,7 +236,7 @@ function resolveDocTitleByUuid(id: unknown): string | null {
   return _docTitleByUuid.get(s) ?? null;
 }
 
-/** Human label for a single (doc_n, page) pair used by structured citation objects — replaces raw "DOC N p.M". */
+/** Human label for a single (doc_n, page) pair used by structured citation objects â€” replaces raw "DOC N p.M". */
 function citeLabel(docN: unknown, page: unknown): string {
   const title = resolveDocTitle(docN);
   const pg = asStr(page);
@@ -245,16 +245,16 @@ function citeLabel(docN: unknown, page: unknown): string {
 }
 
 // Matches a full inline citation bracket: "[DOC 6 p.2; DOC 52 p.1]",
-// "[DOC 17 p.1, DOC 19 p.1]", or a page-less "[DOC 5]" — both `,` and `;`
+// "[DOC 17 p.1, DOC 19 p.1]", or a page-less "[DOC 5]" â€” both `,` and `;`
 // separators appear in generated prose. Also tolerates a leaked
-// "[DOC 6 p.1: \"verbatim quote\"]" variant — the model is instructed not to
+// "[DOC 6 p.1: \"verbatim quote\"]" variant â€” the model is instructed not to
 // embed quotes inside the bracket (see MANDATORY CITATION RULE in
 // pipeline.server.ts), but when it does anyway, this still needs to match
 // the whole bracket so the embedded quote gets stripped here rather than
 // silently passing through into the printed report (this is exactly what
 // was inflating report length: the old regex didn't match this variant at
-// all, so the bracket — quote included — fell straight through untouched).
-const QUOTED_SUFFIX = /(?:\s*:\s*["“][^"”]{0,400}?["”])?/.source;
+// all, so the bracket â€” quote included â€” fell straight through untouched).
+const QUOTED_SUFFIX = /(?:\s*:\s*["â€œ][^"â€]{0,400}?["â€])?/.source;
 const CITATION_BRACKET = new RegExp(
   `\\[\\s*DOC\\s+\\d+(?:\\s*p\\.\\s*\\d+)?${QUOTED_SUFFIX}(?:\\s*[,;]\\s*DOC\\s+\\d+(?:\\s*p\\.\\s*\\d+)?${QUOTED_SUFFIX})*\\s*\\]`,
   "gi",
@@ -310,7 +310,7 @@ function processProseCitations(raw: string): string {
  * on render order (some sections' `available()` checks call reportText and
  * would populate footnotes as a side effect during queue computation; others,
  * like the executive summary, only touch reportText during the later render
- * pass) — a real ordering hazard. Running every key up front makes footnote
+ * pass) â€” a real ordering hazard. Running every key up front makes footnote
  * population complete and order-independent before anything downstream
  * decides what to render. Safe to call multiple times: footnote assignment
  * is idempotent (deduped by exact doc/page set).
@@ -352,7 +352,7 @@ export interface CaseExportData {
   agent_logs?: Array<Record<string, unknown>>;
   pipeline_runs?: Array<Record<string, unknown>>;
   // Completed Case Audit / Outcome Assessment (completed-case-audit.server.ts,
-  // public.case_outcome_assessments) — a source-verified "second pair of
+  // public.case_outcome_assessments) â€” a source-verified "second pair of
   // eyes" review that runs after the main pipeline for every
   // case_analysis_mode !== "ongoing". null when the case is in ongoing mode,
   // the audit hasn't run yet, or it failed non-fatally.
@@ -382,7 +382,7 @@ type Pdf = jsPDF & { lastAutoTable?: { finalY: number } };
 
 // ---- Design tokens (report redesign) ---------------------------------
 // Print-oriented palette: deep violet + amber accent on a soft
-// lavender-white sheet. Deliberately not pure white / cool slate — the
+// lavender-white sheet. Deliberately not pure white / cool slate â€” the
 // tinted paper tone is what makes the export read as a designed legal
 // document rather than a browser printout.
 const PAGE_BG: [number, number, number] = [249, 247, 253]; // soft lavender-white sheet
@@ -402,12 +402,12 @@ const CARD_BG: [number, number, number] = [255, 255, 255]; // card fill pops on 
 const CARD_BORDER: [number, number, number] = [230, 225, 242]; // card border
 
 // Generic (non-case-type-specific) severity-tier grouping used to give
-// Key Findings a visual hierarchy — critical items read as clearly more
+// Key Findings a visual hierarchy â€” critical items read as clearly more
 // urgent than a minor discrepancy, instead of a flat list where every
 // finding gets equal visual weight regardless of severity. Buckets are
 // deliberately generic ("Critical" / "High-Priority" / etc.) rather than
 // domain labels like "Constitutional Issues", because this report type
-// runs across criminal, civil, family, employment, and other case types —
+// runs across criminal, civil, family, employment, and other case types â€”
 // a fixed domain-specific taxonomy would be wrong for most of them.
 const SEVERITY_TIERS: Array<{ key: string; label: string; color: [number, number, number] }> = [
   { key: "critical", label: "Critical Issues", color: DANGER },
@@ -425,7 +425,7 @@ function severityTierKey(sev: string): string {
 }
 
 // Confidence, expressed as a word instead of forcing the reader to parse
-// a raw 0–1 decimal against an unstated scale.
+// a raw 0â€“1 decimal against an unstated scale.
 function confidenceLabel(confidence: number): string {
   if (confidence >= 0.8) return "High";
   if (confidence >= 0.5) return "Medium";
@@ -435,7 +435,7 @@ function confidenceLabel(confidence: number): string {
 // "Evidence strength" is a distinct signal from model confidence: it asks
 // how much of the case corpus actually backs the finding (source count),
 // not just how sure the classifier was. A finding can carry high model
-// confidence off a single document (still fragile — one bad document
+// confidence off a single document (still fragile â€” one bad document
 // away from falling apart) or be backed by several independent sources
 // (much harder to dislodge at a hearing). Combining both avoids either
 // number overstating reliability on its own.
@@ -448,7 +448,7 @@ function evidenceStrengthLabel(
   return { label: rt("Limited"), color: DANGER };
 }
 
-// Distinct source documents actually cited in a finding's evidence_refs —
+// Distinct source documents actually cited in a finding's evidence_refs â€”
 // count canonical IDs only; unresolved citations cannot add sources.
 function findingSourceCount(refs: Array<Record<string, unknown>>): number {
   return canonicalSourceCount(refs);
@@ -464,7 +464,7 @@ function renderDecisionCore(b: PdfBuilder, data: CaseExportData) {
   for (const section of presentation(data).decision_sections) {
     b.h2(section.title);
     b.text(section.text, { size: 12, bold: true, gap: 5 });
-    b.text(section.speaker_label + " · " + section.speaker_role, { size: 9, color: MUTED, gap: 5 });
+    b.text(section.speaker_label + " Â· " + section.speaker_role, { size: 9, color: MUTED, gap: 5 });
   }
 }
 
@@ -476,7 +476,7 @@ const SHIELD_DARK: [number, number, number] = [91, 33, 182]; // brand violet pla
 // only ever produces a continuation page (page 1 exists before any
 // addPage() call), so content on those pages is laid out starting below
 // this reserved band, and header() paints into that same band as a
-// post-pass over every page — the same pattern footer() already uses.
+// post-pass over every page â€” the same pattern footer() already uses.
 const CONTINUATION_HEADER_H = 50;
 
 // jsPDF has no letter-spacing control; inserting thin gaps between
@@ -499,7 +499,7 @@ function asObj(v: unknown): Record<string, unknown> {
 }
 // Every canonical.ts helper (getScores, getAgentSummary, getEssState, etc.)
 // takes the raw `reports` row. Centralize that extraction so every call
-// site reads the exact same object — no per-function re-derivation.
+// site reads the exact same object â€” no per-function re-derivation.
 function getReportRow(data: CaseExportData): Record<string, unknown> {
   return (data.report ?? {}) as Record<string, unknown>;
 }
@@ -507,12 +507,12 @@ function getReportRow(data: CaseExportData): Record<string, unknown> {
 /**
  * Whether this report's cover/footer may claim "evidence-grounded,
  * citation-audited" language. Previously this text printed unconditionally
- * on every report regardless of mode or verification outcome — including a
+ * on every report regardless of mode or verification outcome â€” including a
  * confirmed production case with zero findings, a failed inner release
  * gate, and QA/Judge/Hallucination explicitly rejecting the run.
  *
- * Derived from data.agent_logs — the same 13-agent audit rows the pipeline
- * already writes (see agents/orchestrator.server.ts) — rather than from
+ * Derived from data.agent_logs â€” the same 13-agent audit rows the pipeline
+ * already writes (see agents/orchestrator.server.ts) â€” rather than from
  * report_mode alone, per the explicit requirement that FULL/LIMITED mode is
  * not sufficient on its own: a report can be nominally FULL while its
  * citation/QA/Judge/Hallucination gate still failed.
@@ -545,7 +545,7 @@ export function deriveCertificationState(data: CaseExportData): CertificationSta
 const CERTIFICATION_TAGLINE: Record<CertificationState, string> = {
   verified:
     "Evidence-grounded. Citation-audited. Built for sensitive legal intelligence workflows.",
-  unverified: "Draft — citation verification not passed. Attorney review required before reliance.",
+  unverified: "Draft â€” citation verification not passed. Attorney review required before reliance.",
 };
 
 // Per-section eyebrow printed above each section title. Replaces the old
@@ -553,37 +553,37 @@ const CERTIFICATION_TAGLINE: Record<CertificationState, string> = {
 // every single section and told the reader nothing. Any label not listed
 // here falls back to the section title itself.
 const SECTION_KICKERS: Record<string, string> = {
-  Índice: "Contenido",
-  Hechos: "Relato Fáctico",
+  Ãndice: "Contenido",
+  Hechos: "Relato FÃ¡ctico",
   "Panorama General del Expediente": "Panorama del Expediente",
-  "Inteligencia Jurisdiccional": "Jurisdicción",
+  "Inteligencia Jurisdiccional": "JurisdicciÃ³n",
   "Promociones Recomendadas": "Promociones",
-  "Centro de Acción del Abogado": "Acción",
+  "Centro de AcciÃ³n del Abogado": "AcciÃ³n",
   "Panel de Impacto Litigioso": "Impacto",
-  "Resumen Cronológico": "Cronología",
-  "Análisis de Vacíos Probatorios": "Vacíos Probatorios",
-  "Análisis de Riesgo": "Riesgo",
+  "Resumen CronolÃ³gico": "CronologÃ­a",
+  "AnÃ¡lisis de VacÃ­os Probatorios": "VacÃ­os Probatorios",
+  "AnÃ¡lisis de Riesgo": "Riesgo",
   Recomendaciones: "Recomendaciones",
   Contrainterrogatorio: "Interrogatorio",
-  "Tablero de Puntuación del Caso": "Puntuación",
+  "Tablero de PuntuaciÃ³n del Caso": "PuntuaciÃ³n",
   "Mapa de Evidencia": "Evidencia",
-  "Análisis de Contradicciones": "Contradicciones",
-  "Análisis Multi-Perspectiva": "Multi-Agente",
+  "AnÃ¡lisis de Contradicciones": "Contradicciones",
+  "AnÃ¡lisis Multi-Perspectiva": "Multi-Agente",
   "Inteligencia Probatoria": "Evidencia",
-  "Síntesis Estratégica": "Estrategia",
+  "SÃ­ntesis EstratÃ©gica": "Estrategia",
   "Producto de Trabajo del Abogado": "Producto de Trabajo",
-  "Análisis Constitucional": "Constitucional",
-  "Cuestiones Jurídicas y Jurisprudencia": "Cuestiones Jurídicas",
+  "AnÃ¡lisis Constitucional": "Constitucional",
+  "Cuestiones JurÃ­dicas y Jurisprudencia": "Cuestiones JurÃ­dicas",
   "Inteligencia de Testigos": "Testigos",
-  "Análisis de Teoría del Caso": "Teoría del Caso",
+  "AnÃ¡lisis de TeorÃ­a del Caso": "TeorÃ­a del Caso",
   "Centro de Estrategia Litigiosa": "Estrategia",
-  "Oportunidades Estratégicas": "Oportunidades",
+  "Oportunidades EstratÃ©gicas": "Oportunidades",
   "Cobertura Probatoria": "Cobertura",
-  "Estadísticas de Agentes": "Agentes",
-  "Registro de Auditoría": "Auditoría",
+  "EstadÃ­sticas de Agentes": "Agentes",
+  "Registro de AuditorÃ­a": "AuditorÃ­a",
   "Anexo: Citas de Fuentes": "Anexo",
   "Fuentes de Evidencia": "Fuentes",
-  "Centro de Acción — Recomendaciones Prioritarias": "Acción",
+  "Centro de AcciÃ³n â€” Recomendaciones Prioritarias": "AcciÃ³n",
 };
 
 export class PdfBuilder {
@@ -597,11 +597,11 @@ export class PdfBuilder {
   y: number;
   caseName: string;
   // Short matter/docket identifier shown right-aligned in the running
-  // header band. Deliberately NOT the full case title — long Amparo
+  // header band. Deliberately NOT the full case title â€” long Amparo
   // names clip at the page edge (Addendum 3, Bug 8).
   matterId: string;
   // The real crest image, loaded once via loadLogo() before any drawing
-  // happens. Null until loaded, and stays null if the fetch failed —
+  // happens. Null until loaded, and stays null if the fetch failed â€”
   // logoMark()/trustBadge() fall back to the vector shield mark in that
   // case so a logo hiccup never blocks the whole export.
   logoBase64: string | null = null;
@@ -611,7 +611,7 @@ export class PdfBuilder {
   // page number -> section title that STARTS on that page. Used by
   // header() to decide, per page, whether the page already carries a full
   // section title or needs a lightweight continuation label instead
-  // (Addendum 3, Bug 9 — no interior page without section identity).
+  // (Addendum 3, Bug 9 â€” no interior page without section identity).
   private sectionStarts = new Map<number, { title: string; y: number }>();
   // Title of the section currently being rendered, used to label pages a
   // section spills onto.
@@ -631,7 +631,7 @@ export class PdfBuilder {
     this.caseName = caseName;
     // Wrap doc.text so EVERY string the PDF emits (including autoTable cells,
     // footers, splitTextToSize output) is ASCII-safe. This is the canonical
-    // fix for the "£(" rendering bug — Unicode math symbols never reach the
+    // fix for the "Â£(" rendering bug â€” Unicode math symbols never reach the
     // Latin-1 Helvetica font. The same wrapper also runs the report template
     // translator (rt), so section headers, table headers, labels and page
     // stamps render in the report's language instead of hardcoded English.
@@ -669,14 +669,14 @@ export class PdfBuilder {
       text: unknown,
       ...rest: unknown[]
     ) => {
-      // Translate before measuring — otherwise wrapping/height math is done
+      // Translate before measuring â€” otherwise wrapping/height math is done
       // against the English string and drifts from what is drawn.
       const safe = typeof text === "string" ? prep(text) : text;
       return (origSplit as unknown as (...a: unknown[]) => unknown)(safe, ...rest);
     };
     // Every page (including pages jspdf-autotable creates on its own mid-
     // table) gets the warm PAGE_BG sheet painted before any content lands
-    // on it. Wrapping addPage is the only hook that catches all of them —
+    // on it. Wrapping addPage is the only hook that catches all of them â€”
     // a post-pass would paint over the content instead of behind it.
     const origAddPage = this.doc.addPage.bind(this.doc);
     (this.doc as unknown as { addPage: (...a: unknown[]) => unknown }).addPage = (
@@ -709,7 +709,7 @@ export class PdfBuilder {
   }
 
   /** Loads the real crest image once, before any drawing happens. Must be
-   * awaited by the caller (downloadPdf) right after construction — every
+   * awaited by the caller (downloadPdf) right after construction â€” every
    * other builder method stays synchronous because by the time they run,
    * this has already resolved. */
   async loadLogo() {
@@ -734,7 +734,7 @@ export class PdfBuilder {
 
   /**
    * Measures how many points a block of `text()` calls will take without
-   * drawing anything — used by call sites that need to decide whether a
+   * drawing anything â€” used by call sites that need to decide whether a
    * whole block (a footer note, a card, a list item) fits in the space
    * remaining BEFORE committing to draw any part of it. Mirrors the exact
    * font/size/width math `text()` uses so the estimate never drifts from
@@ -749,9 +749,9 @@ export class PdfBuilder {
   }
 
   // Draws a raster crest image at its true aspect ratio if one was loaded.
-  // Currently always a no-op — the report mark is drawn as a vector (see
+  // Currently always a no-op â€” the report mark is drawn as a vector (see
   // logoMark() / trustBadge() below) so it can never drift from the
-  // current brand palette — kept so a future raster asset can drop back in
+  // current brand palette â€” kept so a future raster asset can drop back in
   // without touching call sites.
   private drawCrest(cx: number, cy: number, drawH: number) {
     if (!this.logoBase64) return false;
@@ -767,7 +767,7 @@ export class PdfBuilder {
     return true;
   }
 
-  // Small header/footer logo — the violet rounded-square "N" mark.
+  // Small header/footer logo â€” the violet rounded-square "N" mark.
   logoMark(cx: number, cy: number, r: number) {
     const size = r * 2;
     const x = cx - r;
@@ -784,7 +784,7 @@ export class PdfBuilder {
     this.doc.text("N", cx, cy + r * 0.5, { align: "center" });
   }
 
-  // Large cover-page badge — the violet rounded-square "N" mark at cover
+  // Large cover-page badge â€” the violet rounded-square "N" mark at cover
   // scale. (cx, cy) is the badge's center; `h` is its full height/width.
   trustBadge(cx: number, cy: number, h: number) {
     if (this.drawCrest(cx, cy, h)) return;
@@ -897,12 +897,12 @@ export class PdfBuilder {
     this.doc.setTextColor(...GOLD);
     this.doc.text(spaced("LEGAL INTELLIGENCE"), cx, 175, { align: "center" });
     
-    // - MÉXICO -
+    // - MÃ‰XICO -
     this.doc.setDrawColor(...GOLD);
     this.doc.setLineWidth(0.5);
     this.doc.line(cx - 70, 195, cx - 35, 195);
     this.doc.line(cx + 35, 195, cx + 70, 195);
-    this.doc.text(spaced("MÉXICO"), cx, 198, { align: "center" });
+    this.doc.text(spaced("MÃ‰XICO"), cx, 198, { align: "center" });
 
     // Large centered report title. The title and identity occupy bounded
     // regions; unusually long names therefore cannot push metadata into the
@@ -911,7 +911,7 @@ export class PdfBuilder {
     this.doc.setFont("times", "normal");
     this.doc.setFontSize(28);
     this.doc.setTextColor(255, 255, 255);
-    const titleLines = this.doc.splitTextToSize((opts.reportTitle || "INFORME DE INTELIGENCIA JURÍDICA").toUpperCase(), pageW - margin * 2) as string[];
+    const titleLines = this.doc.splitTextToSize((opts.reportTitle || "INFORME DE INTELIGENCIA JURÃDICA").toUpperCase(), pageW - margin * 2) as string[];
     for (const line of titleLines) {
       this.doc.text(line, cx, ty, { align: "center" });
       ty += 34;
@@ -937,7 +937,7 @@ export class PdfBuilder {
     ty += 4;
     this.doc.setFont("times", "normal");
     this.doc.setFontSize(18);
-    const proceedingLines = this.doc.splitTextToSize(opts.proceeding || "Amparo Directo en Revisión", pageW - margin * 2) as string[];
+    const proceedingLines = this.doc.splitTextToSize(opts.proceeding || "Amparo Directo en RevisiÃ³n", pageW - margin * 2) as string[];
     for (const line of proceedingLines) {
       this.doc.text(line, cx, ty, { align: "center" });
       ty += 21;
@@ -947,11 +947,11 @@ export class PdfBuilder {
     this.doc.setFont("times", "normal");
     let courtSize = 15;
     this.doc.setFontSize(courtSize);
-    let courtLines = this.doc.splitTextToSize(opts.court || "Suprema Corte de Justicia de la Nación", pageW - margin * 2) as string[];
+    let courtLines = this.doc.splitTextToSize(opts.court || "Suprema Corte de Justicia de la NaciÃ³n", pageW - margin * 2) as string[];
     while ((ty + courtLines.length * (courtSize + 3)) > 486 && courtSize > 11) {
       courtSize -= 1;
       this.doc.setFontSize(courtSize);
-      courtLines = this.doc.splitTextToSize(opts.court || "Suprema Corte de Justicia de la Nación", pageW - margin * 2) as string[];
+      courtLines = this.doc.splitTextToSize(opts.court || "Suprema Corte de Justicia de la NaciÃ³n", pageW - margin * 2) as string[];
     }
     for (const line of courtLines) {
       this.doc.text(line, cx, ty, { align: "center" });
@@ -959,7 +959,7 @@ export class PdfBuilder {
     }
 
     // Metadata table. Labels and values have separate measured columns so a
-    // long label (notably "ÓRGANO JURISDICCIONAL") can never run into its
+    // long label (notably "Ã“RGANO JURISDICCIONAL") can never run into its
     // value. Each row grows to the taller wrapped side instead of assuming a
     // fixed 20pt height.
     ty = 505;
@@ -977,9 +977,9 @@ export class PdfBuilder {
       { k: "CLIENTE", v: opts.client || "Confidencial" },
       { k: "EXPEDIENTE", v: opts.matterId || "ADR 3265/2023" },
       { k: "TIPO DE ASUNTO", v: opts.proceeding || "Amparo" },
-      { k: "ÓRGANO JURISDICCIONAL", v: opts.court || "Suprema Corte de Justicia de la Nación" },
+      { k: "Ã“RGANO JURISDICCIONAL", v: opts.court || "Suprema Corte de Justicia de la NaciÃ³n" },
       { k: "MATERIA", v: opts.matterType || "Constitucional" },
-      { k: "FECHA DEL ANÁLISIS", v: opts.date || "14 de septiembre de 2026" },
+      { k: "FECHA DEL ANÃLISIS", v: opts.date || "14 de septiembre de 2026" },
       { k: "NYRAVA MATTER ID", v: (opts.matterId || "44C5492F").slice(0, 8) }
     ];
 
@@ -1055,7 +1055,7 @@ export class PdfBuilder {
     this.doc.setFontSize(10.5);
     this.doc.setTextColor(255, 255, 255);
     const certificationLines = this.doc.splitTextToSize(
-      "Sustentado en evidencia. Citas auditadas. Diseñado para trabajo de inteligencia jurídica sensible.",
+      "Sustentado en evidencia. Citas auditadas. DiseÃ±ado para trabajo de inteligencia jurÃ­dica sensible.",
       pageW - margin * 2 - 140,
     ) as string[];
     certificationLines.forEach((line, index) => {
@@ -1068,9 +1068,9 @@ export class PdfBuilder {
     this.doc.setFont("helvetica", "normal");
     this.doc.setFontSize(8);
     this.doc.setTextColor(...GOLD);
-    this.doc.text(spaced("INTELIGENCIA JURÍDICA"), bx, by);
+    this.doc.text(spaced("INTELIGENCIA JURÃDICA"), bx, by);
     this.doc.setTextColor(200, 200, 200);
-    this.doc.text(spaced("PARA UN MÉXICO MÁS FUERTE"), bx, by + 12);
+    this.doc.text(spaced("PARA UN MÃ‰XICO MÃS FUERTE"), bx, by + 12);
     
     // Decorative skyline vector
     this.doc.setDrawColor(...GOLD);
@@ -1115,7 +1115,7 @@ export class PdfBuilder {
         const cardValue = rt(item.value);
         // White card on the warm sheet, with a full-height accent rule
         // down the left edge instead of a corner dot. The rule is always
-        // ACCENT gold — severity coloring belongs to findings, not to
+        // ACCENT gold â€” severity coloring belongs to findings, not to
         // neutral corpus counters, and a red bar here read as an alarm.
         this.doc.setFillColor(...CARD_BG);
         this.doc.setDrawColor(...CARD_BORDER);
@@ -1123,7 +1123,7 @@ export class PdfBuilder {
         this.doc.roundedRect(x, yy, w, h, 6, 6, "FD");
         this.doc.setFillColor(...ACCENT);
         this.doc.rect(x + 1, yy + 4, 3, h - 8, "F");
-        // Label — wraps to at most two lines instead of being clipped.
+        // Label â€” wraps to at most two lines instead of being clipped.
         this.doc.setFont("helvetica", "bold");
         this.doc.setFontSize(7);
         this.doc.setTextColor(...MUTED);
@@ -1136,7 +1136,7 @@ export class PdfBuilder {
           this.doc.text(line, x + padX, ly);
           ly += 9;
         }
-        // Value — serif, the single biggest lever on this component. Its
+        // Value â€” serif, the single biggest lever on this component. Its
         // color still tracks the caller's semantic hint.
         const valueMaxW = w - padX - 12;
         this.doc.setFont("times", "bold");
@@ -1149,10 +1149,10 @@ export class PdfBuilder {
         }
         let valueText = cardValue;
         if (this.doc.getTextWidth(valueText) > valueMaxW) {
-          while (valueText.length > 3 && this.doc.getTextWidth(valueText + "…") > valueMaxW) {
+          while (valueText.length > 3 && this.doc.getTextWidth(valueText + "â€¦") > valueMaxW) {
             valueText = valueText.slice(0, -1);
           }
-          valueText += "…";
+          valueText += "â€¦";
         }
         this.doc.text(valueText, x + padX, yy + h - 16);
       }
@@ -1161,7 +1161,7 @@ export class PdfBuilder {
   }
 
   // Chronological fact card used by the Hechos section: date chip, serif
-  // headline, body copy — same card language as findings, so the factual
+  // headline, body copy â€” same card language as findings, so the factual
   // record no longer reads as an unstyled wall of paragraphs.
   factCard(dateLabel: string, title: string, body: string) {
     const innerW = this.pageW - this.margin * 2 - 28;
@@ -1240,7 +1240,7 @@ export class PdfBuilder {
         });
         continue;
       }
-      const bullet = line.match(/^[-*•]\s+(.*)$/);
+      const bullet = line.match(/^[-*â€¢]\s+(.*)$/);
       if (bullet) {
         this.bullets([stripInline(bullet[1])]);
         continue;
@@ -1277,7 +1277,7 @@ export class PdfBuilder {
     if (s === "low" || s === "info" || s === "baja") return SUCCESS;
     return MUTED;
   }
-  // Width a pill() call would occupy, without drawing it — lets callers
+  // Width a pill() call would occupy, without drawing it â€” lets callers
   // reserve the right-hand gutter before laying out a heading beside it.
   measurePill(text: string): number {
     if (!text) return 0;
@@ -1318,7 +1318,7 @@ export class PdfBuilder {
   // in the scorecard so dimension scores read visually instead of forcing
   // the reader to parse "0 / 100" as plain text nine times in a row.
   scoreBar(x: number, y: number, w: number, value: number, max = 100) {
-    // Thin, minimalist progress bar — the numeric score is the focal
+    // Thin, minimalist progress bar â€” the numeric score is the focal
     // point; the bar is a subtle visual aid. Light track + rounded fill
     // reads as premium editorial rather than dashboard widget.
     const h = 3;
@@ -1334,12 +1334,12 @@ export class PdfBuilder {
   }
 
   // A single scannable dimension row: label + bar + numeric score, colored
-  // to match. Replaces a bare "Dimension  Score  Baseline  Δ" text line.
+  // to match. Replaces a bare "Dimension  Score  Baseline  Î”" text line.
   // `invert` affects ONLY the bar fill and color, never the printed number.
   // Some dimensions (bias, credibility risk) are "good" when LOW, so a
   // caller can pass invert=true to make a full/green bar mean "favorable"
-  // for that witness. The number shown must always be the true score —
-  // the same value shown in the summary table above — or the detail card
+  // for that witness. The number shown must always be the true score â€”
+  // the same value shown in the summary table above â€” or the detail card
   // silently contradicts the table it's directly below.
   dimensionRow(label: string, value: number, opts: { invert?: boolean } = {}) {
     this.ensureSpace(24);
@@ -1406,7 +1406,7 @@ export class PdfBuilder {
 
   /**
    * Shared section opener used by every major section: letter-spaced gold
-   * kicker → serif title → short gold rule. Consistency here is what makes
+   * kicker â†’ serif title â†’ short gold rule. Consistency here is what makes
    * the report read as one document instead of many stitched sections.
    * Returns the y position to continue drawing from.
    */
@@ -1507,7 +1507,7 @@ export class PdfBuilder {
 
   h3(label: string) {
     // Reserve the heading's own height PLUS room for at least a few lines
-    // of body content after it — otherwise a subheading can be the very
+    // of body content after it â€” otherwise a subheading can be the very
     // last thing on a page with nothing beneath it (an orphaned heading).
     this.ensureSpace(84);
     this.y += 4;
@@ -1515,7 +1515,7 @@ export class PdfBuilder {
   }
 
   // Compact horizontal score presentation used in Executive Summary and
-  // Risk Analysis — the SAME numbers already displayed as large radial
+  // Risk Analysis â€” the SAME numbers already displayed as large radial
   // gauges on the cover page, but rendered here as a slim card strip
   // (label + numeric value + mini bar) so the reader isn't hit with a
   // second big-graphic repeat of the same figures one page later.
@@ -1604,7 +1604,7 @@ export class PdfBuilder {
     this.y += h + 12;
   }
 
-  // Headline meter — large number, small caption, thin progress bar.
+  // Headline meter â€” large number, small caption, thin progress bar.
   // Refined for premium feel: hairline border only, generous internal
   // whitespace, minimal bar height. The score is the focal point.
   meter(
@@ -1653,7 +1653,7 @@ export class PdfBuilder {
 
   // Side-by-side pair (or trio, etc.) of large meters for headline scores.
   // Used on the Executive Summary in place of the old plain-text callout
-  // boxes for Case Strength / Risk Score — these are the two most
+  // boxes for Case Strength / Risk Score â€” these are the two most
   // important numbers in the report and merit real graphical treatment
   // rather than a bare label/value line.
   meterPair(
@@ -1685,8 +1685,8 @@ export class PdfBuilder {
   // Donut-style radial gauge: a filled pie sector (drawn as a triangle fan
   // from the center, since jsPDF has no native arc-fill primitive) with a
   // white circle punched out of the middle, and the value printed in the
-  // hole. This is the "risk wheel" / circular gauge treatment — a real
-  // graphical gauge, not a stat card — for the one or two numbers on the
+  // hole. This is the "risk wheel" / circular gauge treatment â€” a real
+  // graphical gauge, not a stat card â€” for the one or two numbers on the
   // report that deserve to be unmissable in the first few seconds.
   radialGauge(
     cx: number,
@@ -1738,7 +1738,7 @@ export class PdfBuilder {
     this.doc.text(label.toUpperCase(), cx, cy + r + 16, { align: "center" });
   }
 
-  // Row of side-by-side radial gauges — the circular counterpart to
+  // Row of side-by-side radial gauges â€” the circular counterpart to
   // meterPair(), used on the new Executive Intelligence Dashboard page.
   gaugeRow(
     items: Array<{ label: string; value: number; max?: number; color: [number, number, number] }>,
@@ -1759,11 +1759,11 @@ export class PdfBuilder {
     this.y += rowH + 8;
   }
 
-  // Full-width colored status banner (e.g. "HIGH RISK — Defense
+  // Full-width colored status banner (e.g. "HIGH RISK â€” Defense
   // Advantage"). This is the thing meant to land in the first few seconds
   // of opening the report, before the reader parses a single sentence.
   statusBanner(headline: string, subline: string, color: [number, number, number]) {
-    // Refined tinted banner — subdued surface with a colored left rule and
+    // Refined tinted banner â€” subdued surface with a colored left rule and
     // dark text, rather than a full saturated red slab. Reads as an
     // executive alert, not a warning label.
     const textW = this.printableWidth - 48;
@@ -1806,10 +1806,10 @@ export class PdfBuilder {
     this.y += h + 22;
   }
 
-  // One compact scannable row for a "Top Findings" preview — a colored
+  // One compact scannable row for a "Top Findings" preview â€” a colored
   // severity dot, the title, and a right-aligned severity/confidence pill.
   // Deliberately terse (title only, no description) since its job is a
-  // 3-second scan, not the full write-up — that lives in Key Findings.
+  // 3-second scan, not the full write-up â€” that lives in Key Findings.
   findingChip(severity: string, title: string, confidence: number) {
     const maxW = this.pageW - this.margin * 2 - 150;
     this.doc.setFont("times", "bold");
@@ -1820,7 +1820,7 @@ export class PdfBuilder {
     const color = this.severityColor(severity);
     const sevLabel = rt(severity.toUpperCase());
     const yy = this.y - 12;
-    // Compact white card with a severity rule on the left edge — same
+    // Compact white card with a severity rule on the left edge â€” same
     // visual language as the full finding cards further down the report.
     this.doc.setFillColor(...CARD_BG);
     this.doc.setDrawColor(...CARD_BORDER);
@@ -1833,7 +1833,7 @@ export class PdfBuilder {
     this.doc.setTextColor(...PRIMARY);
     this.doc.text(titleLines, this.margin + 14, yy + 17);
     this.pill(
-      `${sevLabel} · ${Math.round(confidence * 100)}%`,
+      `${sevLabel} Â· ${Math.round(confidence * 100)}%`,
       this.pageW - this.margin - 8,
       yy + 20,
       color,
@@ -1858,7 +1858,7 @@ export class PdfBuilder {
       : [];
     const h = lines.length * 12 + attrLines.length * 11 + 14;
     if (h > this.printableBottom - this.printableTop) {
-      this.table([], [[`“${text}”${attribution ? `\n${attribution}` : ""}`]], {
+      this.table([], [[`â€œ${text}â€${attribution ? `\n${attribution}` : ""}`]], {
         columnStyles: { 0: { cellWidth: this.printableWidth, fontStyle: "italic", textColor: MUTED } },
       });
       return;
@@ -1928,7 +1928,7 @@ export class PdfBuilder {
       body,
       startY: this.y,
       // Reserve the same top/bottom bands on every page a table might
-      // spill onto — including pages autoTable creates on its own mid-
+      // spill onto â€” including pages autoTable creates on its own mid-
       // table, which don't otherwise know about the branded continuation
       // header or the footer page-stamp painted in a later post-pass.
       // Without this, a long table (e.g. the citation appendix) could
@@ -1967,7 +1967,7 @@ export class PdfBuilder {
             cellPadding: { top: 8, right: 8, bottom: 8, left: 8 },
             lineWidth: 0,
           },
-      // Very subtle warm zebra tint — enough to track a row across a wide
+      // Very subtle warm zebra tint â€” enough to track a row across a wide
       // table, quiet enough not to read as a dashboard grid.
       alternateRowStyles: { fillColor: [252, 250, 246] as [number, number, number] },
       columnStyles: opts.columnStyles,
@@ -2025,7 +2025,7 @@ export class PdfBuilder {
       this.doc.setFontSize(10.5);
       this.doc.setTextColor(...PRIMARY);
       const lines = this.doc.splitTextToSize(
-        `•  ${it}`,
+        `â€¢  ${it}`,
         this.pageW - this.margin * 2 - 12,
       ) as string[];
       for (const line of lines) {
@@ -2038,7 +2038,7 @@ export class PdfBuilder {
 
   // Compact branded header painted on every page after the cover. This is
   // deliberately a post-pass over already-rendered pages (same pattern as
-  // footer()) rather than something drawn inline during content layout —
+  // footer()) rather than something drawn inline during content layout â€”
   // it needs the final page count for "i / N", and painting it last means
   // it can never be pushed down or split by content that ran long. Every
   // continuation page already reserves CONTINUATION_HEADER_H of top space
@@ -2046,12 +2046,12 @@ export class PdfBuilder {
   header() {
     const pageCount = this.doc.getNumberOfPages();
     const h = CONTINUATION_HEADER_H;
-    const bandH = 36; // running header band — deliberately short so it never competes with the cover
+    const bandH = 36; // running header band â€” deliberately short so it never competes with the cover
     let lastSection = "";
     for (let i = 2; i <= pageCount; i++) {
       this.doc.setPage(i);
 
-      // Warm sheet across the reserved top area (defensive — guards
+      // Warm sheet across the reserved top area (defensive â€” guards
       // against any stray content drawn too high), then a solid PRIMARY
       // brand band. All text inside the band is white or ACCENT_SOFT:
       // MUTED/INK were tuned for the warm page and vanish on green.
@@ -2081,11 +2081,11 @@ export class PdfBuilder {
       this.doc.text("LEGAL INTELLIGENCE OS", textX, markCy + 8);
 
       // Right side: short matter/docket ID only + page stamp. Never the
-      // full case title — it clips at the page edge on long matter names.
+      // full case title â€” it clips at the page edge on long matter names.
       this.doc.setFont("helvetica", "normal");
       this.doc.setFontSize(7.5);
       this.doc.setTextColor(...ACCENT_SOFT);
-      const rightLabel = `${this.matterId}   ·   ${i} / ${pageCount}`;
+      const rightLabel = `${this.matterId}   Â·   ${i} / ${pageCount}`;
       const rightMaxW = this.pageW - this.margin * 2 - (textX - this.margin) - 150;
       const fitted =
         (this.doc.splitTextToSize(rightLabel, Math.max(80, rightMaxW)) as string[])[0] ??
@@ -2102,7 +2102,7 @@ export class PdfBuilder {
       const startsHere = this.sectionStarts.get(i);
       if (startsHere) {
         // Mid-page section starts already stamped their own continuation
-        // label inline (see sectionTitle) — nothing more to draw here.
+        // label inline (see sectionTitle) â€” nothing more to draw here.
         lastSection = startsHere.title;
       } else if (lastSection) {
         this.continuationLabel(lastSection, bandH + 14);
@@ -2110,14 +2110,14 @@ export class PdfBuilder {
     }
   }
 
-  /** Lightweight "Section (continuación)" marker for pages a section
-   * spills onto. Intentionally separate from sectionTitle() — small,
+  /** Lightweight "Section (continuaciÃ³n)" marker for pages a section
+   * spills onto. Intentionally separate from sectionTitle() â€” small,
    * italic, muted; it identifies, it does not re-announce. */
   continuationLabel(sectionName: string, y: number) {
     this.doc.setFont("helvetica", "italic");
     this.doc.setFontSize(7.5);
     this.doc.setTextColor(...MUTED);
-    const suffix = getReportTemplateLocale() === "en" ? "(continued)" : "(continuación)";
+    const suffix = getReportTemplateLocale() === "en" ? "(continued)" : "(continuaciÃ³n)";
     const label = `${sectionName} ${suffix}`;
     const fitted =
       (this.doc.splitTextToSize(label, this.pageW - this.margin * 2) as string[])[0] ?? label;
@@ -2133,13 +2133,13 @@ export class PdfBuilder {
         this.doc.setFont("times", "normal");
         this.doc.setFontSize(10);
         this.doc.setTextColor(255, 255, 255);
-        const pageWord = getReportTemplateLocale() === "en" ? "Page" : "Página";
+        const pageWord = getReportTemplateLocale() === "en" ? "Page" : "PÃ¡gina";
         this.doc.text(`${pageWord} 1 / ${pageCount}`, this.pageW - 36, this.pageH - 40, { align: "right" });
         continue;
       }
       // The compact header (drawn separately, see header() above) already
       // carries a brand rule at the top of every interior page, so the old
-      // duplicate top strip that used to live here has been removed —
+      // duplicate top strip that used to live here has been removed â€”
       // this loop now only draws the bottom footer text.
       // Hairline above the footer row, matching the header treatment.
       if (i > 1) {
@@ -2153,7 +2153,7 @@ export class PdfBuilder {
       // Bound-checked the same way header()'s right-hand label already is:
       // a long case name must never be allowed to grow into the reserved
       // "Page i / N" zone on the right.
-      const brandLine = `Nyrava Legal Intelligence  ·  mexico.nyrava.com  ·  ${this.caseName}`;
+      const brandLine = `Nyrava Legal Intelligence  Â·  mexico.nyrava.com  Â·  ${this.caseName}`;
       const brandMaxW = this.pageW - this.margin * 2 - pageLabelW;
       const brandFitted =
         (this.doc.splitTextToSize(brandLine, brandMaxW) as string[])[0] ?? brandLine;
@@ -2167,7 +2167,7 @@ export class PdfBuilder {
         });
       if (meta && _citationMode === "audit") {
         this.doc.setFontSize(7);
-        const stamp = `parity ${meta.parity}  ·  ESS ${meta.ess}  ·  ${meta.generatedAt}  ·  NYRAVA v${NYRAVA_REPORT_VERSION}`;
+        const stamp = `parity ${meta.parity}  Â·  ESS ${meta.ess}  Â·  ${meta.generatedAt}  Â·  NYRAVA v${NYRAVA_REPORT_VERSION}`;
         this.doc.text(stamp, this.pageW / 2, this.pageH - 18, { align: "center" });
       }
     }
@@ -2198,11 +2198,11 @@ export class PdfBuilder {
 
   // Full closing page appended after all report content: mark, domain,
   // engine version/timestamp, and a standing disclaimer that this is
-  // AI-assisted analysis requiring attorney verification before filing —
+  // AI-assisted analysis requiring attorney verification before filing â€”
   // the same caution already flagged per-draft in Attorney Work Product
-  // ("EVIDENCE VERIFICATION FAILED — DO NOT FILE AS-IS"), stated once,
+  // ("EVIDENCE VERIFICATION FAILED â€” DO NOT FILE AS-IS"), stated once,
   // plainly, in a place a reader will find even if they skip straight to
-  // the end. Not part of the section plan/TOC — this is closing branding,
+  // the end. Not part of the section plan/TOC â€” this is closing branding,
   // not a numbered analytical section, so it deliberately sits outside
   // the TOC/parity machinery entirely.
   closingPage(meta: { generatedAt: string }) {
@@ -2234,16 +2234,16 @@ export class PdfBuilder {
     this.doc.setFontSize(8.5);
     this.doc.setTextColor(...MUTED);
     const generatedLabel = new Date(meta.generatedAt).toLocaleString();
-    this.doc.text(`Generado ${generatedLabel}  ·  Motor v${NYRAVA_REPORT_VERSION}`, cx, yy, {
+    this.doc.text(`Generado ${generatedLabel}  Â·  Motor v${NYRAVA_REPORT_VERSION}`, cx, yy, {
       align: "center",
     });
     yy += 34;
     // Standing disclaimer, boxed for visual weight commensurate with what
-    // it's saying — this should not read as fine print.
+    // it's saying â€” this should not read as fine print.
     const boxW = this.pageW - this.margin * 2 - 60;
     const boxX = cx - boxW / 2;
     const disclaimer =
-      "Este reporte fue generado con Nyrava Intelligence\u2122 y busca apoyar \u2014no sustituir\u2014 el criterio jurídico profesional. El abogado es responsable de revisar y verificar todos los hallazgos, citas, puntajes, análisis jurídico y producto de trabajo contra el expediente oficial antes de presentarlo o sustentarse en él.";
+      "Este reporte fue generado con Nyrava Intelligence\u2122 y busca apoyar \u2014no sustituir\u2014 el criterio jurÃ­dico profesional. El abogado es responsable de revisar y verificar todos los hallazgos, citas, puntajes, anÃ¡lisis jurÃ­dico y producto de trabajo contra el expediente oficial antes de presentarlo o sustentarse en Ã©l.";
     this.doc.setFont("helvetica", "normal");
     this.doc.setFontSize(9);
     const lines = this.doc.splitTextToSize(disclaimer, boxW - 24) as string[];
@@ -2273,8 +2273,8 @@ export class PdfBuilder {
 
 /**
  * Tallies findings by finding_type (DIRECT_EVIDENCE / EVIDENCE_BASED_INFERENCE
- * / AI_THEORY) for the Executive Dashboard's findings breakdown — see the
- * report-quality audit §4 comment where this is called. Pure and exported
+ * / AI_THEORY) for the Executive Dashboard's findings breakdown â€” see the
+ * report-quality audit Â§4 comment where this is called. Pure and exported
  * for direct testing; never re-derives finding_type, only counts the value
  * already assigned at generation/gate time.
  */
@@ -2305,7 +2305,7 @@ function renderCover(
   // --- Page 1: premium full-bleed cover with TrustBadge ---
   const identity = resolveReportIdentity(c);
   b.premiumCover({
-    reportTitle: "INFORME DE INTELIGENCIA JURÍDICA",
+    reportTitle: "INFORME DE INTELIGENCIA JURÃDICA",
     caseName: asStr(c.name, "Untitled Case"),
     client: identity.client,
     proceeding: translateLegalTerm(identity.proceedingType),
@@ -2349,38 +2349,38 @@ function renderCover(
     const scoreObj = asObj(data.score);
     const breakdowns = asObj(scoreObj.dimension_breakdowns);
     const fullReport = asObj(r.full_report);
-    const caseType = asStr(fullReport.case_type) || asStr(breakdowns.case_type) || "general_civil";
+    const caseType = asStr(fullReport.case_type) || asStr(breakdowns.case_type) || "unknown";
     // FIX (2026-07-29): this only checked the retired English case-type
-    // keys ("criminal", "civil_rights") — never the actual Mexican
-    // taxonomy key "penal" — so isCriminal was always false for every
+    // keys ("criminal", "civil_rights") â€” never the actual Mexican
+    // taxonomy key "penal" â€” so isCriminal was always false for every
     // real case in this platform, and the prosecution/defense framing
     // below never fired. Same class of bug found and fixed elsewhere
     // this session (practice-areas.ts's UNIVERSAL_FINDING_MODULES,
     // export.ts's own isCriminal check a few hundred lines down).
     const isCriminal =
-      caseType === "penal" || caseType === "criminal" || caseType === "civil_rights";
+      caseType === "penal" || caseType === "amparo" || caseType === "constitucional";
 
     const riskLevel = risk >= 60 ? "Riesgo Alto" : risk >= 35 ? "Riesgo Moderado" : "Riesgo Bajo";
     const advantage = isCriminal
       ? strength < 50
         ? "Ventaja de la Defensa"
-        : "Ventaja del Ministerio Público"
+        : "Ventaja del Ministerio PÃºblico"
       : "";
-    const headline = advantage ? `${riskLevel} — ${advantage}` : riskLevel;
+    const headline = advantage ? `${riskLevel} â€” ${advantage}` : riskLevel;
     const strengthCaption = isCriminal
-      ? `Fortaleza del caso ${strength} / 100 (caso del Ministerio Público; un valor menor favorece a la defensa)  ·  Puntuación de riesgo ${risk} / 100`
-      : `Fortaleza del caso ${strength} / 100  ·  Puntuación de riesgo ${risk} / 100`;
+      ? `Fortaleza del caso ${strength} / 100 (caso del Ministerio PÃºblico; un valor menor favorece a la defensa)  Â·  PuntuaciÃ³n de riesgo ${risk} / 100`
+      : `Fortaleza del caso ${strength} / 100  Â·  PuntuaciÃ³n de riesgo ${risk} / 100`;
     b.statusBanner(headline, strengthCaption, b.scoreColor(risk, true));
 
     b.gaugeRow([
       { label: "Fortaleza del Caso", value: strength, color: b.scoreColor(strength) },
-      { label: "Puntuación de Riesgo", value: risk, color: b.scoreColor(risk, true) },
+      { label: "PuntuaciÃ³n de Riesgo", value: risk, color: b.scoreColor(risk, true) },
     ]);
   }
 
   // filterExecutiveDashboardEligible keeps a rejected/superseded lower-
   // instance holding (e.g. a Tribunal Colegiado position the SCJN's
-  // ejecutoria revoked) out of the Executive Dashboard's Top Findings — a
+  // ejecutoria revoked) out of the Executive Dashboard's Top Findings â€” a
   // no-op unless the extraction pass ran judicial-hierarchy attribution on
   // this case. See judicial-hierarchy.ts and ADR 5829/2025 for the bug.
   const findings = filterExecutiveDashboardEligible(data.findings ?? []);
@@ -2408,13 +2408,13 @@ function renderCover(
   }
   cards.push({ label: rt("Documents Analyzed"), value: String(data.documents.length) });
   cards.push({ label: rt("Findings (Total)"), value: String(counters.rendered) });
-  // Report-quality audit §4: a single "Findings: N" number previously read
-  // as if every finding carried the same evidentiary weight — the same
+  // Report-quality audit Â§4: a single "Findings: N" number previously read
+  // as if every finding carried the same evidentiary weight â€” the same
   // failure class as calling all of them "verified" regardless of whether
   // they're a directly-cited fact/holding, an inference drawn from cited
   // evidence, or an unsupported AI theory. Break the total down by
-  // finding_type (already computed at generation/gate time — see
-  // evidence-gate.server.ts's classifyFindingType — never re-derived here)
+  // finding_type (already computed at generation/gate time â€” see
+  // evidence-gate.server.ts's classifyFindingType â€” never re-derived here)
   // so the dashboard cannot imply a stronger evidentiary basis than what
   // was actually established.
   const findingTypeCounts = computeFindingTypeCounts(data.findings ?? []);
@@ -2450,12 +2450,12 @@ function renderCover(
 
 /**
  * Tailored missing-document checklist for LIMITED-mode reports, per branch
- * of Mexican law — replaces the old one-size-fits-all paragraph (which
+ * of Mexican law â€” replaces the old one-size-fits-all paragraph (which
  * listed pure US litigation documents: "pleadings, discovery responses,
  * deposition transcripts") with the actual document types a Mexican
  * attorney in that specific materia would recognize and need to gather.
  * Pulls from the SAME required_document_types data already used by the
- * admin Legal Coverage dashboard (mx-coverage.ts) — not a new taxonomy.
+ * admin Legal Coverage dashboard (mx-coverage.ts) â€” not a new taxonomy.
  */
 function buildMissingDocumentChecklist(data: CaseExportData): { checklistText: string } {
   const locale = resolveReportLocale(data.report, data.case);
@@ -2474,19 +2474,19 @@ function buildMissingDocumentChecklist(data: CaseExportData): { checklistText: s
       checklistText:
         locale === "en"
           ? "This report constitutes a legal audit of the supplied judicial resolution. The uploaded decision is self-sufficient for analyzing the court's holdings, reasoning, and operative rulings. Additional historical trial records are required only if reconstructing previous procedural phases."
-          : "Este reporte constituye una auditoría jurídica de la resolución judicial aportada. La resolución es autosuficiente para el análisis de los criterios, razonamientos y puntos resolutivos del tribunal. Constancias adicionales del expediente histórico de origen sólo se requieren si se desea reconstruir las etapas procesales previas.",
+          : "Este reporte constituye una auditorÃ­a jurÃ­dica de la resoluciÃ³n judicial aportada. La resoluciÃ³n es autosuficiente para el anÃ¡lisis de los criterios, razonamientos y puntos resolutivos del tribunal. Constancias adicionales del expediente histÃ³rico de origen sÃ³lo se requieren si se desea reconstruir las etapas procesales previas.",
     };
   }
 
-  // apelación isn't in MX_DOMAINS (it's a procedural posture over whatever
-  // the underlying matter is, not its own substantive practice area) — its
+  // apelaciÃ³n isn't in MX_DOMAINS (it's a procedural posture over whatever
+  // the underlying matter is, not its own substantive practice area) â€” its
   // own document set is genuinely different from the domains list below.
   if (caseType === "appellate") {
     return {
       checklistText:
         locale === "en"
           ? "To upgrade this matter to a full analysis, supply: (1) the certified first-instance judgment (sentencia de primera instancia), (2) the brief of grounds of appeal (escrito de agravios), (3) certified copies of the trial-court record referenced in the judgment. Each additional verified source increases the ESS score and unlocks deterministic scoring."
-          : "Para elevar este asunto a un análisis completo, aporte: (1) la sentencia de primera instancia certificada, (2) el escrito de agravios, (3) copias certificadas de las constancias del expediente de origen referidas en la sentencia. Cada fuente verificada adicional incrementa el puntaje ESS y habilita la evaluación determinista.",
+          : "Para elevar este asunto a un anÃ¡lisis completo, aporte: (1) la sentencia de primera instancia certificada, (2) el escrito de agravios, (3) copias certificadas de las constancias del expediente de origen referidas en la sentencia. Cada fuente verificada adicional incrementa el puntaje ESS y habilita la evaluaciÃ³n determinista.",
     };
   }
 
@@ -2498,7 +2498,7 @@ function buildMissingDocumentChecklist(data: CaseExportData): { checklistText: s
       checklistText:
         locale === "en"
           ? "To upgrade this matter to a full analysis, supply additional primary sources: pleadings and their responses, notifications, contracts and amendments, expert opinions, and any documentary evidence referenced in the existing record. Each additional verified source increases the ESS score and unlocks deterministic scoring."
-          : "Para elevar este asunto a un análisis completo, aporte fuentes primarias adicionales: promociones y sus contestaciones, notificaciones, contratos y convenios modificatorios, dictámenes periciales, y cualquier prueba documental referida en el expediente. Cada fuente verificada adicional incrementa el puntaje ESS y habilita la evaluación determinista.",
+          : "Para elevar este asunto a un anÃ¡lisis completo, aporte fuentes primarias adicionales: promociones y sus contestaciones, notificaciones, contratos y convenios modificatorios, dictÃ¡menes periciales, y cualquier prueba documental referida en el expediente. Cada fuente verificada adicional incrementa el puntaje ESS y habilita la evaluaciÃ³n determinista.",
     };
   }
 
@@ -2509,7 +2509,7 @@ function buildMissingDocumentChecklist(data: CaseExportData): { checklistText: s
     checklistText:
       locale === "en"
         ? `To upgrade this matter to a full analysis, supply: ${listEn}, and any other documentary evidence referenced in the existing record. Each additional verified source increases the ESS score, unlocks deterministic scoring, and enables the engine to draft motion outlines with supporting citations.`
-        : `Para elevar este asunto a un análisis completo, aporte: ${listEs}, y cualquier otra prueba documental referida en el expediente. Cada fuente verificada adicional incrementa el puntaje ESS, habilita la evaluación determinista, y permite al motor esbozar promociones con citas de apoyo.`,
+        : `Para elevar este asunto a un anÃ¡lisis completo, aporte: ${listEs}, y cualquier otra prueba documental referida en el expediente. Cada fuente verificada adicional incrementa el puntaje ESS, habilita la evaluaciÃ³n determinista, y permite al motor esbozar promociones con citas de apoyo.`,
   };
 }
 
@@ -2563,7 +2563,7 @@ function renderJurisdictionIntelligence(b: PdfBuilder, data: CaseExportData) {
   b.table([[rt("Category"), rt("Description")]], jurisdictionIntelRows(data));
 }
 
-// Attorney Case Snapshot — the panel an attorney reads before the detailed
+// Attorney Case Snapshot â€” the panel an attorney reads before the detailed
 // analysis. Strengths, weaknesses, critical and missing evidence,
 // procedural concerns and the suggested review order, all derived from
 // verified findings and the real document inventory.
@@ -2576,7 +2576,7 @@ function snapshotBlocks(
       title: "Fortalezas del Expediente",
       items: s.strengths,
       empty:
-        "No se identificaron hallazgos sustentados por dos o más documentos de alto valor probatorio.",
+        "No se identificaron hallazgos sustentados por dos o mÃ¡s documentos de alto valor probatorio.",
     },
     {
       title: "Debilidades del Expediente",
@@ -2584,15 +2584,15 @@ function snapshotBlocks(
       empty: "No se identificaron hallazgos con soporte documental limitado.",
     },
     {
-      title: "Evidencia Crítica",
+      title: "Evidencia CrÃ­tica",
       items: s.criticalEvidence,
       empty:
-        "El corpus no contiene documentos públicos, resoluciones, documentos certificados ni dictámenes periciales.",
+        "El corpus no contiene documentos pÃºblicos, resoluciones, documentos certificados ni dictÃ¡menes periciales.",
     },
     {
       title: "Evidencia Faltante",
       items: s.missingEvidence,
-      empty: "No se detectó documentación faltante con base en el inventario actual.",
+      empty: "No se detectÃ³ documentaciÃ³n faltante con base en el inventario actual.",
     },
     {
       title: "Aspectos Procesales a Vigilar",
@@ -2600,7 +2600,7 @@ function snapshotBlocks(
       empty: "No se identificaron hallazgos de naturaleza procesal.",
     },
     {
-      title: "Orden de Revisión Prioritaria",
+      title: "Orden de RevisiÃ³n Prioritaria",
       items: s.priorityReview,
       empty: "No hay hallazgos priorizados.",
     },
@@ -2608,10 +2608,10 @@ function snapshotBlocks(
 }
 
 function renderCaseSnapshot(b: PdfBuilder, data: CaseExportData) {
-  b.h1("Instantánea del Expediente");
+  b.h1("InstantÃ¡nea del Expediente");
   b.text(
-    "Panel de arranque para el abogado: resume, antes del análisis detallado, en qué se sostiene el expediente, " +
-      "dónde es vulnerable, qué documentación falta y qué debe revisarse primero.",
+    "Panel de arranque para el abogado: resume, antes del anÃ¡lisis detallado, en quÃ© se sostiene el expediente, " +
+      "dÃ³nde es vulnerable, quÃ© documentaciÃ³n falta y quÃ© debe revisarse primero.",
     { size: 9.5, color: MUTED, gap: 8 },
   );
   for (const block of snapshotBlocks(data)) {
@@ -2631,24 +2631,24 @@ function renderExecutive(b: PdfBuilder, data: CaseExportData, mode: ReportMode) 
     b.text(
       execLocale === "en"
         ? "This case was analyzed in LIMITED mode because the available corpus did not meet the platform's Evidence Sufficiency Score (ESS) threshold required to support quantitative scoring or formal motion recommendations. " +
-            `The intake included ${docCount} source document${docCount === 1 ? "" : "s"} and produced ${findingCount} finding${findingCount === 1 ? "" : "s"} of varying evidentiary strength — see each finding's own classification below rather than treating this count as a uniform "verified" total. ` +
-            "An evidence-grounded narrative is rendered below for every section in which the corpus supplied sufficient verbatim material. Sections that would otherwise rely on inferred legal theories — quantitative scorecards, motion drafting, theory selection, and prioritized recommendations — have been withheld so that no claim in this report rests on speculation."
-        : "Este expediente se analizó en modo LIMITADO porque el corpus disponible no alcanzó el umbral de Suficiencia Probatoria (ESS) requerido para sustentar puntajes cuantitativos o recomendaciones formales de promociones. " +
-            `La ingesta incluyó ${docCount} documento(s) fuente y produjo ${findingCount} hallazgo(s) de fortaleza probatoria variable — consulte la clasificación de cada hallazgo en particular en lugar de interpretar esta cifra como un total "verificado" uniforme. ` +
-            "A continuación se presenta una narrativa sustentada en evidencia para cada sección en la que el corpus aportó material textual suficiente. Las secciones que dependerían de teorías jurídicas inferidas — puntajes cuantitativos, redacción de promociones, selección de teoría del caso y recomendaciones priorizadas — se retuvieron para que ninguna afirmación de este reporte descanse en especulación.",
+            `The intake included ${docCount} source document${docCount === 1 ? "" : "s"} and produced ${findingCount} finding${findingCount === 1 ? "" : "s"} of varying evidentiary strength â€” see each finding's own classification below rather than treating this count as a uniform "verified" total. ` +
+            "An evidence-grounded narrative is rendered below for every section in which the corpus supplied sufficient verbatim material. Sections that would otherwise rely on inferred legal theories â€” quantitative scorecards, motion drafting, theory selection, and prioritized recommendations â€” have been withheld so that no claim in this report rests on speculation."
+        : "Este expediente se analizÃ³ en modo LIMITADO porque el corpus disponible no alcanzÃ³ el umbral de Suficiencia Probatoria (ESS) requerido para sustentar puntajes cuantitativos o recomendaciones formales de promociones. " +
+            `La ingesta incluyÃ³ ${docCount} documento(s) fuente y produjo ${findingCount} hallazgo(s) de fortaleza probatoria variable â€” consulte la clasificaciÃ³n de cada hallazgo en particular en lugar de interpretar esta cifra como un total "verificado" uniforme. ` +
+            "A continuaciÃ³n se presenta una narrativa sustentada en evidencia para cada secciÃ³n en la que el corpus aportÃ³ material textual suficiente. Las secciones que dependerÃ­an de teorÃ­as jurÃ­dicas inferidas â€” puntajes cuantitativos, redacciÃ³n de promociones, selecciÃ³n de teorÃ­a del caso y recomendaciones priorizadas â€” se retuvieron para que ninguna afirmaciÃ³n de este reporte descanse en especulaciÃ³n.",
       { size: 11, gap: 8 },
     );
     const { checklistText } = buildMissingDocumentChecklist(data);
     b.text(checklistText, { size: 11, gap: 8 });
     b.text(
       execLocale === "en"
-        ? "Every finding rendered below carries a quote independently verified against the source corpus, but a corpus this limited constrains what any individual finding can establish — confidence and severity have been capped accordingly, and no finding here should be treated as a confirmed determination without independent verification against the complete official record. The suppressions below are conservative by design — they protect the work product from hallucinated legal conclusions while preserving the verified factual record."
-        : "Todo hallazgo presentado a continuación cita un pasaje verificado de forma independiente contra el corpus fuente, pero un corpus tan limitado condiciona lo que cualquier hallazgo individual puede establecer — la confianza y la severidad se han limitado en consecuencia, y ningún hallazgo de este reporte debe tratarse como una determinación confirmada sin verificación independiente contra el expediente oficial completo. Las supresiones siguientes son conservadoras por diseño: protegen el producto de trabajo frente a conclusiones jurídicas alucinadas y preservan el registro fáctico verificado.",
+        ? "Every finding rendered below carries a quote independently verified against the source corpus, but a corpus this limited constrains what any individual finding can establish â€” confidence and severity have been capped accordingly, and no finding here should be treated as a confirmed determination without independent verification against the complete official record. The suppressions below are conservative by design â€” they protect the work product from hallucinated legal conclusions while preserving the verified factual record."
+        : "Todo hallazgo presentado a continuaciÃ³n cita un pasaje verificado de forma independiente contra el corpus fuente, pero un corpus tan limitado condiciona lo que cualquier hallazgo individual puede establecer â€” la confianza y la severidad se han limitado en consecuencia, y ningÃºn hallazgo de este reporte debe tratarse como una determinaciÃ³n confirmada sin verificaciÃ³n independiente contra el expediente oficial completo. Las supresiones siguientes son conservadoras por diseÃ±o: protegen el producto de trabajo frente a conclusiones jurÃ­dicas alucinadas y preservan el registro fÃ¡ctico verificado.",
       { size: 11, gap: 8 },
     );
     return;
   }
-  // Goal-first block — the report answers the attorney's primary question
+  // Goal-first block â€” the report answers the attorney's primary question
   // before it summarises anything. Deterministic, evidence-only.
   const objective = asObj(asObj(r.full_report).objective) as Record<string, unknown>;
   if (asStr(objective.answer)) {
@@ -2666,11 +2666,11 @@ function renderExecutive(b: PdfBuilder, data: CaseExportData, mode: ReportMode) 
     }
     const dps = Array.isArray(objective.decision_points) ? objective.decision_points : [];
     if (dps.length) {
-      b.h2(execLocale === "en" ? "Decision Support" : "Soporte para la Decisión");
+      b.h2(execLocale === "en" ? "Decision Support" : "Soporte para la DecisiÃ³n");
       for (const raw of dps.slice(0, 8)) {
         const dp = asObj(raw) as Record<string, unknown>;
-        b.text(`• ${asStr(dp.issue)}`, { size: 11, gap: 2 });
-        b.text(`${execLocale === "en" ? "Why it matters" : "Por qué importa"}: ${asStr(dp.why)}`, {
+        b.text(`â€¢ ${asStr(dp.issue)}`, { size: 11, gap: 2 });
+        b.text(`${execLocale === "en" ? "Why it matters" : "Por quÃ© importa"}: ${asStr(dp.why)}`, {
           size: 10,
           color: MUTED,
           gap: 2,
@@ -2681,7 +2681,7 @@ function renderExecutive(b: PdfBuilder, data: CaseExportData, mode: ReportMode) 
           gap: 2,
         });
         b.text(
-          `${execLocale === "en" ? "Next action" : "Siguiente acción"}: ${asStr(dp.next_action)}`,
+          `${execLocale === "en" ? "Next action" : "Siguiente acciÃ³n"}: ${asStr(dp.next_action)}`,
           {
             size: 10,
             gap: 6,
@@ -2699,7 +2699,7 @@ function renderExecutive(b: PdfBuilder, data: CaseExportData, mode: ReportMode) 
   // findings and the actual document inventory.
   {
     const questions = presentation(data).executive_questions;
-    b.h2("Lectura Rápida del Expediente");
+    b.h2("Lectura RÃ¡pida del Expediente");
     for (const q of questions) {
       b.text(q.question, { size: 10, bold: true, gap: 2 });
       b.text(q.answer, { size: 9.6, color: MUTED, gap: q.bullets?.length ? 2 : 6 });
@@ -2712,8 +2712,8 @@ function renderExecutive(b: PdfBuilder, data: CaseExportData, mode: ReportMode) 
 
   // Read scores through canonical.ts, not the raw row. getScores() also
   // honors ESS suppression, which r.case_strength_score alone does not.
-  // Uses gaugeRow — the SAME circular gauge widget the cover page uses for
-  // these identical two numbers — rather than the flatter meterPair bars.
+  // Uses gaugeRow â€” the SAME circular gauge widget the cover page uses for
+  // these identical two numbers â€” rather than the flatter meterPair bars.
   // Showing Case Strength / Risk Score as a bar chart here and a radial
   // gauge one page earlier was the exact "different sections feel like
   // separate documents" problem: same numbers, two different chart types,
@@ -2732,7 +2732,7 @@ function renderExecutive(b: PdfBuilder, data: CaseExportData, mode: ReportMode) 
       value: scores.risk,
       color: b.scoreColor(scores.risk, true),
     });
-  // Compact horizontal strip — the cover page already renders these same
+  // Compact horizontal strip â€” the cover page already renders these same
   // numbers as prominent radial gauges. Repeating a second large radial
   // widget one page later was pure visual repetition; the compact strip
   // keeps the numbers visible without the duplication.
@@ -2750,25 +2750,25 @@ function renderExecutive(b: PdfBuilder, data: CaseExportData, mode: ReportMode) 
     const mentionedScores = ce.match(/\bscore (?:is|of)\s+(\d{1,3})\b/i);
     const staleMismatch = mentionedScores && Number(mentionedScores[1]) !== scores.strength;
     if (staleMismatch) {
-      b.h2("Razonamiento de la Puntuación");
+      b.h2("Razonamiento de la PuntuaciÃ³n");
       b.text(
         `Case strength is ${scores.strength} / 100. (Narrative reasoning for this score was not regenerated after ` +
           "the most recent scorecard update and has been withheld to avoid displaying a stale figure.)",
         { color: MUTED },
       );
     } else {
-      b.h2("Razonamiento de la Puntuación");
+      b.h2("Razonamiento de la PuntuaciÃ³n");
       b.text(ce);
     }
   } else if (ce) {
-    b.h2("Razonamiento de la Puntuación");
+    b.h2("Razonamiento de la PuntuaciÃ³n");
     b.text(ce);
   }
 }
 
 // The "money page." Ranked motions, immediate next actions, top strategic
-// priorities, and generated-work-product readiness — the handful of things
-// an attorney would actually act on today — pulled to the front of the
+// priorities, and generated-work-product readiness â€” the handful of things
+// an attorney would actually act on today â€” pulled to the front of the
 // report, ahead of the detailed analysis that supports them. Everything
 // shown here is drawn verbatim from data that already exists elsewhere in
 // the report (Strategic Opportunities, Strategy Synthesis, Attorney Work
@@ -2805,7 +2805,7 @@ function motionPriorityBucket(m: Record<string, unknown>): {
 
 // Likelihood in the source data is a qualitative low/medium/high estimate,
 // not a numeric probability. Map it to a representative percentage so it
-// can drive a real progress bar — the number is illustrative of the bucket,
+// can drive a real progress bar â€” the number is illustrative of the bucket,
 // never presented as a precise model-computed probability.
 function likelihoodPercent(m: Record<string, unknown>): {
   pct: number;
@@ -2818,7 +2818,7 @@ function likelihoodPercent(m: Record<string, unknown>): {
 }
 
 // Where a motion currently stands in the Motion Intelligence module. Never a
-// hyperlink — just an honest status readout, derived from whether a matching
+// hyperlink â€” just an honest status readout, derived from whether a matching
 // work-product draft already exists for this motion.
 function motionIntelligenceStatus(
   m: Record<string, unknown>,
@@ -2837,7 +2837,7 @@ function motionIntelligenceStatus(
 }
 
 // Evidence bullets for a motion card: prefer real pinpoint citations, fall
-// back to the supporting-facts prose, then the legal elements — always the
+// back to the supporting-facts prose, then the legal elements â€” always the
 // most concrete thing available, never invented.
 function motionEvidenceBullets(m: Record<string, unknown>): string[] {
   const cites = asArr(m.citations);
@@ -2848,7 +2848,7 @@ function motionEvidenceBullets(m: Record<string, unknown>): string[] {
         const quote = asStr(c.quote).trim();
         const label = citeLabel(c.doc_n, c.page);
         return quote
-          ? `"${quote.slice(0, 140)}${quote.length > 140 ? "…" : ""}" — ${label}`
+          ? `"${quote.slice(0, 140)}${quote.length > 140 ? "â€¦" : ""}" â€” ${label}`
           : label;
       })
       .filter(Boolean);
@@ -2863,9 +2863,9 @@ function motionEvidenceBullets(m: Record<string, unknown>): string[] {
 
 // The signature feature of the report: a dedicated, highly visible
 // "Recommended Motions" section immediately after the Executive Summary.
-// Every motion the engine surfaced is rendered as its own card — priority
+// Every motion the engine surfaced is rendered as its own card â€” priority
 // badge, likelihood bar, reason, evidence, legal basis, and Motion
-// Intelligence status — so an attorney can identify the strongest motions
+// Intelligence status â€” so an attorney can identify the strongest motions
 // in seconds, without reading paragraphs of prose. Drafting/editing still
 // happens in the Motion Intelligence module; this section only tells the
 // attorney what exists and why it matters.
@@ -2885,7 +2885,7 @@ function renderRecommendedMotions(b: PdfBuilder, data: CaseExportData) {
 
   b.h1("Promociones Recomendadas");
   b.text(
-    "Las promociones con mayor probabilidad de fortalecer este caso, ordenadas por prioridad. La redacción y edición continúan en el módulo de Inteligencia de Promociones.",
+    "Las promociones con mayor probabilidad de fortalecer este caso, ordenadas por prioridad. La redacciÃ³n y ediciÃ³n continÃºan en el mÃ³dulo de Inteligencia de Promociones.",
     { size: 10, color: MUTED, gap: 10 },
   );
 
@@ -3024,7 +3024,7 @@ function renderRecommendedMotions(b: PdfBuilder, data: CaseExportData) {
       b.doc.setFontSize(9);
       b.doc.setTextColor(...MUTED);
       for (const ev of evidence) {
-        const lines = b.doc.splitTextToSize(`•  ${ev}`, cardW - 32) as string[];
+        const lines = b.doc.splitTextToSize(`â€¢  ${ev}`, cardW - 32) as string[];
         for (const line of lines) {
           b.doc.text(line, padX, b.y);
           b.y += 12;
@@ -3042,7 +3042,7 @@ function renderRecommendedMotions(b: PdfBuilder, data: CaseExportData) {
       b.doc.setFont("helvetica", "normal");
       b.doc.setFontSize(9);
       b.doc.setTextColor(...MUTED);
-      const basisLine = legalBasis.join("  •  ");
+      const basisLine = legalBasis.join("  â€¢  ");
       const lines = b.doc.splitTextToSize(basisLine, cardW - 32) as string[];
       for (const line of lines) {
         b.doc.text(line, padX, b.y);
@@ -3074,7 +3074,7 @@ function renderActionCenter(b: PdfBuilder, data: CaseExportData) {
   const r = asObj(data.report);
   const full = asObj(r.full_report);
   // Canonical, deduplicated recommendation list (see
-  // src/lib/intelligence/report-recommendations.ts) — present on reports
+  // src/lib/intelligence/report-recommendations.ts) â€” present on reports
   // generated after canonical recommendation merging. Older reports must
   // regenerate; raw finding actions are not an alternative authority.
   const canonicalRecs = asArr(full.canonical_recommendations);
@@ -3084,9 +3084,9 @@ function renderActionCenter(b: PdfBuilder, data: CaseExportData) {
   const hasAnyContent = canonicalRecs.length > 0 || generatedWP.length > 0;
   if (!hasAnyContent) return;
 
-  b.h1("Centro de Acción del Abogado");
+  b.h1("Centro de AcciÃ³n del Abogado");
   b.text(
-    "Próximas acciones inmediatas y prioridades estratégicas, antes del análisis detallado que las sustenta.",
+    "PrÃ³ximas acciones inmediatas y prioridades estratÃ©gicas, antes del anÃ¡lisis detallado que las sustenta.",
     {
       size: 10,
       color: MUTED,
@@ -3095,7 +3095,7 @@ function renderActionCenter(b: PdfBuilder, data: CaseExportData) {
   );
 
   if (useCanonical) {
-    // Single merged list, already deduplicated and priority-sorted — this
+    // Single merged list, already deduplicated and priority-sorted â€” this
     // replaces what used to be two separately-generated lists
     // ("Immediate Recommended Actions" from next_actions, "Strategic
     // Priorities" from strategy_recommendations) that frequently repeated
@@ -3140,7 +3140,7 @@ function renderActionCenter(b: PdfBuilder, data: CaseExportData) {
   if (generatedWP.length) {
     b.h2("Producto de Trabajo Generado");
     b.text(
-      "Listo para revisión del abogado — los borradores completos aparecen más adelante en este reporte.",
+      "Listo para revisiÃ³n del abogado â€” los borradores completos aparecen mÃ¡s adelante en este reporte.",
       {
         size: 9,
         color: MUTED,
@@ -3165,8 +3165,8 @@ function renderActionCenter(b: PdfBuilder, data: CaseExportData) {
 
 // ---- Litigation Impact Dashboard ---------------------------------------
 // Renders the SAME cards `buildLitigationImpactDashboard()` produces for
-// the in-app Report tab. Deliberately terse — one line per card via
-// statCards() — rather than repeating each dimension's full contributor
+// the in-app Report tab. Deliberately terse â€” one line per card via
+// statCards() â€” rather than repeating each dimension's full contributor
 // breakdown, which is already covered in more depth by the "Dimension
 // Detail" subsection of Case Scorecard later in this document. Showing it
 // twice would reintroduce the exact redundancy renderScorecard's own
@@ -3212,7 +3212,7 @@ function renderLitigationImpactDashboard(b: PdfBuilder, data: CaseExportData) {
 function exportHasNoPersonalNoticeDuty(data: CaseExportData): boolean {
   return (data.findings ?? []).some((f) => {
     const evidence = [asStr(f.source_quote), JSON.stringify(f.evidence_refs ?? []), JSON.stringify(f.metadata ?? {})].join(" ");
-    return /(?:no\s+exist[ií]a|no\s+(?:era|es|resultaba|fue)\s+necesari[oa]|no\s+hab[ií]a)\b[^.!?]{0,160}(?:deber|obligaci[oó]n|necesidad)?[^.!?]{0,120}notific[^.!?]{0,80}personal/i.test(evidence);
+    return /(?:no\s+exist[iÃ­]a|no\s+(?:era|es|resultaba|fue)\s+necesari[oa]|no\s+hab[iÃ­]a)\b[^.!?]{0,160}(?:deber|obligaci[oÃ³]n|necesidad)?[^.!?]{0,120}notific[^.!?]{0,80}personal/i.test(evidence);
   });
 }
 
@@ -3253,13 +3253,13 @@ function fallbackOverview(data: CaseExportData): string {
     .map((f) => asStr(f.title))
     .filter(Boolean);
   return [
-    `Caso: ${asStr(c.name, "Caso sin título")}.`,
+    `Caso: ${asStr(c.name, "Caso sin tÃ­tulo")}.`,
     docs.length
       ? `Documentos fuente revisados: ${docs.join(", ")}.`
-      : "No se adjuntaron documentos fuente a esta exportación.",
+      : "No se adjuntaron documentos fuente a esta exportaciÃ³n.",
     topFindings.length
       ? `Principales cuestiones verificadas identificadas: ${topFindings.join("; ")}.`
-      : "No había hallazgos verificados disponibles al momento de la exportación.",
+      : "No habÃ­a hallazgos verificados disponibles al momento de la exportaciÃ³n.",
   ].join(" ");
 }
 
@@ -3321,7 +3321,7 @@ function extractDate(s: string): { iso: string; display: string } | null {
 
 function renderFacts(b: PdfBuilder, data: CaseExportData) {
   const facts = reportText(data, "facts");
-  b.h1("Hechos", "Relato Fáctico");
+  b.h1("Hechos", "Relato FÃ¡ctico");
 
   // Always lead with the LLM-authored facts narrative when present.
   if (facts && facts.trim().length > 0) {
@@ -3348,9 +3348,9 @@ function renderFacts(b: PdfBuilder, data: CaseExportData) {
   dated.sort((a, c) => a.iso.localeCompare(c.iso));
 
   if (dated.length) {
-    b.h2("Narrativa Cronológica");
+    b.h2("Narrativa CronolÃ³gica");
     b.text(
-      "Los siguientes eventos se reconstruyen a partir del registro verificado, ordenados por la fecha más temprana asociada a cada hallazgo. Cada párrafo integra la evidencia subyacente en una narrativa fáctica continua apta para uso en memorandos.",
+      "Los siguientes eventos se reconstruyen a partir del registro verificado, ordenados por la fecha mÃ¡s temprana asociada a cada hallazgo. Cada pÃ¡rrafo integra la evidencia subyacente en una narrativa fÃ¡ctica continua apta para uso en memorandos.",
       { size: 10, color: MUTED, gap: 8 },
     );
     for (const ev of dated) {
@@ -3361,7 +3361,7 @@ function renderFacts(b: PdfBuilder, data: CaseExportData) {
   if (undated.length && !facts) {
     b.h2("Hechos Adicionales Verificados (Sin Fecha)");
     b.text(
-      "Los siguientes hechos verificados no pudieron ubicarse en la línea de tiempo porque la cita de origen no tiene una fecha asociada. Forman parte del registro acreditado y deben considerarse junto con la narrativa cronológica anterior.",
+      "Los siguientes hechos verificados no pudieron ubicarse en la lÃ­nea de tiempo porque la cita de origen no tiene una fecha asociada. Forman parte del registro acreditado y deben considerarse junto con la narrativa cronolÃ³gica anterior.",
       { size: 10, color: MUTED, gap: 6 },
     );
     for (const u of undated.slice(0, 20)) {
@@ -3371,7 +3371,7 @@ function renderFacts(b: PdfBuilder, data: CaseExportData) {
 
   if (!facts && !dated.length && !undated.length) {
     b.text(
-      "No se extrajeron hechos verificados del corpus disponible. Esto normalmente indica que los documentos fuente carecían de declaraciones citables y ancladas a un documento, necesarias para construir un registro fáctico fundado en evidencia. Para habilitar una narrativa de hechos, adjunte fuentes primarias con afirmaciones fácticas concretas — escritos, correspondencia contemporánea, contratos, transcripciones, declaraciones o informes firmados — para que la capa de extracción pueda anclar cada hecho a una cita textual y a la página correspondiente.",
+      "No se extrajeron hechos verificados del corpus disponible. Esto normalmente indica que los documentos fuente carecÃ­an de declaraciones citables y ancladas a un documento, necesarias para construir un registro fÃ¡ctico fundado en evidencia. Para habilitar una narrativa de hechos, adjunte fuentes primarias con afirmaciones fÃ¡cticas concretas â€” escritos, correspondencia contemporÃ¡nea, contratos, transcripciones, declaraciones o informes firmados â€” para que la capa de extracciÃ³n pueda anclar cada hecho a una cita textual y a la pÃ¡gina correspondiente.",
       { size: 10.5, gap: 8 },
     );
   }
@@ -3386,12 +3386,12 @@ function renderTimelineSummary(b: PdfBuilder, data: CaseExportData) {
       ),
     )
     .slice(0, 10)
-    .map((f) => `${asStr(f.title)} — ${asStr(f.description).slice(0, 220)}`);
-  b.h1("Resumen Cronológico");
+    .map((f) => `${asStr(f.title)} â€” ${asStr(f.description).slice(0, 220)}`);
+  b.h1("Resumen CronolÃ³gico");
   if (timeline) b.text(timeline, { size: 10.5, gap: 8 });
   else if (timelineFindings.length) b.bullets(timelineFindings);
   else
-    b.text("No se extrajeron eventos cronológicos fechados del acervo disponible.", {
+    b.text("No se extrajeron eventos cronolÃ³gicos fechados del acervo disponible.", {
       size: 10,
       color: MUTED,
     });
@@ -3403,25 +3403,25 @@ function renderDiscoveryAnalysis(b: PdfBuilder, data: CaseExportData) {
   const r = asObj(data.report);
   const missing = asArr(r.missing_evidence_struct);
   // FIX (2026-07-29): this heading rendered literally as "Discovery
-  // Analysis" in the exported PDF — the one U.S. artifact confirmed
+  // Analysis" in the exported PDF â€” the one U.S. artifact confirmed
   // to reach the actual downloadable document, not just an internal UI
   // label. Matches the Spanish heading already used for this exact
   // concept in the main branded report template.
-  b.h1("Análisis de Vacíos Probatorios");
+  b.h1("AnÃ¡lisis de VacÃ­os Probatorios");
   if (discovery) b.text(discovery, { size: 10.5, gap: 8 });
   if (missing.length) {
     b.h2("Evidencia Faltante o Necesaria");
     b.table(
-      [["Elemento", "Gravedad", "Cómo obtenerla / por qué es crítica"]],
+      [["Elemento", "Gravedad", "CÃ³mo obtenerla / por quÃ© es crÃ­tica"]],
       missing.map((m) => [
         asStr(m.item).slice(0, 70),
-        asStr(m.severity, "—"),
+        asStr(m.severity, "â€”"),
         (asStr(m.how_to_obtain) || asStr(m.why_critical)).slice(0, 120),
       ]),
     );
   }
   if (!discovery && !missing.length) {
-    b.text("No se identificaron vacíos probatorios verificados en los documentos proporcionados.", {
+    b.text("No se identificaron vacÃ­os probatorios verificados en los documentos proporcionados.", {
       size: 10,
       color: MUTED,
     });
@@ -3432,9 +3432,9 @@ function renderRiskAnalysis(b: PdfBuilder, data: CaseExportData) {
   const risk = reportText(data, "risk_analysis") || reportText(data, "score_breakdown");
   const r = asObj(data.report);
   const canonicalRisk = getScores(getReportRow(data)).risk;
-  b.h1("Análisis de Riesgo");
+  b.h1("AnÃ¡lisis de Riesgo");
   if (typeof canonicalRisk === "number" && !r.scores_suppressed) {
-    // Compact score strip — the risk score is already displayed as a
+    // Compact score strip â€” the risk score is already displayed as a
     // prominent radial gauge on the cover page. A second large radial
     // repeat here creates visual repetition; the strip preserves the
     // number and its color coding without another full-height widget.
@@ -3449,7 +3449,7 @@ function renderRiskAnalysis(b: PdfBuilder, data: CaseExportData) {
   if (risk) b.text(risk, { size: 10.5, gap: 8 });
   else
     b.text(
-      "El análisis de riesgo se limita a los hallazgos verificados y a la cobertura documental mostrada en este reporte.",
+      "El anÃ¡lisis de riesgo se limita a los hallazgos verificados y a la cobertura documental mostrada en este reporte.",
       {
         size: 10,
         color: MUTED,
@@ -3484,7 +3484,7 @@ function renderRecommendationsNarrative(b: PdfBuilder, data: CaseExportData) {
         g.items.map((c) => {
           const title = asStr(c.title);
           const reason = asStr(c.reason);
-          return reason && reason !== title ? `${title} — ${reason.slice(0, 180)}` : title;
+          return reason && reason !== title ? `${title} â€” ${reason.slice(0, 180)}` : title;
         }),
       );
     }
@@ -3499,7 +3499,7 @@ function renderCrossExamination(b: PdfBuilder, data: CaseExportData) {
   // Only render from a genuine cross-examination plan (topic-organized
   // questions, impeachment ties, citations). There used to be a fallback
   // here that rebuilt an equivalent structure straight from
-  // data.witnesses.cross_exam_questions whenever no real plan existed — but
+  // data.witnesses.cross_exam_questions whenever no real plan existed â€” but
   // that is the exact same array "Witness Intelligence" already prints in
   // full for every witness, so the fallback never added information; it
   // just reproduced that section's content verbatim under a second heading.
@@ -3520,7 +3520,7 @@ function renderCrossExamination(b: PdfBuilder, data: CaseExportData) {
       const citation = asObj(line.citation);
       if (Object.keys(citation).length) {
         b.text(
-          `Citation: "${asStr(citation.quote).slice(0, 180)}" — ${citeLabel(citation.doc_n, citation.page)}`,
+          `Citation: "${asStr(citation.quote).slice(0, 180)}" â€” ${citeLabel(citation.doc_n, citation.page)}`,
           {
             size: 9,
             color: MUTED,
@@ -3540,12 +3540,12 @@ function renderScorecard(b: PdfBuilder, data: CaseExportData) {
   const report = asObj(data.report);
   const fullReport = asObj(report.full_report);
   const caseType =
-    asStr(fullReport.case_type) || asStr(asObj(breakdowns).case_type) || "general_civil";
-  const isCriminal = caseType === "penal" || caseType === "criminal" || caseType === "civil_rights";
+    asStr(fullReport.case_type) || asStr(asObj(breakdowns).case_type) || "unknown";
+  const isCriminal = caseType === "penal" || caseType === "amparo" || caseType === "constitucional";
 
   if (Object.keys(dimensions).length === 0 && !Object.keys(score).length) return;
-  b.h1("Tablero de Puntuación del Caso");
-  b.text(asStr(score.methodology, "Puntuación determinista basada en reglas."), {
+  b.h1("Tablero de PuntuaciÃ³n del Caso");
+  b.text(asStr(score.methodology, "PuntuaciÃ³n determinista basada en reglas."), {
     size: 10,
     color: MUTED,
     gap: 4,
@@ -3556,8 +3556,8 @@ function renderScorecard(b: PdfBuilder, data: CaseExportData) {
     const v = asObj(val);
     rows.push([
       asStr(v.dimension),
-      `${asStr(v.score, "—")} / 100`,
-      asStr(v.baseline, "—"),
+      `${asStr(v.score, "â€”")} / 100`,
+      asStr(v.baseline, "â€”"),
       `${asStr(v.raw_delta, "0")}`,
       asStr(v.contributor_count, "0"),
     ]);
@@ -3566,50 +3566,50 @@ function renderScorecard(b: PdfBuilder, data: CaseExportData) {
     // Deliberately no plain-number table here: the Dimension Detail section
     // below renders these exact same dimensions as color-coded bars, and
     // showing both was pure redundancy (the reader had to parse the same
-    // nine numbers twice — once as a bare table, once as bars). The bar
+    // nine numbers twice â€” once as a bare table, once as bars). The bar
     // version is strictly more scannable, so it's now the single canonical
     // view of dimension scores.
   } else {
-    // Fallback to legacy fields — gated by case type so civil reports never
+    // Fallback to legacy fields â€” gated by case type so civil reports never
     // show "Cadena de Custodia", "Cumplimiento Constitucional", "Riesgo de
-    // Condena" or "Riesgo de Apelación".
+    // Condena" or "Riesgo de ApelaciÃ³n".
     const legacy: [string, unknown][] = isCriminal
       ? [
           ["Fortaleza de la evidencia", score.evidence_strength],
           ["Confiabilidad de testigos", score.witness_reliability],
-          ["Integridad cronológica", score.timeline_integrity],
+          ["Integridad cronolÃ³gica", score.timeline_integrity],
           ["Cadena de custodia", score.chain_of_custody],
           ["Cumplimiento constitucional", score.constitutional_compliance],
-          ["Integridad de la investigación", score.investigation_completeness],
+          ["Integridad de la investigaciÃ³n", score.investigation_completeness],
           ["Riesgo de condena", score.conviction_risk],
-          ["Riesgo de apelación", score.appeal_risk],
+          ["Riesgo de apelaciÃ³n", score.appeal_risk],
         ]
       : [
           ["Fortaleza de la evidencia", score.evidence_strength],
           ["Confiabilidad de testigos", score.witness_reliability],
-          ["Integridad cronológica", score.timeline_integrity],
+          ["Integridad cronolÃ³gica", score.timeline_integrity],
           [
             "Confiabilidad documental",
             (score as Record<string, unknown>).documentation_reliability,
           ],
           ["Cumplimiento probatorio", (score as Record<string, unknown>).discovery_compliance],
-          ["Integridad de la investigación", score.investigation_completeness],
+          ["Integridad de la investigaciÃ³n", score.investigation_completeness],
           ["Riesgo litigioso", (score as Record<string, unknown>).litigation_risk],
         ];
     b.table(
-      [["Dimensión", "Puntuación"]],
+      [["DimensiÃ³n", "PuntuaciÃ³n"]],
       legacy.filter(([, v]) => typeof v === "number").map(([k, v]) => [k, `${v} / 100`]),
     );
   }
   // Per-dimension breakdown. The scoring formula is identical for every
   // dimension, so state it once here instead of repeating it under each
-  // one — that repetition was the main thing making this section read as
+  // one â€” that repetition was the main thing making this section read as
   // a wall of text. Each dimension then gets a single scannable bar row
   // plus (at most) a one-line summary of what moved the score, rather
   // than a full 3-column table per dimension.
   const dimEntries = Object.entries(dimensions);
   if (dimEntries.length) {
-    b.h2("Detalle por Dimensión");
+    b.h2("Detalle por DimensiÃ³n");
     const firstFormula = asStr(asObj(dimEntries[0][1]).formula);
     b.text(
       firstFormula ||
@@ -3630,11 +3630,11 @@ function renderScorecard(b: PdfBuilder, data: CaseExportData) {
         .slice(0, 3)
         .map((c) => `${asStr(c.title)} (${asStr(c.severity)})`);
       if (neg.length) {
-        b.text("Primary contributors — weakens", { size: 8, bold: true, color: MUTED, gap: 2 });
+        b.text("Primary contributors â€” weakens", { size: 8, bold: true, color: MUTED, gap: 2 });
         b.bullets(neg);
       }
       if (pos.length) {
-        b.text("Primary contributors — strengthens", {
+        b.text("Primary contributors â€” strengthens", {
           size: 8,
           bold: true,
           color: SUCCESS,
@@ -3653,24 +3653,24 @@ function renderKeyFindings(b: PdfBuilder, data: CaseExportData) {
   const cards = presentation(data).finding_cards;
   if (!cards.length) return;
   b.h1(rt("Key Findings"));
-  b.table([["#", "Hallazgo", "Atribución", "Fuentes"]], cards.map((card, i) => [
+  b.table([["#", "Hallazgo", "AtribuciÃ³n", "Fuentes"]], cards.map((card, i) => [
     i + 1, asStr(card.finding.title), asStr(card.finding.speaker_role_label), card.source_count,
   ]));
   for (const [i, card] of cards.entries()) {
     const f = card.finding, wp = card.details;
     b.h2("#" + (i + 1) + " " + asStr(f.title));
-    b.text(asStr(f.speaker_role_label) + " · " + asStr(f.speaker_role), {size:9, color:MUTED, gap:4});
+    b.text(asStr(f.speaker_role_label) + " Â· " + asStr(f.speaker_role), {size:9, color:MUTED, gap:4});
     b.text(asStr(f.description), {size:9.6, gap:4});
     b.label(rt("Sources"), String(card.source_count));
     for (const ref of asArr(f.evidence_refs)) {
       if (ref.quote) b.evidenceQuote(asStr(ref.quote), asStr(ref.filename));
     }
     if (wp.importance.length) {
-      b.h2("IMPORTANCIA ESTRATÉGICA");
+      b.h2("IMPORTANCIA ESTRATÃ‰GICA");
       wp.importance.forEach(text => b.text(text, {size:9.4, gap:4}));
     }
     if (wp.synthesis) {
-      b.h2("SÍNTESIS PROBATORIA");
+      b.h2("SÃNTESIS PROBATORIA");
       b.text(wp.synthesis.narrative, {size:9.4, gap:4});
       b.bullets(wp.synthesis.lines);
     }
@@ -3691,20 +3691,20 @@ function renderEvidenceMap(b: PdfBuilder, data: CaseExportData) {
   if (!idx.length) return;
   b.h1("Mapa de Evidencia");
   b.table(
-    [["Doc", "Archivo", "Rol", "Páginas Clave"]],
+    [["Doc", "Archivo", "Rol", "PÃ¡ginas Clave"]],
     idx.map((e) => [
       asStr(e.doc_n),
       asStr(e.filename).slice(0, 60),
       asStr(e.role),
-      Array.isArray(e.key_pages) ? (e.key_pages as number[]).join(", ") : "—",
+      Array.isArray(e.key_pages) ? (e.key_pages as number[]).join(", ") : "â€”",
     ]),
   );
   // Render a full detail block for every document that actually HAS
-  // something to say — no silent truncation of the ones with real content
+  // something to say â€” no silent truncation of the ones with real content
   // (previously sliced to 10, which meant multi-document cases only ever
   // saw the first 10 documents' detail). But a document with no summary
   // and no supports/undermines has nothing beyond what the table above
-  // already shows (Doc/Filename/Role/Key pages) — repeating "no AI
+  // already shows (Doc/Filename/Role/Key pages) â€” repeating "no AI
   // classification available this run" as its own full block, once per
   // unclassified document, is what was padding large-corpus reports (e.g.
   // ~90 pages of boilerplate on a 110-document case) without adding any
@@ -3734,15 +3734,15 @@ function renderContradictions(b: PdfBuilder, data: CaseExportData) {
   const r = asObj(data.report);
   const items = asArr(r.contradictions_struct);
   if (!items.length) return;
-  b.h1("Análisis de Contradicciones");
+  b.h1("AnÃ¡lisis de Contradicciones");
   b.text(
-    "Cada contradicción a continuación empareja dos declaraciones específicas del expediente con las consecuencias legales y estratégicas para el juicio.",
+    "Cada contradicciÃ³n a continuaciÃ³n empareja dos declaraciones especÃ­ficas del expediente con las consecuencias legales y estratÃ©gicas para el juicio.",
     { size: 10, color: MUTED, gap: 6 },
   );
   for (const c of items) {
     b.h3(asStr(c.title, "Contradiction"));
     b.text(rt("[FACT]"), { size: 8, bold: true, color: SUCCESS, gap: 2 });
-    // Colored severity pill instead of a plain text label — this was the
+    // Colored severity pill instead of a plain text label â€” this was the
     // only section in the report still rendering severity as uncolored
     // black text while every other section (Key Findings, tables) uses the
     // shared severityColor()/pill() language. A reader skimming the report
@@ -3750,18 +3750,18 @@ function renderContradictions(b: PdfBuilder, data: CaseExportData) {
     // spotting the color, unlike everywhere else.
     const sevColor = b.severityColor(asStr(c.severity));
     b.ensureSpace(16);
-    b.pill(asStr(c.severity, "—"), b.margin, b.y + 1, sevColor, "left");
+    b.pill(asStr(c.severity, "â€”"), b.margin, b.y + 1, sevColor, "left");
     b.y += 14;
     b.label("Beneficia a", asStr(c.side_helped));
     const docA = asObj(c.document_a);
     const docB = asObj(c.document_b);
     if (Object.keys(docA).length || Object.keys(docB).length) {
       b.text("Document A:", { size: 9, bold: true, color: ACCENT });
-      b.text(`"${asStr(docA.quote).slice(0, 220)}"  — ${citeLabel(docA.doc_n, docA.page)}`, {
+      b.text(`"${asStr(docA.quote).slice(0, 220)}"  â€” ${citeLabel(docA.doc_n, docA.page)}`, {
         size: 10,
       });
       b.text("Document B:", { size: 9, bold: true, color: ACCENT });
-      b.text(`"${asStr(docB.quote).slice(0, 220)}"  — ${citeLabel(docB.doc_n, docB.page)}`, {
+      b.text(`"${asStr(docB.quote).slice(0, 220)}"  â€” ${citeLabel(docB.doc_n, docB.page)}`, {
         size: 10,
         gap: 4,
       });
@@ -3781,7 +3781,7 @@ function renderContradictions(b: PdfBuilder, data: CaseExportData) {
     if (cites.length) {
       b.text("Evidencia adicional:", { size: 9, bold: true, color: MUTED });
       b.bullets(
-        cites.map((cc) => `"${asStr(cc.quote).slice(0, 180)}"  — ${citeLabel(cc.doc_n, cc.page)}`),
+        cites.map((cc) => `"${asStr(cc.quote).slice(0, 180)}"  â€” ${citeLabel(cc.doc_n, cc.page)}`),
       );
     }
     if (c.recommended_use)
@@ -3792,7 +3792,7 @@ function renderContradictions(b: PdfBuilder, data: CaseExportData) {
 function renderPerspectives(b: PdfBuilder, data: CaseExportData) {
   const ps = data.perspectives ?? [];
   if (!ps.length) return;
-  b.h1("Análisis Multi-Perspectiva");
+  b.h1("AnÃ¡lisis Multi-Perspectiva");
   b.text(
     "Independent analysis from each side of the dispute. All perspectives are produced regardless of which side counsel represents.",
     { size: 10, color: MUTED, gap: 8 },
@@ -3800,8 +3800,8 @@ function renderPerspectives(b: PdfBuilder, data: CaseExportData) {
   // Each perspective's strength_score is produced by a separate LLM call
   // with no visibility into the deterministic case scorecard, so it can
   // diverge sharply from the case-level Case Strength shown on the cover
-  // page and in the Executive Summary — e.g. a "Prosecution Strength: 78"
-  // sitting a few pages after "Case Strength: 25 — Defense Advantage" with
+  // page and in the Executive Summary â€” e.g. a "Prosecution Strength: 78"
+  // sitting a few pages after "Case Strength: 25 â€” Defense Advantage" with
   // nothing explaining the gap. Surface that explicitly instead of letting
   // two unreconciled numbers imply the report contradicts itself.
   const canonicalStrength = getScores(getReportRow(data)).strength;
@@ -3818,7 +3818,7 @@ function renderPerspectives(b: PdfBuilder, data: CaseExportData) {
         `Note: this perspective's strength score (${p.strength_score}/100) diverges substantially from the ` +
           `case-level Case Strength (${canonicalStrength}/100). Perspective scores reflect the best case that ` +
           `side can argue from its own vantage point and are not directly comparable to the deterministic ` +
-          `case-level score — treat them as separate measures rather than a contradiction.`,
+          `case-level score â€” treat them as separate measures rather than a contradiction.`,
         { size: 9, color: MUTED, gap: 4 },
       );
     }
@@ -3865,15 +3865,15 @@ function renderEvidenceIntel(b: PdfBuilder, data: CaseExportData) {
     gap: 6,
   });
   b.table(
-    [["Clasificación", "Confianza", "Gravedad", "Documento", "Motivo"]],
+    [["ClasificaciÃ³n", "Confianza", "Gravedad", "Documento", "Motivo"]],
     ev
       .slice(0, 60)
       .map((e) => [
         asStr(e.classification),
         asStr(e.confidence_label, asStr(e.confidence)),
-        asStr(e.severity, "—"),
-        asStr(e.title, resolveDocTitleByUuid(e.document_id) ?? "—").slice(0, 40),
-        asStr(e.description, "—").slice(0, 90),
+        asStr(e.severity, "â€”"),
+        asStr(e.title, resolveDocTitleByUuid(e.document_id) ?? "â€”").slice(0, 40),
+        asStr(e.description, "â€”").slice(0, 90),
       ]),
   );
 }
@@ -3881,7 +3881,7 @@ function renderEvidenceIntel(b: PdfBuilder, data: CaseExportData) {
 function renderStrategySynthesis(b: PdfBuilder, data: CaseExportData) {
   const rows = data.strategy ?? [];
   if (!rows.length) return;
-  b.h1("Síntesis Estratégica");
+  b.h1("SÃ­ntesis EstratÃ©gica");
   for (const s of rows) {
     b.h3(asStr(s.title, asStr(s.perspective, "Strategy")));
     if (s.perspective) b.label("Perspectiva", asStr(s.perspective));
@@ -3894,7 +3894,7 @@ function renderStrategySynthesis(b: PdfBuilder, data: CaseExportData) {
       b.bullets(
         motions.map(
           (m) =>
-            `${asStr(m.priority).toUpperCase()} · ${asStr(m.motion)} — ${asStr(m.rationale).slice(0, 160)}`,
+            `${asStr(m.priority).toUpperCase()} Â· ${asStr(m.motion)} â€” ${asStr(m.rationale).slice(0, 160)}`,
         ),
       );
     }
@@ -3906,7 +3906,7 @@ function renderStrategySynthesis(b: PdfBuilder, data: CaseExportData) {
       b.bullets(
         opp.map(
           (o) =>
-            `${asStr(o.argument)} (likelihood ${asStr(o.likelihood)}, impact ${asStr(o.impact)}) — counter: ${asStr(o.counter).slice(0, 160)}`,
+            `${asStr(o.argument)} (likelihood ${asStr(o.likelihood)}, impact ${asStr(o.impact)}) â€” counter: ${asStr(o.counter).slice(0, 160)}`,
         ),
       );
     }
@@ -3915,7 +3915,7 @@ function renderStrategySynthesis(b: PdfBuilder, data: CaseExportData) {
       : [];
     if (na.length) {
       b.text("Next actions:", { size: 9, bold: true, color: PRIMARY });
-      b.bullets(na.map((n) => `${asStr(n.action)} — ${asStr(n.owner)}`));
+      b.bullets(na.map((n) => `${asStr(n.action)} â€” ${asStr(n.owner)}`));
     }
   }
 }
@@ -3925,7 +3925,7 @@ function renderWorkProduct(b: PdfBuilder, data: CaseExportData) {
   const motionsSuppressed = Boolean(asObj(data.report).motions_suppressed);
   // Mirror the gate applied in writer.server.ts: when motions are suppressed,
   // Attorney Work Product must not include drafted motions, trial outlines,
-  // cross-exam plans, or settlement demands — only the factual case_summary.
+  // cross-exam plans, or settlement demands â€” only the factual case_summary.
   const rows = motionsSuppressed
     ? allRows.filter((w) => asStr(w.document_type) === "case_summary")
     : allRows;
@@ -3936,7 +3936,7 @@ function renderWorkProduct(b: PdfBuilder, data: CaseExportData) {
     if (motionsSuppressed && allRows.length > 0) {
       b.h1("Producto de Trabajo del Abogado");
       b.text(
-        "La redacción de promociones y las recomendaciones priorizadas se retuvieron porque este expediente no alcanzó el umbral de Suficiencia Probatoria (ESS).",
+        "La redacciÃ³n de promociones y las recomendaciones priorizadas se retuvieron porque este expediente no alcanzÃ³ el umbral de Suficiencia Probatoria (ESS).",
         { size: 10, color: MUTED, gap: 4 },
       );
     }
@@ -3962,7 +3962,7 @@ function renderWorkProduct(b: PdfBuilder, data: CaseExportData) {
           b.divider();
         }
       }
-      // Document card header — title + type/status pills, drawn atomically
+      // Document card header â€” title + type/status pills, drawn atomically
       // together with the first block of body content via ensureSpace.
       b.ensureSpace(90);
       const cardY = b.y;
@@ -3976,7 +3976,7 @@ function renderWorkProduct(b: PdfBuilder, data: CaseExportData) {
       b.doc.setFontSize(13);
       b.doc.setTextColor(...PRIMARY);
       b.doc.text(pdfSafe(title), b.margin + 14, cardY + 18);
-      const meta = [docType.replace(/_/g, " "), status].filter(Boolean).join("  ·  ");
+      const meta = [docType.replace(/_/g, " "), status].filter(Boolean).join("  Â·  ");
       if (meta) {
         b.doc.setFont("helvetica", "normal");
         b.doc.setFontSize(9);
@@ -3995,7 +3995,7 @@ function renderWorkProduct(b: PdfBuilder, data: CaseExportData) {
         asStr(w.error_message) ||
         asStr(w.skipped_reason) ||
         "No generado por evidencia insuficiente.";
-      b.text(`• ${title} — ${reason}`, { size: 10, color: MUTED });
+      b.text(`â€¢ ${title} â€” ${reason}`, { size: 10, color: MUTED });
     }
   }
 }
@@ -4003,39 +4003,39 @@ function renderWorkProduct(b: PdfBuilder, data: CaseExportData) {
 function renderConstitutional(b: PdfBuilder, data: CaseExportData) {
   const r = asObj(data.report);
   const full = asObj(r.full_report);
-  const caseType = asStr(full.case_type) || "general_civil";
+  const caseType = asStr(full.case_type) || "unknown";
   // FIX (2026-07-29): this only checked the retired English case-type keys
-  // ("criminal", "civil_rights") — never "penal"/"amparo"/"constitucional",
+  // ("criminal", "civil_rights") â€” never "penal"/"amparo"/"constitucional",
   // the actual Mexican taxonomy keys pipeline.server.ts's own
   // isCriminalOrCivilRights check already uses correctly. That meant this
   // entire section could never render for any real Mexican case, even
   // though constitutional_issues_struct was being correctly populated
-  // upstream the whole time — the data existed, this gate just hid it.
+  // upstream the whole time â€” the data existed, this gate just hid it.
   if (caseType !== "penal" && caseType !== "amparo" && caseType !== "constitucional") return;
   const items = asArr(r.constitutional_issues_struct);
   if (!items.length) return;
-  b.h1("Análisis Constitucional");
+  b.h1("AnÃ¡lisis Constitucional");
   for (const c of items) {
     // FIX: c.amendment matched a schema field that literally asked the LLM
-    // for a U.S. constitutional amendment number — renamed to
+    // for a U.S. constitutional amendment number â€” renamed to
     // articulo_cpeum (CPEUM article) in pipeline.server.ts's prompt schema.
-    b.h3(`${asStr(c.right)} — ${asStr(c.articulo_cpeum)}`);
+    b.h3(`${asStr(c.right)} â€” ${asStr(c.articulo_cpeum)}`);
     b.text(asStr(c.issue), { size: 11, bold: true, gap: 2 });
     if (c.facts) {
       b.h3("Hechos");
       b.text(asStr(c.facts));
     }
     if (c.legal_standard) {
-      b.h3("Estándar Legal");
+      b.h3("EstÃ¡ndar Legal");
       b.text(asStr(c.legal_standard));
     }
     if ((data as FinalReportPayload).report_presentation.capability.probabilities_allowed && c.likely_outcome)
       b.callout(
-        "Estimación de Probabilidad",
+        "EstimaciÃ³n de Probabilidad",
         `${asStr(c.likely_outcome)} (confianza: ${asStr(c.confidence_label, "media")})`,
       );
-    if (c.jurisdiction) b.label("Jurisdicción", asStr(c.jurisdiction));
-    if (c.warrant_standard) b.label("Estándar de Cateo/Orden Judicial", asStr(c.warrant_standard));
+    if (c.jurisdiction) b.label("JurisdicciÃ³n", asStr(c.jurisdiction));
+    if (c.warrant_standard) b.label("EstÃ¡ndar de Cateo/Orden Judicial", asStr(c.warrant_standard));
     if (c.uncertainty_flag) b.callout("Incertidumbre", asStr(c.uncertainty_flag), DANGER);
     if ((data as FinalReportPayload).report_presentation.capability.strategic_recommendations_allowed &&
         (data as FinalReportPayload).report_presentation.governance.strategy_output_allowed && c.remedy_sought)
@@ -4046,7 +4046,7 @@ function renderConstitutional(b: PdfBuilder, data: CaseExportData) {
     if (cites.length) {
       b.text(rt("Evidence:"), { size: 9, bold: true, color: MUTED });
       b.bullets(
-        cites.map((cc) => `"${asStr(cc.quote).slice(0, 180)}"  — ${citeLabel(cc.doc_n, cc.page)}`),
+        cites.map((cc) => `"${asStr(cc.quote).slice(0, 180)}"  â€” ${citeLabel(cc.doc_n, cc.page)}`),
       );
     }
   }
@@ -4055,7 +4055,7 @@ function renderConstitutional(b: PdfBuilder, data: CaseExportData) {
 // Renders the deterministic legal-issue hits (Fourth Amendment, Miranda,
 // Brady, Chain of Custody, etc.) together with any real case law that
 // buildLegalIssuesWithCaseLaw() attached via CourtListener. Sourced from
-// full_report.legal_issues — never gated by case type, since the
+// full_report.legal_issues â€” never gated by case type, since the
 // underlying detection runs over raw document text regardless of
 // case_type. Silently renders nothing if no issues were detected or if
 // case law lookup failed/was skipped (case_law will just be []).
@@ -4063,12 +4063,12 @@ function renderLegalIssues(b: PdfBuilder, data: CaseExportData) {
   const full = asObj(asObj(data.report).full_report);
   const items = asArr(full.legal_issues);
   if (!items.length) return;
-  b.h1("Cuestiones Jurídicas y Jurisprudencia");
+  b.h1("Cuestiones JurÃ­dicas y Jurisprudencia");
 
   // The same handful of legal theories (Fourth Amendment, Miranda, Brady,
   // Chain of Custody, Jencks, Authentication, Expert Admissibility) get
   // flagged independently on every document that touches them upstream,
-  // producing near-duplicate blocks — e.g. 33 separate "Brady" entries with
+  // producing near-duplicate blocks â€” e.g. 33 separate "Brady" entries with
   // identical significance/next-step text, each with its own copy of the
   // same case law. On a 94-document corpus that's what pushed a report to
   // 54 pages of largely repeated boilerplate. Consolidate to one block per
@@ -4098,7 +4098,7 @@ function renderLegalIssues(b: PdfBuilder, data: CaseExportData) {
           const doc = asStr(g.document);
           const title = doc ? humanizeDocTitle(doc) : "";
           return title
-            ? `"${asStr(g.quote).slice(0, 160)}"  — ${title}`
+            ? `"${asStr(g.quote).slice(0, 160)}"  â€” ${title}`
             : `"${asStr(g.quote).slice(0, 160)}"`;
         }),
       );
@@ -4119,8 +4119,8 @@ function renderLegalIssues(b: PdfBuilder, data: CaseExportData) {
     for (const c of allCases) {
       const meta = [asStr(c.citation), asStr(c.court), asStr(c.date_filed)]
         .filter(Boolean)
-        .join(" · ");
-      const line = meta ? `${asStr(c.case_name)} — ${meta}` : asStr(c.case_name);
+        .join(" Â· ");
+      const line = meta ? `${asStr(c.case_name)} â€” ${meta}` : asStr(c.case_name);
       if (!line.trim() || seen.has(line)) continue;
       seen.add(line);
       caseLines.push(line);
@@ -4141,16 +4141,16 @@ function renderWitnesses(b: PdfBuilder, data: CaseExportData) {
     ws.map((w) => [
       asStr(w.name),
       asStr(w.role),
-      asStr(w.reliability, "—"),
-      asStr(w.bias, "—"),
-      asStr(w.credibility_risk, "—"),
+      asStr(w.reliability, "â€”"),
+      asStr(w.bias, "â€”"),
+      asStr(w.credibility_risk, "â€”"),
     ]),
   );
   for (const [idx, w] of ws.slice(0, 8).entries()) {
     if (idx > 0) b.divider();
-    b.h3(`${asStr(w.name)}${w.role ? ` — ${asStr(w.role)}` : ""}`);
+    b.h3(`${asStr(w.name)}${w.role ? ` â€” ${asStr(w.role)}` : ""}`);
     // Reliability reads "good" high, while bias/credibility-risk read
-    // "good" low — invert only the bar/color for those two (via the
+    // "good" low â€” invert only the bar/color for those two (via the
     // `invert` option) so a full green bar always means "favorable for
     // this witness's credibility" at a glance. The printed number is the
     // real score in all three rows, matching the summary table above.
@@ -4181,15 +4181,15 @@ function renderWitnesses(b: PdfBuilder, data: CaseExportData) {
 function renderTheories(b: PdfBuilder, data: CaseExportData) {
   const ts = data.theories ?? [];
   if (!ts.length) return;
-  b.h1("Análisis de Teoría del Caso");
+  b.h1("AnÃ¡lisis de TeorÃ­a del Caso");
   for (const t of ts) {
     const isAiTheory = asStr(t.finding_type) === "AI_THEORY";
     b.h3(`${mxRoleLabel(asStr(t.theory_type))} Theory`);
     if (isAiTheory) {
       // Only ever persisted when the case was run in exploratory mode (see
-      // evidence-gate.server.ts) — an uncited, model-generated theory. Must
+      // evidence-gate.server.ts) â€” an uncited, model-generated theory. Must
       // never render indistinguishably from a citation-backed theory.
-      b.text("IA — TEORÍA NO VERIFICADA, REQUIERE REVISIÓN DEL ABOGADO", {
+      b.text("IA â€” TEORÃA NO VERIFICADA, REQUIERE REVISIÃ“N DEL ABOGADO", {
         size: 9,
         bold: true,
         color: DANGER,
@@ -4239,12 +4239,12 @@ function renderLitigationStrategyCenter(b: PdfBuilder, data: CaseExportData) {
 
   // ---- What Wins This Case? ----
   if (asStr(theme.theme)) {
-    b.h2("¿Qué Gana Este Caso?");
+    b.h2("Â¿QuÃ© Gana Este Caso?");
     b.h3("Tema Central del Litigio");
     b.text(asStr(theme.theme), { size: 11, bold: true, color: PRIMARY, gap: 4 });
     if (theme.why) b.text(asStr(theme.why), { size: 10, gap: 4 });
     if (theme.persuasion_likelihood)
-      b.label("Probabilidad de Persuasión", asStr(theme.persuasion_likelihood));
+      b.label("Probabilidad de PersuasiÃ³n", asStr(theme.persuasion_likelihood));
     const supEv = Array.isArray(theme.supporting_evidence)
       ? (theme.supporting_evidence as string[])
       : [];
@@ -4253,14 +4253,14 @@ function renderLitigationStrategyCenter(b: PdfBuilder, data: CaseExportData) {
       b.bullets(supEv);
     }
     if (theme.presentation_guidance) {
-      b.text("Cómo presentarlo:", { size: 9, bold: true, color: MUTED });
+      b.text("CÃ³mo presentarlo:", { size: 9, bold: true, color: MUTED });
       b.text(asStr(theme.presentation_guidance), { size: 10, gap: 4 });
     }
   }
 
   // ---- What Could Lose This Case? ----
   if (asStr(weakness.weakness) || asStr(risk.risk)) {
-    b.h2("¿Qué Podría Perder Este Caso?");
+    b.h2("Â¿QuÃ© PodrÃ­a Perder Este Caso?");
     if (weakness.weakness) {
       b.h3("Mayor Debilidad");
       b.text(asStr(weakness.weakness), { size: 10.5, bold: true, gap: 2 });
@@ -4275,23 +4275,23 @@ function renderLitigationStrategyCenter(b: PdfBuilder, data: CaseExportData) {
 
   // ---- Settlement leverage ----
   if (leverage.length) {
-    b.h2("Mejor Palanca de Negociación");
+    b.h2("Mejor Palanca de NegociaciÃ³n");
     b.bullets(
       leverage.map((l) => {
         const item = asStr(l.item);
         const why = asStr(l.why_it_increases_pressure);
-        return why ? `${item} — ${why}` : item;
+        return why ? `${item} â€” ${why}` : item;
       }),
     );
   }
 
-  // ---- Most dangerous witness (grounded — omitted entirely if ungrounded) ----
+  // ---- Most dangerous witness (grounded â€” omitted entirely if ungrounded) ----
   if (asStr(witness.name)) {
-    b.h2("Testigo Más Riesgoso");
+    b.h2("Testigo MÃ¡s Riesgoso");
     b.text(asStr(witness.name), { size: 11, bold: true, color: PRIMARY, gap: 4 });
     const reasons = Array.isArray(witness.reasons) ? (witness.reasons as string[]) : [];
     if (reasons.length) {
-      b.text("Por qué:", { size: 9, bold: true, color: MUTED });
+      b.text("Por quÃ©:", { size: 9, bold: true, color: MUTED });
       b.bullets(reasons);
     }
     const approach = Array.isArray(witness.recommended_approach)
@@ -4305,13 +4305,13 @@ function renderLitigationStrategyCenter(b: PdfBuilder, data: CaseExportData) {
 
   // ---- Biggest evidentiary gap ----
   if (asStr(gap.item)) {
-    b.h2("Mayor Vacío Probatorio");
+    b.h2("Mayor VacÃ­o Probatorio");
     b.text(asStr(gap.item), { size: 11, bold: true, color: PRIMARY, gap: 4 });
     if (gap.importance) b.label("Importancia", asStr(gap.importance));
     if (gap.impact) b.text(asStr(gap.impact), { size: 10, gap: 4 });
     const howTo = Array.isArray(gap.how_to_obtain) ? (gap.how_to_obtain as string[]) : [];
     if (howTo.length) {
-      b.text("Cómo obtenerla:", { size: 9, bold: true, color: MUTED });
+      b.text("CÃ³mo obtenerla:", { size: 9, bold: true, color: MUTED });
       b.bullets(howTo);
     }
     if (gap.potential_benefit) {
@@ -4322,7 +4322,7 @@ function renderLitigationStrategyCenter(b: PdfBuilder, data: CaseExportData) {
 
   // ---- Expected defense + counter ----
   if (asStr(defense.primary_defense) || counter) {
-    b.h2("Estrategia de Defensa Más Probable");
+    b.h2("Estrategia de Defensa MÃ¡s Probable");
     if (defense.primary_defense) {
       b.h3("Defensa Principal");
       b.text(asStr(defense.primary_defense), { size: 10.5, bold: true, gap: 4 });
@@ -4347,15 +4347,15 @@ function renderLitigationStrategyCenter(b: PdfBuilder, data: CaseExportData) {
 
   // ---- What should counsel do this week? ----
   if (priorities.length) {
-    b.h2("¿Qué Debe Hacer el Abogado Esta Semana?");
+    b.h2("Â¿QuÃ© Debe Hacer el Abogado Esta Semana?");
     b.table(
-      [["Prioridad", "Acción", "Impacto", "Razón"]],
+      [["Prioridad", "AcciÃ³n", "Impacto", "RazÃ³n"]],
       priorities.map((p) => {
         const stars = Math.max(0, Math.min(5, Math.round(Number(p.impact_stars ?? 0))));
         return [
           asStr(p.priority),
           asStr(p.action).slice(0, 90),
-          "★".repeat(stars) + "☆".repeat(5 - stars),
+          "â˜…".repeat(stars) + "â˜†".repeat(5 - stars),
           asStr(p.reason).slice(0, 90),
         ];
       }),
@@ -4364,9 +4364,9 @@ function renderLitigationStrategyCenter(b: PdfBuilder, data: CaseExportData) {
 
   // ---- Winning the Case dashboard (computed in code, mirrors the fields above) ----
   if (dashboard.length) {
-    b.h2("Cómo Ganar el Caso");
+    b.h2("CÃ³mo Ganar el Caso");
     b.table(
-      [["Pregunta Litigiosa", "Evaluación de la IA"]],
+      [["Pregunta Litigiosa", "EvaluaciÃ³n de la IA"]],
       dashboard.map((d) => [asStr(d.question), asStr(d.assessment).slice(0, 140)]),
     );
   }
@@ -4374,7 +4374,7 @@ function renderLitigationStrategyCenter(b: PdfBuilder, data: CaseExportData) {
   // ---- If I Were Lead Trial Counsel ----
   if (leadCounsel) {
     b.h2("Si Yo Fuera el Abogado Principal del Caso");
-    b.text("[ANÁLISIS ESTRATÉGICO — NO CONSTITUYE ASESORÍA LEGAL]", {
+    b.text("[ANÃLISIS ESTRATÃ‰GICO â€” NO CONSTITUYE ASESORÃA LEGAL]", {
       size: 8,
       bold: true,
       color: ACCENT,
@@ -4391,18 +4391,18 @@ function renderStrategy(b: PdfBuilder, data: CaseExportData) {
   const next = asArr(r.next_actions);
   const missing = asArr(r.missing_evidence_struct);
   if (!motions.length && !recs.length && !next.length && !missing.length) return;
-  b.h1("Oportunidades Estratégicas");
+  b.h1("Oportunidades EstratÃ©gicas");
 
   if (missing.length) {
     b.h2("Evidencia Faltante");
-    b.text("[HIPÓTESIS QUE REQUIERE VERIFICACIÓN]", { size: 8, bold: true, color: ACCENT, gap: 4 });
+    b.text("[HIPÃ“TESIS QUE REQUIERE VERIFICACIÃ“N]", { size: 8, bold: true, color: ACCENT, gap: 4 });
     b.table(
-      [["Elemento", "Gravedad", "Riesgo Probatorio", "Promoción Recomendada"]],
+      [["Elemento", "Gravedad", "Riesgo Probatorio", "PromociÃ³n Recomendada"]],
       missing.map((m) => [
         asStr(m.item).slice(0, 80),
         asStr(m.severity),
-        m.omision_probatoria_risk ? "Sí" : "No",
-        asStr(m.recommended_motion, "—"),
+        m.omision_probatoria_risk ? "SÃ­" : "No",
+        asStr(m.recommended_motion, "â€”"),
       ]),
     );
   }
@@ -4412,7 +4412,7 @@ function renderStrategy(b: PdfBuilder, data: CaseExportData) {
     b.text("[STRATEGIC CONSIDERATION]", { size: 8, bold: true, color: ACCENT, gap: 4 });
     for (const m of motions) {
       b.h3(asStr(m.motion));
-      b.label("Probabilidad de Éxito", asStr(m.likelihood_of_success));
+      b.label("Probabilidad de Ã‰xito", asStr(m.likelihood_of_success));
       b.label("Prioridad", asStr(m.priority));
       b.text(`Basis: ${asStr(m.basis)}`, { size: 10, gap: 2 });
       if (m.supporting_facts)
@@ -4440,7 +4440,7 @@ function renderStrategy(b: PdfBuilder, data: CaseExportData) {
         b.bullets(
           mcites
             .slice(0, 4)
-            .map((cc) => `"${asStr(cc.quote).slice(0, 180)}"  — ${citeLabel(cc.doc_n, cc.page)}`),
+            .map((cc) => `"${asStr(cc.quote).slice(0, 180)}"  â€” ${citeLabel(cc.doc_n, cc.page)}`),
         );
       }
       if (m.draft_outline) {
@@ -4451,9 +4451,9 @@ function renderStrategy(b: PdfBuilder, data: CaseExportData) {
   }
 
   if (recs.length) {
-    b.h2("Recomendaciones Estratégicas");
+    b.h2("Recomendaciones EstratÃ©gicas");
     b.table(
-      [["Prioridad", "Título", "Categoría", "Impacto Esperado"]],
+      [["Prioridad", "TÃ­tulo", "CategorÃ­a", "Impacto Esperado"]],
       recs.map((r) => [
         asStr(r.priority),
         asStr(r.title).slice(0, 80),
@@ -4464,11 +4464,11 @@ function renderStrategy(b: PdfBuilder, data: CaseExportData) {
   }
 
   if (next.length) {
-    b.h2("Próximas Acciones Recomendadas");
+    b.h2("PrÃ³ximas Acciones Recomendadas");
     b.table(
-      [["#", "Acción", "Responsable", "Motivo"]],
+      [["#", "AcciÃ³n", "Responsable", "Motivo"]],
       next.map((n) => [
-        asStr(n.order, "•"),
+        asStr(n.order, "â€¢"),
         asStr(n.action).slice(0, 90),
         asStr(n.owner),
         asStr(n.why).slice(0, 90),
@@ -4483,13 +4483,13 @@ function renderCoverage(b: PdfBuilder, data: CaseExportData) {
   const coverage = asObj(full.coverage_report);
   if (!coverage || Object.keys(coverage).length === 0) return;
   b.h1("Cobertura Probatoria");
-  b.text("Transparencia de ingesta: ¿qué tan completo es este análisis?", {
+  b.text("Transparencia de ingesta: Â¿quÃ© tan completo es este anÃ¡lisis?", {
     size: 10,
     color: MUTED,
     gap: 8,
   });
   b.table(
-    [["Métrica", "Valor"]],
+    [["MÃ©trica", "Valor"]],
     [
       ["Documents found", asStr(coverage.documents_found, "0")],
       ["Successfully parsed", asStr(coverage.documents_parsed, "0")],
@@ -4514,7 +4514,7 @@ function renderCoverage(b: PdfBuilder, data: CaseExportData) {
 // Per-agent row detail (agent_name, status, per-row findings breakdown) is
 // display-only and has no canonical.ts equivalent, so it still reads
 // full_report.agent_statistics.rows directly. What it must NEVER do is
-// fall back to recomputing totals from data.agent_logs on the client —
+// fall back to recomputing totals from data.agent_logs on the client â€”
 // canonical.ts's getAgentSummary() is the only source of truth for the
 // summary counts (loaded/executed/producingOutput/producingFindings/etc),
 // because agent_logs can reflect a different run or a partial write and
@@ -4541,13 +4541,13 @@ function renderAgentStatistics(b: PdfBuilder, data: CaseExportData) {
     }
   }
 
-  b.h1("Estadísticas de Agentes");
+  b.h1("EstadÃ­sticas de Agentes");
   b.text(
-    "Esta sección distingue entre agentes cargados, agentes que efectivamente analizaron evidencia y agentes que produjeron trabajo medible. Los totales se basan en el resultado producido, no en la inicialización.",
+    "Esta secciÃ³n distingue entre agentes cargados, agentes que efectivamente analizaron evidencia y agentes que produjeron trabajo medible. Los totales se basan en el resultado producido, no en la inicializaciÃ³n.",
     { size: 10, color: MUTED, gap: 8 },
   );
   b.table(
-    [["Métrica", "Valor"]],
+    [["MÃ©trica", "Valor"]],
     [
       ["Agents loaded", String(summary.loaded)],
       ["Agents executed", String(summary.executed)],
@@ -4569,7 +4569,7 @@ function renderAgentStatistics(b: PdfBuilder, data: CaseExportData) {
           "Suprimido",
           "Promovido",
           "Docs",
-          "Resultado / Explicación",
+          "Resultado / ExplicaciÃ³n",
         ],
       ],
       rows.map((r) => [
@@ -4597,15 +4597,15 @@ function renderAudit(b: PdfBuilder, data: CaseExportData) {
   const r = asObj(data.report);
   const full = asObj(r.full_report);
   const manifest = asObj(full.case_type_manifest);
-  b.h1("Registro de Auditoría");
+  b.h1("Registro de AuditorÃ­a");
   b.text(
-    "Registro de enrutamiento de este caso. El manifiesto de ejecución a continuación muestra qué motores se ejecutaron, cuáles se omitieron por no aplicar a la materia seleccionada, y cuáles se activaron mediante disparadores interdominio.",
+    "Registro de enrutamiento de este caso. El manifiesto de ejecuciÃ³n a continuaciÃ³n muestra quÃ© motores se ejecutaron, cuÃ¡les se omitieron por no aplicar a la materia seleccionada, y cuÃ¡les se activaron mediante disparadores interdominio.",
     { size: 10, gap: 8 },
   );
 
   if (Object.keys(manifest).length) {
-    b.h2("Manifiesto de Ejecución");
-    b.label("Tipo de Caso", asStr(manifest.case_type_label, asStr(manifest.case_type, "—")));
+    b.h2("Manifiesto de EjecuciÃ³n");
+    b.label("Tipo de Caso", asStr(manifest.case_type_label, asStr(manifest.case_type, "â€”")));
     const active = Array.isArray(manifest.active_domains)
       ? (manifest.active_domains as string[])
       : [];
@@ -4623,27 +4623,27 @@ function renderAudit(b: PdfBuilder, data: CaseExportData) {
 
     if (enabled.length) {
       b.h3("Enabled");
-      b.bullets(enabled.map((e) => `✔ ${humanizeEngine(e)}`));
+      b.bullets(enabled.map((e) => `âœ” ${humanizeEngine(e)}`));
     }
     if (cross.length) {
       b.h3("Cross-domain (activated)");
       b.bullets(cross.map((e) => `+ ${humanizeEngine(e)}`));
     }
     if (skipped.length) {
-      b.h3("Skipped — Not applicable to selected case type");
-      b.bullets(skipped.map((e) => `• ${humanizeEngine(e)}`));
+      b.h3("Skipped â€” Not applicable to selected case type");
+      b.bullets(skipped.map((e) => `â€¢ ${humanizeEngine(e)}`));
     }
   }
 
   b.h2("Documentos Fuente");
   b.table(
-    [["#", "Archivo", "Estado", "Tamaño", "Errores"]],
+    [["#", "Archivo", "Estado", "TamaÃ±o", "Errores"]],
     data.documents.map((d, i) => [
       i + 1,
       asStr(d.filename).slice(0, 60),
       asStr(d.status),
-      asStr(d.size_bytes, "—"),
-      asStr(d.error, "—").slice(0, 60),
+      asStr(d.size_bytes, "â€”"),
+      asStr(d.error, "â€”").slice(0, 60),
     ]),
   );
 }
@@ -4664,7 +4664,7 @@ function renderAppendix(b: PdfBuilder, data: CaseExportData) {
     },
   );
   b.table(
-    [["#", "Tema", "Documento", "Página", "Cita"]],
+    [["#", "Tema", "Documento", "PÃ¡gina", "Cita"]],
     cites.map((c, i) => [
       i + 1,
       asStr(c.topic),
@@ -4680,29 +4680,29 @@ function renderAppendix(b: PdfBuilder, data: CaseExportData) {
         3: { cellWidth: 34 },
         4: { cellWidth: 261 },
       },
-      emphasizeColIdx: 2, // Document name — bold, reads as the citation's anchor
-      mutedColIdx: 4, // Quote — italic/muted, reads as quoted material, not a label
+      emphasizeColIdx: 2, // Document name â€” bold, reads as the citation's anchor
+      mutedColIdx: 4, // Quote â€” italic/muted, reads as quoted material, not a label
     },
   );
 }
 
 // FIX (2026-08-17, bug report "quarantined/unverified findings render as
-// authoritative content" — item 4, named by the report's own authors as
+// authoritative content" â€” item 4, named by the report's own authors as
 // "the highest-leverage fix even before the deeper root cause is
 // resolved"): citation_audit (citation-audit.server.ts) already computes,
 // on every report, exactly which findings lack a complete supporting
 // citation and were therefore excluded from recommendations/legal_memorandum
 // (see filterQuarantinedRecommendations/gateLegalAnalysis in
-// pipeline.server.ts) — but until this section existed, that determination
+// pipeline.server.ts) â€” but until this section existed, that determination
 // was invisible: a reader had no way to see that content had been withheld,
 // or why. This renders the existing citation_audit.quarantined_findings list
-// directly — no new computation, just surfacing data the pipeline already
+// directly â€” no new computation, just surfacing data the pipeline already
 // produces.
 const CITATION_AUDIT_REASON_LABELS: Record<string, string> = {
   missing_document: "Sin documento fuente",
   missing_quote: "Sin cita textual",
-  missing_page_and_refs: "Sin número de página ni referencia",
-  missing_all: "Sin ningún respaldo documental",
+  missing_page_and_refs: "Sin nÃºmero de pÃ¡gina ni referencia",
+  missing_all: "Sin ningÃºn respaldo documental",
 };
 
 function renderCitationAudit(b: PdfBuilder, data: CaseExportData) {
@@ -4710,21 +4710,21 @@ function renderCitationAudit(b: PdfBuilder, data: CaseExportData) {
   const audit = asObj(full.citation_audit);
   const quarantined = asArr(audit.quarantined_findings);
   if (!quarantined.length) return;
-  b.h1("Auditoría de Citas — Contenido No Verificado");
+  b.h1("AuditorÃ­a de Citas â€” Contenido No Verificado");
   b.text(
     rt(
-      `${quarantined.length} de ${asStr(audit.total, "0")} hallazgo(s) generado(s) para este caso carecen de una cita de respaldo completa (documento, página y cita textual verificable) y fueron EXCLUIDOS de las recomendaciones, el memorando legal y el resto del contenido del reporte. Se listan aquí únicamente para fines de auditoría y seguimiento — no deben tratarse como conclusiones respaldadas ni citarse como tales.`,
+      `${quarantined.length} de ${asStr(audit.total, "0")} hallazgo(s) generado(s) para este caso carecen de una cita de respaldo completa (documento, pÃ¡gina y cita textual verificable) y fueron EXCLUIDOS de las recomendaciones, el memorando legal y el resto del contenido del reporte. Se listan aquÃ­ Ãºnicamente para fines de auditorÃ­a y seguimiento â€” no deben tratarse como conclusiones respaldadas ni citarse como tales.`,
     ),
     { size: 10, color: MUTED, gap: 8 },
   );
   b.table(
-    [["#", "Hallazgo", "Motivo", "Documento", "Página"]],
+    [["#", "Hallazgo", "Motivo", "Documento", "PÃ¡gina"]],
     quarantined.map((q, i) => [
       i + 1,
       asStr(q.title).slice(0, 60),
-      CITATION_AUDIT_REASON_LABELS[asStr(q.reason)] ?? asStr(q.reason, "—"),
-      resolveDocTitleByUuid(q.source_document_id) ?? "—",
-      asStr(q.source_page, "—"),
+      CITATION_AUDIT_REASON_LABELS[asStr(q.reason)] ?? asStr(q.reason, "â€”"),
+      resolveDocTitleByUuid(q.source_document_id) ?? "â€”",
+      asStr(q.source_page, "â€”"),
     ]),
     {
       columnStyles: {
@@ -4737,32 +4737,32 @@ function renderCitationAudit(b: PdfBuilder, data: CaseExportData) {
   );
 }
 
-// FIX (2026-08-18, ADR-5829/2025 audit — item 8, "silently-failed
+// FIX (2026-08-18, ADR-5829/2025 audit â€” item 8, "silently-failed
 // engines/detected defects never surfaced"): pipeline.server.ts already
 // runs validateRenderedReport (prerender-validate.server.ts) against the
 // FINAL rendered report content on every run, and it already caught real
-// defects live — including SPANISH_CASE_TYPE_LEAK, which fires when
-// penal-only institutional vocabulary (Ministerio Público, Juez de
-// Control, carpeta de investigación) appears in a non-penal report, the
+// defects live â€” including SPANISH_CASE_TYPE_LEAK, which fires when
+// penal-only institutional vocabulary (Ministerio PÃºblico, Juez de
+// Control, carpeta de investigaciÃ³n) appears in a non-penal report, the
 // exact shape of the off-topic criminal-procedure content this audit's
 // item 4 flagged on a tax/administrative amparo case. That detection was
 // stored on full_report.rendered_qa.issues and summarized into
-// full_report.pipeline_warnings — but nothing ever rendered either one, so
+// full_report.pipeline_warnings â€” but nothing ever rendered either one, so
 // an attorney had no way to know 7 critical issues had been found short of
 // reading the raw JSON export. This surfaces the existing detection
-// directly — no new computation, matching renderCitationAudit's precedent
+// directly â€” no new computation, matching renderCitationAudit's precedent
 // immediately above. Deliberately still non-blocking (see
-// prerender-validate.server.ts's own module comment on that decision) —
+// prerender-validate.server.ts's own module comment on that decision) â€”
 // this section's job is visibility, not enforcement.
 const RENDERED_QA_CODE_LABELS: Record<string, string> = {
-  SPANISH_CASE_TYPE_LEAK: "Terminología penal fuera de lugar",
-  CASE_TYPE_LEAK: "Terminología fuera de materia",
-  US_PROCEDURE_LEAK: "Término procesal estadounidense sin equivalente mexicano",
+  SPANISH_CASE_TYPE_LEAK: "TerminologÃ­a penal fuera de lugar",
+  CASE_TYPE_LEAK: "TerminologÃ­a fuera de materia",
+  US_PROCEDURE_LEAK: "TÃ©rmino procesal estadounidense sin equivalente mexicano",
   TOKEN_MUSTACHE: "Marcador de plantilla sin resolver",
   TOKEN_DOLLAR_BRACE: "Marcador de plantilla sin resolver",
   TOKEN_PRINTF: "Marcador de plantilla sin resolver",
   TOKEN_NULL_LITERAL: "Valor nulo sin resolver",
-  TOKEN_NAN_PERCENT: "Valor numérico inválido",
+  TOKEN_NAN_PERCENT: "Valor numÃ©rico invÃ¡lido",
 };
 
 function renderedQaCriticalIssues(data: CaseExportData): Array<Record<string, unknown>> {
@@ -4774,10 +4774,10 @@ function renderedQaCriticalIssues(data: CaseExportData): Array<Record<string, un
 function renderRenderedReportQa(b: PdfBuilder, data: CaseExportData) {
   const issues = renderedQaCriticalIssues(data);
   if (!issues.length) return;
-  b.h1("Auditoría de Calidad del Reporte");
+  b.h1("AuditorÃ­a de Calidad del Reporte");
   b.text(
     rt(
-      `El sistema detectó ${issues.length} problema(s) crítico(s) de calidad en el contenido generado de este reporte — terminología fuera de la materia del caso, términos procesales sin equivalente mexicano, o marcadores de plantilla sin resolver. Estas secciones deben revisarse con especial cuidado antes de confiar en su contenido.`,
+      `El sistema detectÃ³ ${issues.length} problema(s) crÃ­tico(s) de calidad en el contenido generado de este reporte â€” terminologÃ­a fuera de la materia del caso, tÃ©rminos procesales sin equivalente mexicano, o marcadores de plantilla sin resolver. Estas secciones deben revisarse con especial cuidado antes de confiar en su contenido.`,
     ),
     { size: 10, color: MUTED, gap: 8 },
   );
@@ -4785,7 +4785,7 @@ function renderRenderedReportQa(b: PdfBuilder, data: CaseExportData) {
     [["#", "Tipo", "Detalle"]],
     issues.map((q, i) => [
       i + 1,
-      RENDERED_QA_CODE_LABELS[asStr(q.code)] ?? asStr(q.code, "—"),
+      RENDERED_QA_CODE_LABELS[asStr(q.code)] ?? asStr(q.code, "â€”"),
       asStr(q.message).slice(0, 160),
     ]),
     {
@@ -4801,7 +4801,7 @@ function renderEvidenceSources(b: PdfBuilder) {
   if (!_footnotes.length) return;
   b.h1("Fuentes de Evidencia");
   b.text(
-    "Referencias numeradas del cuerpo del reporte, resueltas a su documento y página de origen.",
+    "Referencias numeradas del cuerpo del reporte, resueltas a su documento y pÃ¡gina de origen.",
     {
       size: 10,
       color: MUTED,
@@ -4819,7 +4819,7 @@ function renderEvidenceSources(b: PdfBuilder) {
 // Each section declares whether it's gated in LIMITED mode and a predicate
 // that returns true when it has content to render. The plan is computed
 // once; the TOC, the PDF body, and the report preview all walk the SAME filtered
-// list. This guarantees TOC ↔ rendered ↔ exports parity.
+// list. This guarantees TOC â†” rendered â†” exports parity.
 
 type SectionPlan = {
   id: string;
@@ -4863,7 +4863,7 @@ function buildSectionPlan(mode: ReportMode): SectionPlan[] {
     },
     {
       id: "case_snapshot",
-      title: "Instantánea del Expediente",
+      title: "InstantÃ¡nea del Expediente",
       gatedInLimited: false,
       available: (d) => (d.findings ?? []).length > 0 || d.documents.length > 0,
       renderPdf: (b, d) => renderCaseSnapshot(b, d),
@@ -4885,7 +4885,7 @@ function buildSectionPlan(mode: ReportMode): SectionPlan[] {
     },
     {
       id: "action_center",
-      title: "Centro de Acción del Abogado",
+      title: "Centro de AcciÃ³n del Abogado",
       // Mirrors "opportunities"/"strategy_synthesis": all of its content is
       // ESS-gated strategy/work-product data, so it must disappear entirely
       // in LIMITED mode rather than show a half-populated page.
@@ -4911,7 +4911,7 @@ function buildSectionPlan(mode: ReportMode): SectionPlan[] {
       id: "impact_dashboard",
       title: "Panel de Impacto Litigioso",
       // Same data as "scorecard" (the deterministic dimension scores), just
-      // reframed as case-type-specific cards — gated the same way scorecard
+      // reframed as case-type-specific cards â€” gated the same way scorecard
       // and action_center already are, since it disappears exactly when
       // the underlying scores would.
       gatedInLimited: true,
@@ -4938,14 +4938,14 @@ function buildSectionPlan(mode: ReportMode): SectionPlan[] {
     },
     {
       id: "timeline",
-      title: "Resumen Cronológico",
+      title: "Resumen CronolÃ³gico",
       gatedInLimited: false,
       available: () => false, // Suppressed from final report display per directive
       renderPdf: (b, d) => renderTimelineSummary(b, d),
     },
     {
       id: "scorecard",
-      title: "Tablero de Puntuación del Caso",
+      title: "Tablero de PuntuaciÃ³n del Caso",
       gatedInLimited: true,
       available: (d) => {
         const score = asObj(d.score);
@@ -4956,7 +4956,7 @@ function buildSectionPlan(mode: ReportMode): SectionPlan[] {
     },
     {
       id: "risk",
-      title: "Análisis de Riesgo",
+      title: "AnÃ¡lisis de Riesgo",
       gatedInLimited: true,
       available: (d) =>
         !!reportText(d, "risk_analysis").trim() || typeof asObj(d.report).risk_score === "number",
@@ -4966,7 +4966,7 @@ function buildSectionPlan(mode: ReportMode): SectionPlan[] {
       id: "coverage",
       title: "Cobertura Probatoria",
       gatedInLimited: false,
-      // Parse rate, OCR coverage, ingestion stats — pipeline QA information,
+      // Parse rate, OCR coverage, ingestion stats â€” pipeline QA information,
       // not attorney narrative. Same reasoning as Audit Trail above.
       available: (d) =>
         _citationMode === "audit" &&
@@ -4975,10 +4975,10 @@ function buildSectionPlan(mode: ReportMode): SectionPlan[] {
     },
     {
       id: "agent_stats",
-      title: "Estadísticas de Agentes",
+      title: "EstadÃ­sticas de Agentes",
       gatedInLimited: false,
       // Which of the 13 internal agents ran, how many findings each
-      // suppressed/promoted — pipeline internals, not attorney narrative.
+      // suppressed/promoted â€” pipeline internals, not attorney narrative.
       // Same reasoning as Audit Trail above.
       available: (d) =>
         _citationMode === "audit" &&
@@ -4997,7 +4997,7 @@ function buildSectionPlan(mode: ReportMode): SectionPlan[] {
       title: "Mapa de Evidencia",
       gatedInLimited: false,
       // Per-document role/support/undermine classification reads as an
-      // internal QA artifact rather than attorney narrative — audit-mode
+      // internal QA artifact rather than attorney narrative â€” audit-mode
       // only, same reasoning as the parity/ESS footer stamp above.
       available: (d) =>
         _citationMode === "audit" && asArr(asObj(d.report).evidence_index).length > 0,
@@ -5005,7 +5005,7 @@ function buildSectionPlan(mode: ReportMode): SectionPlan[] {
     },
     {
       id: "discovery",
-      title: "Análisis de Vacíos Probatorios",
+      title: "AnÃ¡lisis de VacÃ­os Probatorios",
       gatedInLimited: false,
       available: (d) =>
         !!reportText(d, "discovery_analysis").trim() ||
@@ -5021,19 +5021,19 @@ function buildSectionPlan(mode: ReportMode): SectionPlan[] {
     },
     {
       id: "contradictions",
-      title: "Análisis de Contradicciones",
+      title: "AnÃ¡lisis de Contradicciones",
       gatedInLimited: false,
       available: (d) => asArr(asObj(d.report).contradictions_struct).length > 0,
       renderPdf: (b, d) => renderContradictions(b, d),
     },
     {
       id: "constitutional",
-      title: "Análisis Constitucional",
+      title: "AnÃ¡lisis Constitucional",
       gatedInLimited: false,
       available: (d) => {
-        const ct = asStr(asObj(asObj(d.report).full_report).case_type) || "general_civil";
+        const ct = asStr(asObj(asObj(d.report).full_report).case_type) || "unknown";
         // FIX (2026-07-29): same stale-key bug as renderConstitutional's own
-        // internal gate (already fixed above) — this OUTER section-plan
+        // internal gate (already fixed above) â€” this OUTER section-plan
         // gate is what actually decides whether the section appears in the
         // Table of Contents at all, so fixing only the inner gate would
         // have left this section permanently invisible regardless.
@@ -5046,7 +5046,7 @@ function buildSectionPlan(mode: ReportMode): SectionPlan[] {
     },
     {
       id: "legal_issues",
-      title: "Cuestiones Jurídicas y Jurisprudencia",
+      title: "Cuestiones JurÃ­dicas y Jurisprudencia",
       gatedInLimited: false,
       available: (d) => asArr(asObj(asObj(d.report).full_report).legal_issues).length > 0,
       renderPdf: (b, d) => renderLegalIssues(b, d),
@@ -5067,14 +5067,14 @@ function buildSectionPlan(mode: ReportMode): SectionPlan[] {
     },
     {
       id: "perspectives",
-      title: "Análisis Multi-Perspectiva",
+      title: "AnÃ¡lisis Multi-Perspectiva",
       gatedInLimited: true,
       available: (d) => (d.perspectives ?? []).length > 0,
       renderPdf: (b, d) => renderPerspectives(b, d),
     },
     {
       id: "theories",
-      title: "Análisis de Teoría del Caso",
+      title: "AnÃ¡lisis de TeorÃ­a del Caso",
       gatedInLimited: true,
       available: (d) => (d.theories ?? []).length > 0,
       renderPdf: (b, d) => renderTheories(b, d),
@@ -5092,7 +5092,7 @@ function buildSectionPlan(mode: ReportMode): SectionPlan[] {
     },
     {
       id: "opportunities",
-      title: "Oportunidades Estratégicas",
+      title: "Oportunidades EstratÃ©gicas",
       gatedInLimited: true,
       available: (d) => {
         const r = asObj(d.report);
@@ -5107,7 +5107,7 @@ function buildSectionPlan(mode: ReportMode): SectionPlan[] {
     },
     {
       id: "strategy_synthesis",
-      title: "Síntesis Estratégica",
+      title: "SÃ­ntesis EstratÃ©gica",
       gatedInLimited: true,
       available: (d) => (d.strategy ?? []).length > 0,
       renderPdf: (b, d) => renderStrategySynthesis(b, d),
@@ -5122,10 +5122,10 @@ function buildSectionPlan(mode: ReportMode): SectionPlan[] {
     },
     {
       id: "audit",
-      title: "Registro de Auditoría",
+      title: "Registro de AuditorÃ­a",
       gatedInLimited: false,
       // Execution manifest + per-file ingestion status/size/error table is
-      // internal QA information, not attorney work product — an attorney
+      // internal QA information, not attorney work product â€” an attorney
       // already knows what they uploaded. Audit-mode only, same reasoning
       // as Evidence Map and the footer parity/ESS stamp.
       available: (d) =>
@@ -5134,11 +5134,11 @@ function buildSectionPlan(mode: ReportMode): SectionPlan[] {
     },
     {
       id: "methodology",
-      title: "Metodología NYRAVA",
+      title: "MetodologÃ­a NYRAVA",
       gatedInLimited: false,
       available: () => true,
       renderPdf: (b) => {
-        b.h1("Metodología NYRAVA");
+        b.h1("MetodologÃ­a NYRAVA");
         b.text(METHODOLOGY_STATEMENT, { size: 10, gap: 8 });
       },
     },
@@ -5151,7 +5151,7 @@ function buildSectionPlan(mode: ReportMode): SectionPlan[] {
     },
     {
       id: "citation_audit",
-      title: "Auditoría de Citas — Contenido No Verificado",
+      title: "AuditorÃ­a de Citas â€” Contenido No Verificado",
       // Not gated in LIMITED mode: this section's whole purpose is
       // transparency about what was withheld, so it must render even when
       // (especially when) the case has a thin corpus.
@@ -5162,8 +5162,8 @@ function buildSectionPlan(mode: ReportMode): SectionPlan[] {
     },
     {
       id: "rendered_report_qa",
-      title: "Auditoría de Calidad del Reporte",
-      // Not gated in LIMITED mode, same rationale as citation_audit above —
+      title: "AuditorÃ­a de Calidad del Reporte",
+      // Not gated in LIMITED mode, same rationale as citation_audit above â€”
       // this section's whole purpose is transparency about detected
       // defects, so it must render even on a thin-corpus/LIMITED case.
       gatedInLimited: false,
@@ -5172,7 +5172,7 @@ function buildSectionPlan(mode: ReportMode): SectionPlan[] {
     },
     {
       id: "priority_action_center",
-      title: "Centro de Acción — Recomendaciones Prioritarias",
+      title: "Centro de AcciÃ³n â€” Recomendaciones Prioritarias",
       gatedInLimited: true,
       available: (d) => priorityActionRows(d).length > 0,
       renderPdf: (b, d) => renderPriorityActionCenter(b, d),
@@ -5184,7 +5184,7 @@ function buildSectionPlan(mode: ReportMode): SectionPlan[] {
       // Footnotes are populated by primeCitationFootnotes() before the
       // section plan/queue is built (and further deduped-idempotently as
       // other sections render), so by the time this predicate runs the
-      // count already reflects every inline citation in the report body —
+      // count already reflects every inline citation in the report body â€”
       // regardless of which section happened to render first. Only
       // meaningful in attorney mode; audit mode keeps citations inline and
       // never populates the footnote list.
@@ -5223,7 +5223,7 @@ function priorityActionRows(
       const authority = findAuthority(title);
       const urgency = priority === "critical" || priority === "high" ? rt("High") : rt("Medium");
       const impact = asStr(rec.expectedImpact) || notDetermined();
-      return [String(i + 1), rt(priority), title, reason, authority, `${urgency} — ${impact}`];
+      return [String(i + 1), rt(priority), title, reason, authority, `${urgency} â€” ${impact}`];
     },
   );
   return rows;
@@ -5232,7 +5232,7 @@ function priorityActionRows(
 function renderPriorityActionCenter(b: PdfBuilder, data: CaseExportData) {
   const rows = priorityActionRows(data);
   if (!rows.length) return;
-  b.h1("Centro de Acción — Recomendaciones Prioritarias");
+  b.h1("Centro de AcciÃ³n â€” Recomendaciones Prioritarias");
   b.table(
     [
       [
@@ -5249,8 +5249,8 @@ function renderPriorityActionCenter(b: PdfBuilder, data: CaseExportData) {
       row[2],
       row[3],
       row[4],
-      row[5].split(" — ")[0],
-      row[5].split(" — ")[1] ?? row[5],
+      row[5].split(" â€” ")[0],
+      row[5].split(" â€” ")[1] ?? row[5],
     ]),
   );
 }
@@ -5261,15 +5261,15 @@ function renderSuppressedSection(b: PdfBuilder, title: string) {
 }
 
 // Determines which sections will actually appear and what each one will do.
-// Suppressed sections are dropped entirely — no placeholder pages, no TOC
-// entries — per directive: "If a section contains no evidence-supported
+// Suppressed sections are dropped entirely â€” no placeholder pages, no TOC
+// entries â€” per directive: "If a section contains no evidence-supported
 // content: do not create the page, do not include it in the Table of
 // Contents, do not number it, do not print 'Suppressed...'".
 function computeRenderQueue(plan: SectionPlan[], data: CaseExportData, mode: ReportMode) {
   const full = asObj(asObj(data.report).full_report);
   // The materia can live on the report payload, the report row, or (most
   // often for older cases) only on the case row itself. Export must read all
-  // three before deciding the case is unclassified — a missing materia here
+  // three before deciding the case is unclassified â€” a missing materia here
   // used to throw and silently kill the whole PDF download.
   const area = normalizePracticeArea(
     asStr(full.case_type) ||
@@ -5318,7 +5318,7 @@ function validateParity(opts: {
       `rendered findings counter (${opts.counters.rendered}) does not match findings actually rendered (${opts.renderedFindingsLength})`,
     );
   }
-  // TOC ↔ rendered must match exactly.
+  // TOC â†” rendered must match exactly.
   if (
     opts.tocIds.length !== opts.renderedIds.length ||
     opts.tocIds.some((id, i) => id !== opts.renderedIds[i])
@@ -5333,7 +5333,7 @@ function validateParity(opts: {
 
 // Short matter/docket identifier for the running header band. Prefers a
 // real docket number when the matter carries one; otherwise falls back to
-// the short case id. Never the full case title — it clips at the page edge.
+// the short case id. Never the full case title â€” it clips at the page edge.
 function deriveMatterId(data: CaseExportData): string {
   const c = asObj(data.case);
   const docket = asStr(c.docket_number) || asStr(c.case_number) || asStr(c.matter_id);
@@ -5348,7 +5348,7 @@ export async function downloadPdf(
   opts?: { citationMode?: CitationMode; validateOnly?: boolean },
 ) {
   data = (data as FinalReportPayload).report_presentation ? structuredClone(releaseFinalReportPayload(data)) : composeFinalReportPayload(data);
-  // Explicit, redundant release-gate check at the actual point of export —
+  // Explicit, redundant release-gate check at the actual point of export â€”
   // do not rely solely on the upstream content-stripping in
   // cases.functions.ts::getCase() (sanitizeBlockedReport). That fix removes
   // the substantive fields a blocked report would need to render anything
@@ -5365,7 +5365,7 @@ export async function downloadPdf(
   // footnotes resolved to real document titles, collected in an Evidence
   // Sources appendix. Audit mode: citations stay inline but are rewritten to
   // name the real document + page instead of an internal "DOC N" id. Must
-  // run before buildSectionPlan/computeRenderQueue — several sections'
+  // run before buildSectionPlan/computeRenderQueue â€” several sections'
   // `available()` checks call reportText(), which now runs through the
   // citation processor as a side effect.
   // Single-language guarantee: the whole template renders in the language the
@@ -5384,7 +5384,7 @@ export async function downloadPdf(
   // full_report.intelligence.consolidated_findings JSON, which is written
   // once at report-generation time and can go stale. The PDF body (cover
   // stat card, Key Findings table, timeline, risk section) all render from
-  // `data.findings` instead — the live findings actually passed into this
+  // `data.findings` instead â€” the live findings actually passed into this
   // export. Those two counts can drift apart (e.g. 7 vs 5), which is
   // exactly the mismatch validateParity() below is designed to catch.
   // Fix: always report "rendered" as data.findings.length, since that is
@@ -5426,7 +5426,7 @@ export async function downloadPdf(
   // flow naturally without forced page breaks. Exception: if the cover's
   // trailing footer note already had to spill onto a new page (long
   // dashboard content pushed it past the bottom margin), that page is
-  // already fresh and nearly empty — start the TOC there instead of
+  // already fresh and nearly empty â€” start the TOC there instead of
   // forcing yet another page break, which would otherwise leave a page
   // holding nothing but one sentence.
   if (!coverFooterSpilled) {
@@ -5435,10 +5435,10 @@ export async function downloadPdf(
     b.y += 18;
   }
 
-  // ===== Table of Contents — derived from the same queue =====
-  b.h1("Índice", "Contenido");
+  // ===== Table of Contents â€” derived from the same queue =====
+  b.h1("Ãndice", "Contenido");
   b.table(
-    [["#", "Sección"]],
+    [["#", "SecciÃ³n"]],
     queue.map((s, i) => [String(i + 1), s.title]),
     { plainHead: true },
   );
@@ -5466,7 +5466,7 @@ export async function downloadPdf(
 
   // Footer reflects the SINGLE report state.
   const footerEss =
-    mode === "LIMITED" ? `${ess.level} · ${mode} · scores suppressed` : `${ess.level} · ${mode}`;
+    mode === "LIMITED" ? `${ess.level} Â· ${mode} Â· scores suppressed` : `${ess.level} Â· ${mode}`;
   b.finalPayload = data as FinalReportPayload;
   return b.save(`${slug(name)}.pdf`, {
     parity: parityTag,
@@ -5501,3 +5501,4 @@ function slug(s: string) {
       .slice(0, 60) || "case"
   );
 }
+
