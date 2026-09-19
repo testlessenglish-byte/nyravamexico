@@ -34,10 +34,20 @@ function ContactPage() {
         <p className="mt-6 max-w-2xl text-muted-foreground">{t("contact.body")}</p>
 
         <div className="mt-12 grid gap-4 md:grid-cols-2">
-          <div className="panel p-6">
+          <div className="panel flex flex-col p-6">
             <Mail className="h-5 w-5 text-primary" />
             <h3 className="mt-3 font-display text-base font-semibold">{t("contact.email")}</h3>
             <p className="mt-1 text-sm text-muted-foreground">contact@mexico.nyrava.com</p>
+            <a
+              href={`mailto:contact@mexico.nyrava.com?subject=${encodeURIComponent(
+                es ? "Contacto — Nyrava México" : "Contact — Nyrava México",
+              )}`}
+              className="mt-4 inline-flex w-fit items-center gap-2 rounded-md bg-primary px-4 py-2 text-[11px] font-bold tracking-[0.14em] text-primary-foreground transition hover:brightness-105"
+              style={{ boxShadow: "var(--shadow-glow-cyan)" }}
+            >
+              <Mail className="h-3.5 w-3.5" />
+              {es ? "Enviar correo" : "Send email"}
+            </a>
           </div>
           <div className="panel p-6">
             <MapPin className="h-5 w-5 text-primary" />
