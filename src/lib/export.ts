@@ -2367,7 +2367,7 @@ function renderCover(
         : "Ventaja del Ministerio Público"
       : "";
     const headline = advantage ? `${riskLevel} — ${advantage}` : riskLevel;
-    const clientName = resolveReportIdentity(data.case).client;
+    const clientName = resolveReportIdentity(asObj(data.case)).client;
     const perspectiveBase = clientName ? "Fortaleza de la posición de " + clientName : "Fortaleza de la posición";
     const strengthCaption = isCriminal
       ? `${perspectiveBase} ${strength} / 100 (caso del Ministerio Público; un valor menor favorece a la defensa)  •  Puntuación de riesgo ${risk} / 100`
