@@ -1358,7 +1358,7 @@ export const resumeFullPipelineStep = createServerFn({ method: "POST" })
       .from("cases")
       .update({
         status: "queued",
-        status_message: `Queued to resume at ${resumeKey}`,
+        status_message: `En cola para reanudar en ${resumeKey}`,
         queued_at: queuedAt,
         worker_lease_until: null,
         next_stage: resumeKey,
@@ -5444,5 +5444,6 @@ export const logReportExport = createServerFn({ method: "POST" })
     });
     return { ok: true };
   });
+
 
 

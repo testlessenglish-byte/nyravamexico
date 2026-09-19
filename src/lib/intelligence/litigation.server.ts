@@ -469,7 +469,7 @@ ${briefText}`,
       }
     }
     await setCase(db, caseId, {
-      status_message: `Perspectives ${done}/${PERSPECTIVES.length}`,
+      status_message: `Perspectivas ${done}/${PERSPECTIVES.length}`,
       progress: 20 + Math.floor((done / PERSPECTIVES.length) * 75),
     });
   }
@@ -557,8 +557,7 @@ ${briefText}`,
   await setCase(db, caseId, {
     status: "intelligence_complete",
     status_message: failures.length
-      ? `Perspectives done with ${failures.length} failures`
-      : "Perspectives complete",
+      ? `Perspectivas finalizadas con ${failures.length} fallos` : "Perspectivas completadas",
     progress: 100,
     perspectives_at: new Date().toISOString(),
     error: failures.length ? failures.join("; ").slice(0, 2000) : null,
@@ -976,7 +975,7 @@ export async function runStrategyEngine(args: {
 
   await setCase(db, caseId, {
     status: "intelligence_running",
-    status_message: `Synthesizing strategy (${perspective})`,
+    status_message: `Sintetizando estrategia (${perspective})`,
     progress: 30,
   });
 
@@ -1798,3 +1797,4 @@ ${JSON.stringify(slimStrategy)}`,
 
   return row;
 }
+
