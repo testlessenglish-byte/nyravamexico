@@ -1,7 +1,8 @@
 import { releaseFinalReportPayload, type FinalReportPayload } from "@/lib/reporting/final-report-contract";
+import { fetchCurrentCaseExport } from "@/lib/reporting/case-json-export";
 import { CanonicalReportFindings } from "@/components/reports/CanonicalReportFindings";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { FileText, FileDown, FileJson, ExternalLink } from "lucide-react";
@@ -51,11 +52,23 @@ function ReportsPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const caseId = selected ?? activeId;
   const fetchCase = useServerFn(getCase);
+  const queryClient = useQueryClient();
   const { data: rawData, isLoading: caseLoading } = useQuery({
     queryKey: ["case", caseId],
     queryFn: () => fetchCase({ data: { caseId: caseId! } }),
     enabled: !!caseId,
+    refetchInterval: 5_000,
+    refetchOnMount: "always",
   });
+
+  const freshExportData = async () => {
+    if (!caseId) throw new Error(t("reports.empty.noReport.title"));
+    return fetchCurrentCaseExport({
+      caseId,
+      fetchCase: (id) => fetchCase({ data: { caseId: id } }),
+      onFresh: (fresh) => queryClient.setQueryData(["case", caseId], fresh),
+    });
+  };
 
   let finalPayload: FinalReportPayload | undefined;
   let contractError = "";
@@ -205,7 +218,7 @@ function ReportsPage() {
                     onClick={() =>
                       run(async () => {
                         const { downloadPdf } = await import("@/lib/export");
-                        return downloadPdf(data as CaseExportData, name);
+                        return downloadPdf(await freshExportData(), name);
                       }, "reports.export.pdf")
                     }
                     className="flex items-center justify-center gap-2 rounded-lg border border-border bg-card p-4 hover:bg-card/80"
@@ -218,7 +231,7 @@ function ReportsPage() {
                     onClick={() =>
                       run(async () => {
                         const { downloadJson } = await import("@/lib/export");
-                        return downloadJson(data as CaseExportData, name);
+                        return downloadJson(await freshExportData(), name);
                       }, "reports.export.json")
                     }
                     className="flex items-center justify-center gap-2 rounded-lg border border-border bg-card p-4 hover:bg-card/80"

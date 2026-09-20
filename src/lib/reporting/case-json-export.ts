@@ -16,6 +16,21 @@ export function assertExportCaseIdentity(data: CaseExportData, expectedCaseId: s
   }
 }
 
+/** Fetch and identity-check the current server snapshot before an export.
+ * Report pages may remain open while the pipeline replaces a blocked draft
+ * with a released report, so their render cache is not an export authority. */
+export async function fetchCurrentCaseExport<T>(options: {
+  caseId: string;
+  fetchCase: (caseId: string) => Promise<T>;
+  onFresh?: (value: T) => void;
+}): Promise<CaseExportData> {
+  const fresh = await options.fetchCase(options.caseId);
+  const exportData = fresh as CaseExportData;
+  assertExportCaseIdentity(exportData, options.caseId);
+  options.onFresh?.(fresh);
+  return exportData;
+}
+
 function diagnosticExport(data: CaseExportData, reason: string) {
   const report = object(data.report);
   return {
