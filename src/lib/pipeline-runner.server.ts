@@ -274,14 +274,20 @@ async function _runPipelineForCase(
   const stageCheckpointCount = async (stageKey: string): Promise<number> => {
     try {
       // Count "stage.checkpoint" trace events for this case + stage.
-      const { data, error } = await supabase
+      // NOTE: with `head: true` PostgREST returns NO rows — the total lives in
+      // `count`, not `data`. Reading `data` here always yielded 0, so the
+      // loop-breaker below could never fire and a stage could checkpoint
+      // forever. Read `count`, and include the pre-start checkpoints too:
+      // a stage that never gets a workable slice loops just as hard as one
+      // that checkpoints mid-run.
+      const { count, error } = await supabase
         .from("pipeline_trace")
         .select("id", { count: "exact", head: true })
         .eq("case_id", caseId)
-        .eq("step", "stage.checkpoint")
+        .in("step", ["stage.checkpoint", "stage.checkpoint_before_start"])
         .contains("detail", { stage: stageKey });
       if (error) return 0;
-      return (data as unknown as number) ?? 0;
+      return typeof count === "number" ? count : 0;
     } catch {
       return 0;
     }
