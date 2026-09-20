@@ -91,6 +91,11 @@ function ClientDetailPage() {
       toast.error("El nombre del cliente es obligatorio");
       return;
     }
+    const email = (form["email"] ?? "").trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+      toast.error("El correo electrónico no es válido");
+      return;
+    }
     setSaving(true);
     try {
       await updateClient({
