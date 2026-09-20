@@ -16,6 +16,17 @@ export const Route = createFileRoute("/_authenticated/clients/$clientId")({
   component: ClientDetailPage,
 });
 
+// Case numbers live in matter_metadata; `cases` has no case_number column.
+function caseNumberOf(c: { matter_metadata?: Record<string, any> | null }): string {
+  const m = c.matter_metadata ?? {};
+  const raw =
+    m["case_number"] ??
+    m["expediente"] ??
+    m["case_identity"]?.["case_number"] ??
+    m["case_identity"]?.["expediente"];
+  return typeof raw === "string" ? raw : "";
+}
+
 function ClientDetailPage() {
   const { clientId } = Route.useParams();
   const fetchClient = useServerFn(getClient);
@@ -49,14 +60,25 @@ function ClientDetailPage() {
   // getClient returns a flat object with client fields + cases + upcoming_deadlines
   const client = clientData as Record<string, any>;
   const cases = (client.cases ?? []) as Array<{
-    id: string; title: string; case_number: string; status: string; matter_type: string; updated_at: string;
+    id: string;
+    name: string | null;
+    status: string;
+    lifecycle_status: string | null;
+    case_type: string | null;
+    underlying_materia: string | null;
+    procedural_vehicle: string | null;
+    jurisdiction: string | null;
+    matter_metadata: Record<string, any> | null;
+    created_at: string;
+    updated_at: string;
   }>;
   const deadlines = (client.upcoming_deadlines ?? []) as Array<{
     id: string; title: string; due_date: string; priority: string; completed: boolean; case_id: string;
   }>;
 
-  const activeCasesCount = cases.filter((c) => !["complete", "cancelled", "failed"].includes(c.status)).length;
-  const closedCasesCount = cases.filter((c) => ["complete", "cancelled"].includes(c.status)).length;
+  // Counters derive from the same canonical cases.client_id relation the list uses.
+  const activeCasesCount = Number(client.active_case_count ?? 0);
+  const closedCasesCount = Number(client.closed_case_count ?? 0);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 md:py-10 space-y-6">
@@ -163,10 +185,25 @@ function ClientDetailPage() {
                   >
                     <div className="min-w-0 pr-4">
                       <div className="font-medium text-foreground truncate">
-                        {c.case_number || c.title || "Sin tÃ­tulo"}
+                        {c.name || "Sin nombre"}
                       </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {c.matter_type || "General"} Â· Actualizado {new Date(c.updated_at).toLocaleDateString()}
+                      {caseNumberOf(c) ? (
+                        <div className="mt-0.5 text-xs font-mono text-muted-foreground truncate">
+                          {caseNumberOf(c)}
+                        </div>
+                      ) : null}
+                      <div className="mt-1 text-xs text-muted-foreground truncate">
+                        {[
+                          c.underlying_materia || c.case_type,
+                          c.procedural_vehicle,
+                          c.jurisdiction,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") || "Materia no determinada"}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Creado {new Date(c.created_at).toLocaleDateString()} · Actualizado{" "}
+                        {new Date(c.updated_at).toLocaleDateString()}
                       </div>
                     </div>
                     <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
