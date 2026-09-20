@@ -236,6 +236,7 @@ export const updateClientFn = createServerFn({ method: "POST" })
       clientId: z.string().uuid(),
       display_name: z.string().min(1).max(300).optional(),
       client_type: z.string().optional(),
+      status: z.enum(["active", "inactive", "archived"]).optional(),
       legal_name: z.string().max(500).optional(),
       rfc: z.string().max(20).optional(),
       email: z.string().email().optional().or(z.literal("")),
