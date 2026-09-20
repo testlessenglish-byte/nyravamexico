@@ -49,7 +49,17 @@ function ClientDetailPage() {
   // getClient returns a flat object with client fields + cases + upcoming_deadlines
   const client = clientData as Record<string, any>;
   const cases = (client.cases ?? []) as Array<{
-    id: string; title: string; case_number: string; status: string; matter_type: string; updated_at: string;
+    id: string;
+    name: string | null;
+    status: string;
+    lifecycle_status: string | null;
+    case_type: string | null;
+    underlying_materia: string | null;
+    procedural_vehicle: string | null;
+    jurisdiction: string | null;
+    matter_metadata: Record<string, any> | null;
+    created_at: string;
+    updated_at: string;
   }>;
   const deadlines = (client.upcoming_deadlines ?? []) as Array<{
     id: string; title: string; due_date: string; priority: string; completed: boolean; case_id: string;
