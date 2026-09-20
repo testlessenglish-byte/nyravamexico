@@ -66,6 +66,72 @@ function ClientDetailPage() {
     queryFn: () => fetchClient({ data: { clientId } }),
   });
 
+  const refreshClient = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["client", clientId] });
+    await queryClient.invalidateQueries({ queryKey: ["clients"] });
+  };
+
+  const openEdit = (c: Record<string, any>) => {
+    setForm({
+      display_name: c.display_name ?? "",
+      client_type: c.client_type ?? "individual",
+      legal_name: c.legal_name ?? "",
+      rfc: c.rfc ?? "",
+      email: c.email ?? "",
+      phone: c.phone ?? "",
+      address: c.address ?? "",
+      reference_number: c.reference_number ?? "",
+      notes: c.notes ?? "",
+    });
+    setEditOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!form["display_name"]?.trim()) {
+      toast.error("El nombre del cliente es obligatorio");
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateClient({
+        data: {
+          clientId,
+          display_name: form["display_name"].trim(),
+          client_type: form["client_type"] || "individual",
+          legal_name: form["legal_name"] || undefined,
+          rfc: form["rfc"] || undefined,
+          email: form["email"] || "",
+          phone: form["phone"] || undefined,
+          address: form["address"] || undefined,
+          reference_number: form["reference_number"] || undefined,
+          notes: form["notes"] || undefined,
+        },
+      });
+      await refreshClient();
+      setEditOpen(false);
+      toast.success("Cliente actualizado");
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo actualizar el cliente");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleArchiveToggle = async (currentStatus: string) => {
+    try {
+      if (currentStatus === "archived") {
+        await updateClient({ data: { clientId, status: "active" } });
+        toast.success("Cliente reactivado");
+      } else {
+        await archiveClientFn({ data: { clientId } });
+        toast.success("Cliente archivado");
+      }
+      await refreshClient();
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo cambiar el estado del cliente");
+    }
+  };
+
   if (isLoading) {
     return <div className="p-8 text-center text-sm text-muted-foreground">Cargando detalles...</div>;
   }
