@@ -100,6 +100,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { name: "author", content: "Nyrava Intelligence México" },
       { name: "theme-color", content: "#7C3AED" },
+      {
+        name: "google-site-verification",
+        content: "J_44X8z-n3K45m0HETVsKhrNKaweZezhhWlX2tmgV4s",
+      },
       { property: "og:site_name", content: "Nyrava México" },
       { property: "og:image", content: SOCIAL_IMAGE_URL },
       { property: "og:image:secure_url", content: SOCIAL_IMAGE_URL },
