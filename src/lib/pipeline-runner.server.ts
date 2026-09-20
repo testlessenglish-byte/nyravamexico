@@ -1815,6 +1815,8 @@ async function _runPipelineForCase(
         }
         try {
           const { requeueForContinuation } = await import("@/lib/pipeline-stall.server");
+          leaseHandedBack = true;
+          clearInterval(heartbeatTimer);
           await requeueForContinuation(supabase, caseId, resumeKey);
         } catch (rqErr) {
           console.warn(`[pipeline] re-queue after checkpoint failed`, rqErr);
