@@ -236,6 +236,11 @@ async function _runPipelineForCase(
           .update({ worker_lease_until: new Date(Date.now() + RUNNER_LEASE_EXTENSION_MS).toISOString() })
           .eq("id", caseId)
           .eq("execution_id", executionId)
+          // Renew only a lease this execution still owns. A queued/terminal
+          // case (lease already cleared) must never be re-locked from here.
+          .not("worker_lease_until", "is", null)
+          .gt("worker_lease_until", new Date().toISOString())
+          .not("status", "in", '("queued","complete","released","failed","cancelled","needs_revision")')
           .select("id");
         if (directErr || !directUpd?.length) {
           console.warn(`[pipeline-runner] Heartbeat lost lease for execution ${executionId}. Aborting.`);
