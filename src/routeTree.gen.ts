@@ -21,6 +21,7 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PlatformRouteImport } from './routes/platform'
 import { Route as ModulesRouteImport } from './routes/modules'
 import { Route as LearningCenterRouteImport } from './routes/learning-center'
+import { Route as IaParaAbogadosRouteImport } from './routes/ia-para-abogados'
 import { Route as HowItWorksRouteImport } from './routes/how-it-works'
 import { Route as HelpRouteImport } from './routes/help'
 import { Route as DpaRouteImport } from './routes/dpa'
@@ -155,6 +156,11 @@ const ModulesRoute = ModulesRouteImport.update({
 const LearningCenterRoute = LearningCenterRouteImport.update({
   id: '/learning-center',
   path: '/learning-center',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IaParaAbogadosRoute = IaParaAbogadosRouteImport.update({
+  id: '/ia-para-abogados',
+  path: '/ia-para-abogados',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HowItWorksRoute = HowItWorksRouteImport.update({
@@ -568,6 +574,7 @@ export interface FileRoutesByFullPath {
   '/dpa': typeof DpaRoute
   '/help': typeof HelpRouteWithChildren
   '/how-it-works': typeof HowItWorksRoute
+  '/ia-para-abogados': typeof IaParaAbogadosRoute
   '/learning-center': typeof LearningCenterRoute
   '/modules': typeof ModulesRoute
   '/platform': typeof PlatformRoute
@@ -655,6 +662,7 @@ export interface FileRoutesByTo {
   '/dmca': typeof DmcaRoute
   '/dpa': typeof DpaRoute
   '/how-it-works': typeof HowItWorksRoute
+  '/ia-para-abogados': typeof IaParaAbogadosRoute
   '/learning-center': typeof LearningCenterRoute
   '/modules': typeof ModulesRoute
   '/platform': typeof PlatformRoute
@@ -744,6 +752,7 @@ export interface FileRoutesById {
   '/dpa': typeof DpaRoute
   '/help': typeof HelpRouteWithChildren
   '/how-it-works': typeof HowItWorksRoute
+  '/ia-para-abogados': typeof IaParaAbogadosRoute
   '/learning-center': typeof LearningCenterRoute
   '/modules': typeof ModulesRoute
   '/platform': typeof PlatformRoute
@@ -834,6 +843,7 @@ export interface FileRouteTypes {
     | '/dpa'
     | '/help'
     | '/how-it-works'
+    | '/ia-para-abogados'
     | '/learning-center'
     | '/modules'
     | '/platform'
@@ -921,6 +931,7 @@ export interface FileRouteTypes {
     | '/dmca'
     | '/dpa'
     | '/how-it-works'
+    | '/ia-para-abogados'
     | '/learning-center'
     | '/modules'
     | '/platform'
@@ -1009,6 +1020,7 @@ export interface FileRouteTypes {
     | '/dpa'
     | '/help'
     | '/how-it-works'
+    | '/ia-para-abogados'
     | '/learning-center'
     | '/modules'
     | '/platform'
@@ -1099,6 +1111,7 @@ export interface RootRouteChildren {
   DpaRoute: typeof DpaRoute
   HelpRoute: typeof HelpRouteWithChildren
   HowItWorksRoute: typeof HowItWorksRoute
+  IaParaAbogadosRoute: typeof IaParaAbogadosRoute
   LearningCenterRoute: typeof LearningCenterRoute
   ModulesRoute: typeof ModulesRoute
   PlatformRoute: typeof PlatformRoute
@@ -1210,6 +1223,13 @@ declare module '@tanstack/react-router' {
       path: '/learning-center'
       fullPath: '/learning-center'
       preLoaderRoute: typeof LearningCenterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ia-para-abogados': {
+      id: '/ia-para-abogados'
+      path: '/ia-para-abogados'
+      fullPath: '/ia-para-abogados'
+      preLoaderRoute: typeof IaParaAbogadosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/how-it-works': {
@@ -1883,6 +1903,7 @@ const rootRouteChildren: RootRouteChildren = {
   DpaRoute: DpaRoute,
   HelpRoute: HelpRouteWithChildren,
   HowItWorksRoute: HowItWorksRoute,
+  IaParaAbogadosRoute: IaParaAbogadosRoute,
   LearningCenterRoute: LearningCenterRoute,
   ModulesRoute: ModulesRoute,
   PlatformRoute: PlatformRoute,

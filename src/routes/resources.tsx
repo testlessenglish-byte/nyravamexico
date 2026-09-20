@@ -146,6 +146,12 @@ function Resources() {
       description="Resúmenes breves de análisis de Nyrava en materias clave del derecho mexicano. Cada resumen describe el expediente procesado y los puntos clave del reporte generado."
       crumbs={[{ label: "Recursos", to: "/resources" }]}
     >
+      <DocsSection heading="Guía de inteligencia artificial para la práctica jurídica">
+        <p>
+          Explore nuestra guía de <Link to="/ia-para-abogados" className="text-primary hover:underline">IA para abogados en México</Link>: usos en el análisis de expedientes, verificación de fuentes y precauciones de confidencialidad antes de incorporar estas herramientas a su trabajo.
+        </p>
+      </DocsSection>
+
       <Callout variant="info" title="Material sintético y anonimizado">
         Los expedientes de muestra son composiciones sintéticas construidas para fines de evaluación técnica. No proceden de asuntos reales ni representan a ninguna persona en particular.
       </Callout>

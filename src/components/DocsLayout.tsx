@@ -71,7 +71,7 @@ export function DocsLayout({
   return (
     <div className="min-h-screen text-foreground">
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 md:px-6">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-6">
           <div className="flex items-center gap-2">
             {!hideSidebar && (
               <button
