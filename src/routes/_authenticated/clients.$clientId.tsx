@@ -174,10 +174,25 @@ function ClientDetailPage() {
                   >
                     <div className="min-w-0 pr-4">
                       <div className="font-medium text-foreground truncate">
-                        {c.case_number || c.title || "Sin tÃ­tulo"}
+                        {c.name || "Sin nombre"}
                       </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {c.matter_type || "General"} Â· Actualizado {new Date(c.updated_at).toLocaleDateString()}
+                      {caseNumberOf(c) ? (
+                        <div className="mt-0.5 text-xs font-mono text-muted-foreground truncate">
+                          {caseNumberOf(c)}
+                        </div>
+                      ) : null}
+                      <div className="mt-1 text-xs text-muted-foreground truncate">
+                        {[
+                          c.underlying_materia || c.case_type,
+                          c.procedural_vehicle,
+                          c.jurisdiction,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") || "Materia no determinada"}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Creado {new Date(c.created_at).toLocaleDateString()} · Actualizado{" "}
+                        {new Date(c.updated_at).toLocaleDateString()}
                       </div>
                     </div>
                     <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
