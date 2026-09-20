@@ -1623,8 +1623,35 @@ async function _runPipelineForCase(
       budgetFor(s.key),
     );
     if (remainingInvocationMs <= minStageSliceMs) {
+      // A stage that keeps being starved before it can start loops exactly
+      // like one that checkpoints mid-run — same loop-breaker applies.
+      const priorStarvations = await stageCheckpointCount(s.key);
+      if (priorStarvations >= MAX_STAGE_CHECKPOINTS) {
+        trace("stage.checkpoint_loop_aborted", {
+          stage: s.key,
+          checkpoints: priorStarvations + 1,
+          reason: "starved_before_start",
+        });
+        stageFailures.push({
+          key: s.key,
+          error: `${s.label}: la etapa nunca obtuvo tiempo de ejecución tras ${priorStarvations + 1} intentos.`,
+        });
+        failed.add(key);
+        await updateCase(
+          {
+            status: "failed",
+            status_message: `${s.label}: sin avance tras ${priorStarvations + 1} intentos`,
+            next_stage: s.key,
+            queued_at: null,
+          },
+          `stage.checkpoint_loop:${s.key}`,
+        );
+        return { kind: "checkpoint_loop_aborted", index: i };
+      }
       try {
         const { requeueForContinuation } = await import("@/lib/pipeline-stall.server");
+        leaseHandedBack = true;
+        clearInterval(heartbeatTimer);
         await requeueForContinuation(supabase, caseId, resumeKey);
       } catch (rqErr) {
         console.warn(`[pipeline] re-queue before ${s.key} checkpoint failed`, rqErr);
