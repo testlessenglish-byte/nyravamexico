@@ -23,7 +23,7 @@ import { DeadlineList } from "@/components/crm/DeadlineList";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/clients/$clientId")({
-  head: () => ({ meta: [{ title: "Detalle de Cliente â€” Nyrava" }] }),
+  head: () => ({ meta: [{ title: "Detalle de Cliente — Nyrava" }] }),
   component: ClientDetailPage,
 });
 
@@ -225,20 +225,20 @@ function ClientDetailPage() {
         {/* Contact Info Grid */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-6 border-t border-border">
           <div className="space-y-1">
-            <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" /> Correo ElectrÃ³nico</div>
-            <div className="text-sm">{client.email || "â€”"}</div>
+            <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" /> Correo Electrónico</div>
+            <div className="text-sm">{client.email || "—"}</div>
           </div>
           <div className="space-y-1">
-            <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> TelÃ©fono</div>
-            <div className="text-sm">{client.phone || "â€”"}</div>
+            <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Teléfono</div>
+            <div className="text-sm">{client.phone || "—"}</div>
           </div>
           <div className="space-y-1">
             <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" /> RFC</div>
-            <div className="text-sm font-mono">{client.rfc || "â€”"}</div>
+            <div className="text-sm font-mono">{client.rfc || "—"}</div>
           </div>
           <div className="space-y-1">
-            <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> DirecciÃ³n</div>
-            <div className="text-sm line-clamp-2">{client.address || "â€”"}</div>
+            <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> Dirección</div>
+            <div className="text-sm line-clamp-2">{client.address || "—"}</div>
           </div>
         </div>
       </div>
@@ -255,7 +255,7 @@ function ClientDetailPage() {
         </div>
         <div className="panel p-4 flex flex-col items-center justify-center text-center">
           <span className="text-3xl font-bold text-amber-500">{deadlines.length}</span>
-          <span className="text-xs uppercase tracking-wider text-muted-foreground mt-1">PrÃ³ximos Vencimientos</span>
+          <span className="text-xs uppercase tracking-wider text-muted-foreground mt-1">Próximos Vencimientos</span>
         </div>
       </div>
 
