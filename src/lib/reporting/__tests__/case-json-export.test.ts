@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { assertExportCaseIdentity, prepareCaseJsonExport } from "../case-json-export";
+import { assertExportCaseIdentity, fetchCurrentCaseExport, prepareCaseJsonExport } from "../case-json-export";
 import type { CaseExportData } from "../../export";
 
 function input(): CaseExportData {
@@ -62,5 +62,30 @@ describe("case JSON diagnostics", () => {
     const release=vi.fn();
     expect(prepareCaseJsonExport(data,release).diagnostic).toBe(true);
     expect(release).not.toHaveBeenCalled();
+  });
+  it("replaces a stale cached snapshot with the current released report before download", async () => {
+    const stale = input();
+    stale.case!.status = "needs_revision";
+    stale.report!.quality_blocked = true;
+    const fresh = input();
+    fresh.report!.full_report = { release_gate: { released: true }, release_decision: "PASS" };
+    const onFresh = vi.fn();
+    const fetched = await fetchCurrentCaseExport({
+      caseId: "case-a",
+      fetchCase: vi.fn(async () => fresh),
+      onFresh,
+    });
+    expect(fetched).toBe(fresh);
+    expect(fetched).not.toBe(stale);
+    expect(fetched.case?.status).toBe("released");
+    expect(onFresh).toHaveBeenCalledWith(fresh);
+  });
+  it("rejects a fresh response for another case before download", async () => {
+    const wrong = input();
+    wrong.case!.id = "case-b";
+    await expect(fetchCurrentCaseExport({
+      caseId: "case-a",
+      fetchCase: async () => wrong,
+    })).rejects.toThrow("selected case");
   });
 });
