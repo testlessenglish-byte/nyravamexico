@@ -42,7 +42,13 @@ function ClientDetailPage() {
   const { clientId } = Route.useParams();
   const fetchClient = useServerFn(getClient);
   const deleteClient = useServerFn(deleteClientFn);
+  const updateClient = useServerFn(updateClientFn);
+  const archiveClientFn = useServerFn(archiveClient);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [editOpen, setEditOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<Record<string, string>>({});
 
   const handleDelete = async () => {
     if (!window.confirm("¿Estás seguro de que deseas eliminar este cliente? Esta acción no se puede deshacer.")) return;
