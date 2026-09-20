@@ -3,7 +3,9 @@ import { Link } from "@tanstack/react-router";
 import { NyravaLogo } from "./NyravaLogo";
 import { SiteFooter } from "./SiteFooter";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { MobileNav } from "./MobileNav";
 import { useI18n } from "@/i18n";
+import { PUBLIC_NAV_ITEMS } from "@/lib/public-navigation";
 
 type Props = {
   eyebrow?: string;
@@ -19,14 +21,15 @@ type Props = {
  */
 export function LegalPage({ eyebrow, title, updated, intro, children }: Props) {
   const { t } = useI18n();
+  const navItems = PUBLIC_NAV_ITEMS.map((item) => ({ label: t(item.labelKey), to: item.to }));
   return (
     <div className="min-h-screen text-foreground">
       <header className="border-b border-border/60">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-          <Link to="/" className="flex items-center gap-2" aria-label="Nyrava home">
+        <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-4 sm:px-6 sm:py-5 xl:flex xl:justify-between">
+          <Link to="/" className="flex min-w-0 items-center gap-2" aria-label="Nyrava home">
             <NyravaLogo size={36} withWordmark />
           </Link>
-          <nav className="flex items-center gap-2">
+          <nav className="hidden items-center gap-2 xl:flex">
             <LanguageSwitcher />
             <Link
               to="/auth"
@@ -35,16 +38,25 @@ export function LegalPage({ eyebrow, title, updated, intro, children }: Props) {
               {t("nav.signIn")}
             </Link>
           </nav>
+          <MobileNav items={navItems}>
+            <LanguageSwitcher variant="sidebar" className="w-full justify-start" />
+            <Link to="/auth" className="rounded-md border border-border px-3 py-2 text-center text-[11px] font-semibold tracking-[0.14em] text-foreground">
+              {t("nav.signIn")}
+            </Link>
+            <Link to="/auth" className="rounded-md bg-primary px-3 py-2 text-center text-[11px] font-bold tracking-[0.14em] text-primary-foreground">
+              {t("nav.openPlatform")}
+            </Link>
+          </MobileNav>
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-6 py-12 md:py-16">
+      <main className="mx-auto min-w-0 max-w-3xl px-4 py-10 sm:px-6 md:py-16">
         {eyebrow && (
           <div className="mb-3 text-[10.5px] font-semibold uppercase tracking-[0.28em] text-primary">
             {eyebrow}
           </div>
         )}
-        <h1 className="font-display text-3xl font-semibold leading-tight md:text-4xl">
+        <h1 className="break-words font-display text-3xl font-semibold leading-tight tracking-normal md:text-4xl">
           {title}
         </h1>
         {updated && (
@@ -53,7 +65,7 @@ export function LegalPage({ eyebrow, title, updated, intro, children }: Props) {
         {intro && (
           <div className="mt-6 text-[14px] leading-relaxed text-muted-foreground">{intro}</div>
         )}
-        <div className="legal-prose mt-8 space-y-8">{children}</div>
+        <div className="legal-prose mt-8 min-w-0 space-y-8 break-words">{children}</div>
       </main>
 
       <SiteFooter />

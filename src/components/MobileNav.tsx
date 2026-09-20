@@ -4,6 +4,7 @@ import { Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { NyravaLogo } from "./NyravaLogo";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 export type MobileNavItem =
   | { label: string; to: string }
@@ -22,24 +23,25 @@ interface MobileNavProps {
  */
 export function MobileNav({ items, children, triggerClassName = "" }: MobileNavProps) {
   const [open, setOpen] = useState(false);
+  const { t } = useI18n();
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <button
           type="button"
-          aria-label="Abrir menú"
+          aria-label={t("shell.menu.open")}
           className={cn(
-            "grid h-10 w-10 place-items-center rounded-md border border-border text-foreground lg:hidden",
+            "grid h-10 w-10 shrink-0 place-items-center rounded-md border border-border text-foreground xl:hidden",
             triggerClassName,
           )}
         >
           <Menu className="h-5 w-5" />
         </button>
       </SheetTrigger>
-      <SheetContent side="right" className="flex w-[85vw] max-w-xs flex-col gap-1 sm:max-w-sm">
-        <div className="mb-4 flex items-center">
-          <NyravaLogo size={32} withWordmark />
+      <SheetContent side="right" className="flex w-[min(85vw,20rem)] max-w-full flex-col gap-1 overflow-x-hidden px-5 sm:max-w-sm">
+        <div className="mb-4 flex min-w-0 items-center pr-8">
+          <NyravaLogo size={32} withWordmark className="min-w-0" />
         </div>
         <nav className="flex flex-col gap-1">
           {items.map((item) =>
@@ -47,7 +49,7 @@ export function MobileNav({ items, children, triggerClassName = "" }: MobileNavP
               <SheetClose asChild key={item.label}>
                 <Link
                   to={item.to as never}
-                  className="rounded-md px-3 py-3 text-sm font-semibold tracking-[0.08em] text-foreground transition hover:bg-secondary"
+                  className="min-w-0 break-words rounded-md px-3 py-3 text-sm font-semibold tracking-[0.08em] text-foreground transition hover:bg-secondary"
                 >
                   {item.label}
                 </Link>
@@ -56,7 +58,7 @@ export function MobileNav({ items, children, triggerClassName = "" }: MobileNavP
               <SheetClose asChild key={item.label}>
                 <a
                   href={item.href}
-                  className="rounded-md px-3 py-3 text-sm font-semibold tracking-[0.08em] text-foreground transition hover:bg-secondary"
+                  className="min-w-0 break-words rounded-md px-3 py-3 text-sm font-semibold tracking-[0.08em] text-foreground transition hover:bg-secondary"
                 >
                   {item.label}
                 </a>

@@ -18,8 +18,8 @@ export function NyravaLogo({
   edition = "MÉXICO",
 }: NyravaLogoProps) {
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
-      <div className="relative" style={{ width: size, height: size }}>
+    <div className={`flex min-w-0 items-center gap-2 sm:gap-3 ${className}`}>
+      <div className="relative shrink-0" style={{ width: size, height: size }}>
         {glow && (
           <div
             aria-hidden
@@ -45,15 +45,15 @@ export function NyravaLogo({
         </svg>
       </div>
       {withWordmark && (
-        <div className="flex flex-col leading-none">
+        <div className="min-w-0 overflow-hidden leading-none">
           <span
-            className="font-display text-[15px] font-extrabold tracking-[0.06em] text-foreground"
+            className="block truncate font-display text-[15px] font-extrabold tracking-[0.06em] text-foreground"
             style={size >= 60 ? { fontSize: 22 } : undefined}
           >
             NYRAVA
           </span>
           <span
-            className="mt-1 text-[8.5px] font-semibold tracking-[0.28em] text-muted-foreground"
+            className="mt-1 hidden truncate text-[8.5px] font-semibold tracking-[0.28em] text-muted-foreground sm:block"
             style={size >= 60 ? { fontSize: 11, marginTop: 4 } : undefined}
           >
             LEGAL INTELLIGENCE OS · {edition}

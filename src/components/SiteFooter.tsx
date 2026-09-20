@@ -7,10 +7,10 @@ export function SiteFooter() {
   const { t } = useI18n();
   return (
     <footer className="mt-24 border-t border-border/60">
-      <div className="mx-auto grid max-w-7xl gap-10 px-6 py-14 lg:grid-cols-5">
-        <div className="lg:col-span-2">
+      <div className="mx-auto grid min-w-0 max-w-7xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-5">
+        <div className="min-w-0 lg:col-span-2">
           <NyravaLogo size={42} withWordmark />
-          <p className="mt-4 max-w-sm text-sm leading-relaxed text-muted-foreground">
+          <p className="mt-4 max-w-sm break-words text-sm leading-relaxed text-muted-foreground">
             {t("footer.about")}
           </p>
           <p className="mt-6 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
@@ -54,9 +54,9 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="border-t border-border/60">
-        <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-3 px-6 py-6 text-xs text-muted-foreground md:flex-row md:items-center">
-          <span>© {new Date().getFullYear()} Nyrava Intelligence México. {t("footer.copyright")}</span>
-          <div className="flex flex-wrap items-center gap-3">
+         <div className="mx-auto flex min-w-0 max-w-7xl flex-col items-start justify-between gap-3 px-4 py-6 text-xs text-muted-foreground sm:px-6 md:flex-row md:items-center">
+           <span className="break-words">© {new Date().getFullYear()} Nyrava Intelligence México. {t("footer.copyright")}</span>
+           <div className="flex min-w-0 flex-wrap items-center gap-3">
             <SocialLinks />
             <span className="font-mono text-[10px] tracking-[0.16em]">{t("footer.location")}</span>
           </div>
