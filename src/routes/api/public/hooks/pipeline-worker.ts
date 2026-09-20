@@ -209,13 +209,6 @@ async function processLeasedCase(
     // queue_cleared" incident) leaves it with no queued_at, no next_stage and
     // no lease: invisible to the claimer forever, recoverable only by a human
     // clicking Clear Stuck Case.
-    const TERMINAL = new Set([
-      "complete",
-      "released",
-      "needs_revision",
-      "failed",
-      "cancelled",
-    ]);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: postRow } = await (admin as any)
       .from("cases")
@@ -223,13 +216,19 @@ async function processLeasedCase(
       .eq("id", leased.id)
       .maybeSingle();
     const postStatus = String(postRow?.status ?? "");
-    const postNextStage = (postRow?.next_stage as string | null) ?? null;
+    const action = decidePostRunQueueAction({
+      checkpointed,
+      status: postStatus,
+      nextStage: (postRow?.next_stage as string | null) ?? null,
+      failedAt,
+      startFrom,
+    });
 
-    if (checkpointed) {
+    if (action.kind === "checkpoint_preserved") {
       await workerTracePersist(admin, leased.id, "worker.checkpoint_preserved", "warn", {
         startFrom: startFrom ?? null,
       });
-    } else if (TERMINAL.has(postStatus)) {
+    } else if (action.kind === "clear_queue") {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (admin as any)
         .from("cases")
@@ -243,13 +242,12 @@ async function processLeasedCase(
       // work still outstanding. Hand the case straight back to the queue so the
       // next cron tick resumes it automatically.
       const { requeueForContinuation } = await import("@/lib/pipeline-stall.server");
-      const resumeKey = postNextStage ?? failedAt ?? startFrom ?? "extraction";
-      await requeueForContinuation(admin as never, leased.id, resumeKey);
+      await requeueForContinuation(admin as never, leased.id, action.resumeKey);
       await workerTracePersist(admin, leased.id, "worker.requeued_incomplete", "warn", {
         ok,
         failedAt,
         status: postStatus,
-        resume_key: resumeKey,
+        resume_key: action.resumeKey,
       });
     }
     return { caseId: leased.id, ok: true };
