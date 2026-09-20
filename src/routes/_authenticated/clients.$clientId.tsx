@@ -65,8 +65,9 @@ function ClientDetailPage() {
     id: string; title: string; due_date: string; priority: string; completed: boolean; case_id: string;
   }>;
 
-  const activeCasesCount = cases.filter((c) => !["complete", "cancelled", "failed"].includes(c.status)).length;
-  const closedCasesCount = cases.filter((c) => ["complete", "cancelled"].includes(c.status)).length;
+  // Counters derive from the same canonical cases.client_id relation the list uses.
+  const activeCasesCount = Number(client.active_case_count ?? 0);
+  const closedCasesCount = Number(client.closed_case_count ?? 0);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 md:py-10 space-y-6">
