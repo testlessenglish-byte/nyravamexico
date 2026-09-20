@@ -251,7 +251,7 @@ function Landing() {
 
         {/* Cream feature strip */}
         <section className="border-y border-border bg-cream text-cream-foreground">
-          <div className="mx-auto grid max-w-[100rem] grid-cols-2 gap-6 px-6 py-8 md:grid-cols-4">
+          <div className="mx-auto grid min-w-0 max-w-[100rem] grid-cols-1 gap-6 px-4 py-8 min-[360px]:grid-cols-2 sm:px-6 md:grid-cols-4">
             {[
               {
                 icon: ShieldCheck,
@@ -274,12 +274,12 @@ function Landing() {
                 subKey: "home.features.forLawyers.subtitle",
               },
             ].map((it) => (
-              <div key={it.titleKey} className="flex items-start gap-3">
+              <div key={it.titleKey} className="flex min-w-0 items-start gap-3">
                 <it.icon
                   className="mt-0.5 h-5 w-5 shrink-0 text-cream-foreground"
                   strokeWidth={1.5}
                 />
-                <div>
+                <div className="min-w-0 break-words">
                   <div className="text-[11px] font-bold leading-tight tracking-[0.02em]">
                     {t(it.titleKey)}
                   </div>
