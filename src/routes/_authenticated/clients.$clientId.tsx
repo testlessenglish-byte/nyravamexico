@@ -1,7 +1,18 @@
 ﻿import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getClient, deleteClientFn } from "@/lib/clients.functions";
+import { useState } from "react";
+import {
+  getClient,
+  deleteClientFn,
+  updateClientFn,
+  archiveClient,
+} from "@/lib/clients.functions";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   User, Building2, Mail, Phone, MapPin, FileText,
   Briefcase, Edit, Archive, ChevronLeft, Trash2,
