@@ -1504,8 +1504,22 @@ async function _runPipelineForCase(
     const r = runners[key];
     const pct = Math.floor((i / total) * 95);
 
+    // Idempotence gate FIRST — a stage that already reached a terminal
+    // success/skipped state on an earlier tick is never re-executed, and must
+    // cost nothing to walk past. This check used to sit behind a per-stage
+    // `cases` round trip plus a trace insert; on a resumed tick that billed
+    // 24-29s of the ~42s worker budget just re-walking finished stages, so the
+    // stage that still had work checkpointed before it could start. Skipping
+    // is now pure in-memory: no DB read, no per-stage trace row (one
+    // aggregated `pipeline.stages_skipped` row is emitted by the caller).
+    if (alreadyDone(key)) {
+      completed.add(key);
+      skippedThisTick.push(s.key);
+      return { kind: "skipped" };
+    }
 
-    // Execution identity check: abort if superseded by newer execution
+    // Execution identity check: abort if superseded by newer execution.
+    // Only stages that are actually going to run pay for this.
     const { data: curCaseRow } = await (supabase as any)
       .from("cases")
       .select("execution_id,cancel_requested")
@@ -1525,17 +1539,6 @@ async function _runPipelineForCase(
       return { kind: "cancelled", index: i };
     }
 
-    // Idempotence gate — a stage that already reached a terminal
-    // success/skipped state on an earlier tick is never re-executed.
-    if (alreadyDone(key)) {
-      completed.add(key);
-      trace("stage.skipped_already_terminal", {
-        stage: s.key,
-        index: i + 1,
-        prior_status: latestStatusByEngine.get(engineForStage(key)) ?? null,
-      });
-      return { kind: "skipped" };
-    }
 
     // Dependency gate — record a `blocked` row so the ledger, UI, and report
     // gate all see the truth: this engine did not run because upstream failed.
