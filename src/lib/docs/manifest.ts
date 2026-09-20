@@ -22,6 +22,7 @@ export const DOCS_NAV: DocGroup[] = [
     heading: "Getting Started",
     headingEs: "Para empezar",
     entries: [
+      { to: "/ia-para-abogados", label: "IA para abogados en México", labelEs: "IA para abogados en México", description: "Guía en español sobre usos, límites y verificación de la IA jurídica.", descriptionEs: "Usos, límites y verificación de la IA jurídica.", keywords: ["ia", "abogados", "inteligencia artificial", "expedientes", "fuentes"] },
       { to: "/help", label: "Help Center", description: "Browse categories and articles.", keywords: ["help", "support", "faq"] },
       { to: "/learning-center", label: "Learning Center", description: "Set up your workspace, add keys, run a case, and train your team.", keywords: ["learning", "training", "onboarding", "academy", "getting started"] },
       { to: "/how-it-works", label: "How Nyrava Works", description: "The end-to-end pipeline, from upload to report.", keywords: ["pipeline", "workflow", "overview"] },
