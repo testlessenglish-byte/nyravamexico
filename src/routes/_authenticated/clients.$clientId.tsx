@@ -194,11 +194,25 @@ function ClientDetailPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => openEdit(client)}>
               <Edit className="mr-2 h-4 w-4" /> Editar
             </Button>
-            <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10">
-              <Archive className="mr-2 h-4 w-4" /> Archivar
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive hover:bg-destructive/10"
+              onClick={() => handleArchiveToggle(client.status)}
+            >
+              <Archive className="mr-2 h-4 w-4" />
+              {client.status === "archived" ? "Reactivar" : "Archivar"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive hover:bg-destructive/10"
+              onClick={handleDelete}
+            >
+              <Trash2 className="mr-2 h-4 w-4" /> Eliminar
             </Button>
           </div>
         </div>
