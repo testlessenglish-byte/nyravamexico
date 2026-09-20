@@ -28,6 +28,6 @@
 - [ ] Final automated scan and route-family browser checks
 
 ## Public mobile responsiveness (Sep 20)
-- [ ] Eliminate shared-header overflow across all public pages at 320–430px
-- [ ] Keep navigation, language, sign-in, and platform access available in the mobile menu
-- [ ] Verify every public route and mobile/PWA-style menu flow without horizontal scrolling
+- [x] Eliminate shared-header overflow across all public pages at 320–430px
+- [x] Keep navigation, language, sign-in, and platform access available in the mobile menu
+- [x] Verify every public route and mobile/PWA-style menu flow without horizontal scrolling
