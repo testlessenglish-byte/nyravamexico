@@ -1,6 +1,7 @@
 import { Clock, Calendar, CheckCircle2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { useI18n } from "@/i18n";
 
 export interface Deadline {
   id: string;
@@ -17,10 +18,12 @@ interface DeadlineListProps {
 }
 
 export function DeadlineList({ deadlines, onToggleComplete }: DeadlineListProps) {
+  const { locale, t } = useI18n();
+
   if (!deadlines || deadlines.length === 0) {
     return (
       <div className="py-6 text-center text-sm text-muted-foreground">
-        No hay vencimientos próximos.
+        {t("clientDetail.deadlines.empty")}
       </div>
     );
   }
@@ -34,20 +37,20 @@ export function DeadlineList({ deadlines, onToggleComplete }: DeadlineListProps)
         const isToday = deadline.due_date === today && !deadline.completed;
 
         let priorityColor = "border-border text-muted-foreground bg-muted/50";
-        let priorityLabel = "Normal";
+        let priorityLabel = t("clientDetail.priority.normal");
         
         switch (deadline.priority) {
           case "urgent":
              priorityColor = "border-destructive/30 text-destructive bg-destructive/10";
-             priorityLabel = "Urgente";
+             priorityLabel = t("clientDetail.priority.urgent");
              break;
           case "high":
              priorityColor = "border-warning/30 text-warning bg-warning/10";
-             priorityLabel = "Alta";
+             priorityLabel = t("clientDetail.priority.high");
              break;
           case "low":
              priorityColor = "border-border text-muted-foreground bg-muted/20";
-             priorityLabel = "Baja";
+             priorityLabel = t("clientDetail.priority.low");
              break;
         }
 
@@ -84,9 +87,9 @@ export function DeadlineList({ deadlines, onToggleComplete }: DeadlineListProps)
               <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
                 <span className={`flex items-center gap-1 ${isOverdue && !deadline.completed ? 'text-destructive font-medium' : isToday && !deadline.completed ? 'text-warning font-medium' : ''}`}>
                   <Calendar className="h-3.5 w-3.5" />
-                  {new Date(`${deadline.due_date}T12:00:00`).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
-                  {isOverdue && !deadline.completed && " (Vencido)"}
-                  {isToday && !deadline.completed && " (Hoy)"}
+                   {new Date(`${deadline.due_date}T12:00:00`).toLocaleDateString(locale === "es" ? "es-MX" : "en-US", { day: '2-digit', month: 'short', year: 'numeric' })}
+                   {isOverdue && !deadline.completed && ` (${t("clientDetail.deadlines.overdue")})`}
+                   {isToday && !deadline.completed && ` (${t("clientDetail.deadlines.today")})`}
                 </span>
                 
                 {deadline.case_title && (

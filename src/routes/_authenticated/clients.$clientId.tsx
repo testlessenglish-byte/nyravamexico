@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DeadlineList } from "@/components/crm/DeadlineList";
 import { toast } from "sonner";
+import { useI18n } from "@/i18n";
 
 export const Route = createFileRoute("/_authenticated/clients/$clientId")({
   head: () => ({ meta: [{ title: "Detalle de Cliente — Nyrava" }] }),
@@ -39,6 +40,7 @@ function caseNumberOf(c: { matter_metadata?: Record<string, any> | null }): stri
 }
 
 function ClientDetailPage() {
+  const { locale, t } = useI18n();
   const { clientId } = Route.useParams();
   const fetchClient = useServerFn(getClient);
   const deleteClient = useServerFn(deleteClientFn);
@@ -51,13 +53,13 @@ function ClientDetailPage() {
   const [form, setForm] = useState<Record<string, string>>({});
 
   const handleDelete = async () => {
-    if (!window.confirm("¿Estás seguro de que deseas eliminar este cliente? Esta acción no se puede deshacer.")) return;
+    if (!window.confirm(t("clientDetail.delete.confirm"))) return;
     try {
       await deleteClient({ data: { clientId } });
-      toast.success("Cliente eliminado exitosamente");
+      toast.success(t("clientDetail.delete.success"));
       navigate({ to: "/clients" });
     } catch (error: any) {
-      toast.error(error.message || "Error al eliminar el cliente");
+      toast.error(error.message || t("clientDetail.delete.error"));
     }
   };
 
@@ -88,12 +90,12 @@ function ClientDetailPage() {
 
   const handleSave = async () => {
     if (!form["display_name"]?.trim()) {
-      toast.error("El nombre del cliente es obligatorio");
+      toast.error(t("clientDetail.validation.nameRequired"));
       return;
     }
     const email = (form["email"] ?? "").trim();
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
-      toast.error("El correo electrónico no es válido");
+      toast.error(t("clientDetail.validation.emailInvalid"));
       return;
     }
     setSaving(true);
@@ -114,9 +116,9 @@ function ClientDetailPage() {
       });
       await refreshClient();
       setEditOpen(false);
-      toast.success("Cliente actualizado");
+      toast.success(t("clientDetail.update.success"));
     } catch (error: any) {
-      toast.error(error?.message || "No se pudo actualizar el cliente");
+      toast.error(error?.message || t("clientDetail.update.error"));
     } finally {
       setSaving(false);
     }
@@ -126,23 +128,23 @@ function ClientDetailPage() {
     try {
       if (currentStatus === "archived") {
         await updateClient({ data: { clientId, status: "active" } });
-        toast.success("Cliente reactivado");
+        toast.success(t("clientDetail.reactivate.success"));
       } else {
         await archiveClientFn({ data: { clientId } });
-        toast.success("Cliente archivado");
+        toast.success(t("clientDetail.archive.success"));
       }
       await refreshClient();
     } catch (error: any) {
-      toast.error(error?.message || "No se pudo cambiar el estado del cliente");
+      toast.error(error?.message || t("clientDetail.status.error"));
     }
   };
 
   if (isLoading) {
-    return <div className="p-8 text-center text-sm text-muted-foreground">Cargando detalles...</div>;
+    return <div className="p-8 text-center text-sm text-muted-foreground">{t("clientDetail.loading")}</div>;
   }
 
   if (!clientData) {
-    return <div className="p-8 text-center text-sm text-destructive">Cliente no encontrado.</div>;
+    return <div className="p-8 text-center text-sm text-destructive">{t("clientDetail.notFound")}</div>;
   }
 
   // getClient returns a flat object with client fields + cases + upcoming_deadlines
@@ -172,7 +174,7 @@ function ClientDetailPage() {
     <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 md:py-10 space-y-6">
       <Link to="/clients" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
         <ChevronLeft className="mr-1 h-4 w-4" />
-        Volver a Clientes
+        {t("clientDetail.back")}
       </Link>
 
       {/* Header Profile */}
@@ -190,17 +192,17 @@ function ClientDetailPage() {
               <h1 className="text-2xl font-bold text-foreground">{client.display_name}</h1>
               <div className="mt-2 flex items-center gap-3">
                 <Badge variant="outline" className="text-primary border-primary/20 bg-primary/5">
-                  {client.client_type === "company" ? "Persona Moral" : "Persona FÃ­sica"}
+                  {client.client_type === "company" ? t("clientDetail.type.company") : t("clientDetail.type.individual")}
                 </Badge>
                 <span className={`text-sm font-medium ${client.status === "active" ? "text-green-600" : "text-muted-foreground"}`}>
-                  {client.status === "active" ? "Activo" : client.status === "inactive" ? "Inactivo" : "Archivado"}
+                  {client.status === "active" ? t("clientDetail.status.active") : client.status === "inactive" ? t("clientDetail.status.inactive") : t("clientDetail.status.archived")}
                 </span>
               </div>
             </div>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => openEdit(client)}>
-              <Edit className="mr-2 h-4 w-4" /> Editar
+              <Edit className="mr-2 h-4 w-4" /> {t("clientDetail.actions.edit")}
             </Button>
             <Button
               variant="outline"
@@ -209,7 +211,7 @@ function ClientDetailPage() {
               onClick={() => handleArchiveToggle(client.status)}
             >
               <Archive className="mr-2 h-4 w-4" />
-              {client.status === "archived" ? "Reactivar" : "Archivar"}
+              {client.status === "archived" ? t("clientDetail.actions.reactivate") : t("clientDetail.actions.archive")}
             </Button>
             <Button
               variant="outline"
@@ -217,7 +219,7 @@ function ClientDetailPage() {
               className="text-destructive hover:bg-destructive/10"
               onClick={handleDelete}
             >
-              <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+              <Trash2 className="mr-2 h-4 w-4" /> {t("clientDetail.actions.delete")}
             </Button>
           </div>
         </div>
@@ -225,11 +227,11 @@ function ClientDetailPage() {
         {/* Contact Info Grid */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-6 border-t border-border">
           <div className="space-y-1">
-            <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" /> Correo Electrónico</div>
+            <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" /> {t("clientDetail.fields.email")}</div>
             <div className="text-sm">{client.email || "—"}</div>
           </div>
           <div className="space-y-1">
-            <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Teléfono</div>
+            <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> {t("clientDetail.fields.phone")}</div>
             <div className="text-sm">{client.phone || "—"}</div>
           </div>
           <div className="space-y-1">
@@ -237,7 +239,7 @@ function ClientDetailPage() {
             <div className="text-sm font-mono">{client.rfc || "—"}</div>
           </div>
           <div className="space-y-1">
-            <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> Dirección</div>
+            <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> {t("clientDetail.fields.address")}</div>
             <div className="text-sm line-clamp-2">{client.address || "—"}</div>
           </div>
         </div>
@@ -247,15 +249,15 @@ function ClientDetailPage() {
       <div className="grid grid-cols-3 gap-4">
         <div className="panel p-4 flex flex-col items-center justify-center text-center">
           <span className="text-3xl font-bold text-primary">{activeCasesCount}</span>
-          <span className="text-xs uppercase tracking-wider text-muted-foreground mt-1">Expedientes Activos</span>
+          <span className="text-xs uppercase tracking-wider text-muted-foreground mt-1">{t("clientDetail.stats.active")}</span>
         </div>
         <div className="panel p-4 flex flex-col items-center justify-center text-center">
           <span className="text-3xl font-bold text-green-600">{closedCasesCount}</span>
-          <span className="text-xs uppercase tracking-wider text-muted-foreground mt-1">Expedientes Cerrados</span>
+          <span className="text-xs uppercase tracking-wider text-muted-foreground mt-1">{t("clientDetail.stats.closed")}</span>
         </div>
         <div className="panel p-4 flex flex-col items-center justify-center text-center">
           <span className="text-3xl font-bold text-amber-500">{deadlines.length}</span>
-          <span className="text-xs uppercase tracking-wider text-muted-foreground mt-1">Próximos Vencimientos</span>
+          <span className="text-xs uppercase tracking-wider text-muted-foreground mt-1">{t("clientDetail.stats.upcoming")}</span>
         </div>
       </div>
 
@@ -264,17 +266,17 @@ function ClientDetailPage() {
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold flex items-center gap-2">
-              <Briefcase className="h-5 w-5 text-primary" /> Expedientes Relacionados
+              <Briefcase className="h-5 w-5 text-primary" /> {t("clientDetail.cases.title")}
             </h2>
             <Link to="/new" search={{ clientId }} className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90">
-              + Analizar Nuevo Caso
+              {t("clientDetail.cases.new")}
             </Link>
           </div>
 
           <div className="panel overflow-hidden">
             {cases.length === 0 ? (
               <div className="p-8 text-center text-sm text-muted-foreground">
-                No hay expedientes asociados a este cliente.
+                {t("clientDetail.cases.empty")}
               </div>
             ) : (
               <div className="divide-y divide-border">
@@ -287,7 +289,7 @@ function ClientDetailPage() {
                   >
                     <div className="min-w-0 pr-4">
                       <div className="font-medium text-foreground truncate">
-                        {c.name || "Sin nombre"}
+                        {c.name || t("clientDetail.cases.unnamed")}
                       </div>
                       {caseNumberOf(c) ? (
                         <div className="mt-0.5 text-xs font-mono text-muted-foreground truncate">
@@ -301,11 +303,11 @@ function ClientDetailPage() {
                           c.jurisdiction,
                         ]
                           .filter(Boolean)
-                          .join(" · ") || "Materia no determinada"}
+                          .join(" · ") || t("clientDetail.cases.matterUnknown")}
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">
-                        Creado {new Date(c.created_at).toLocaleDateString()} · Actualizado{" "}
-                        {new Date(c.updated_at).toLocaleDateString()}
+                        {t("clientDetail.cases.created")} {new Date(c.created_at).toLocaleDateString(locale === "es" ? "es-MX" : "en-US")} · {t("clientDetail.cases.updated")}{" "}
+                        {new Date(c.updated_at).toLocaleDateString(locale === "es" ? "es-MX" : "en-US")}
                       </div>
                     </div>
                     <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
@@ -320,7 +322,7 @@ function ClientDetailPage() {
 
         {/* Deadlines Sidebar */}
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Vencimientos</h2>
+          <h2 className="text-lg font-semibold">{t("clientDetail.deadlines.title")}</h2>
           <div className="panel p-4">
             <DeadlineList deadlines={deadlines as any} />
           </div>
@@ -330,26 +332,26 @@ function ClientDetailPage() {
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Editar Cliente</DialogTitle>
+            <DialogTitle>{t("clientDetail.edit.title")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <Field label="Nombre">
+            <Field label={t("clientDetail.fields.name")}>
               <Input
                 value={form["display_name"] ?? ""}
                 onChange={(e) => setForm((f) => ({ ...f, display_name: e.target.value }))}
               />
             </Field>
-            <Field label="Tipo de Cliente">
+            <Field label={t("clientDetail.fields.type")}>
               <select
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 value={form["client_type"] ?? "individual"}
                 onChange={(e) => setForm((f) => ({ ...f, client_type: e.target.value }))}
               >
-                <option value="individual">Persona Física</option>
-                <option value="company">Persona Moral</option>
+                <option value="individual">{t("clientDetail.type.individual")}</option>
+                <option value="company">{t("clientDetail.type.company")}</option>
               </select>
             </Field>
-            <Field label="Razón Social">
+            <Field label={t("clientDetail.fields.legalName")}>
               <Input
                 value={form["legal_name"] ?? ""}
                 onChange={(e) => setForm((f) => ({ ...f, legal_name: e.target.value }))}
@@ -362,34 +364,34 @@ function ClientDetailPage() {
                   onChange={(e) => setForm((f) => ({ ...f, rfc: e.target.value }))}
                 />
               </Field>
-              <Field label="Número de Referencia">
+              <Field label={t("clientDetail.fields.reference")}>
                 <Input
                   value={form["reference_number"] ?? ""}
                   onChange={(e) => setForm((f) => ({ ...f, reference_number: e.target.value }))}
                 />
               </Field>
-              <Field label="Correo Electrónico">
+              <Field label={t("clientDetail.fields.email")}>
                 <Input
                   type="email"
                   value={form["email"] ?? ""}
                   onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                 />
               </Field>
-              <Field label="Teléfono">
+              <Field label={t("clientDetail.fields.phone")}>
                 <Input
                   value={form["phone"] ?? ""}
                   onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
                 />
               </Field>
             </div>
-            <Field label="Dirección">
+            <Field label={t("clientDetail.fields.address")}>
               <Textarea
                 rows={2}
                 value={form["address"] ?? ""}
                 onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
               />
             </Field>
-            <Field label="Notas">
+            <Field label={t("clientDetail.fields.notes")}>
               <Textarea
                 rows={3}
                 value={form["notes"] ?? ""}
@@ -399,10 +401,10 @@ function ClientDetailPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>
-              Cancelar
+              {t("clientDetail.actions.cancel")}
             </Button>
             <Button onClick={handleSave} disabled={saving}>
-              {saving ? "Guardando..." : "Guardar Cambios"}
+              {saving ? t("clientDetail.actions.saving") : t("clientDetail.actions.save")}
             </Button>
           </DialogFooter>
         </DialogContent>
