@@ -1385,6 +1385,19 @@ async function _runPipelineForCase(
   const FATAL_STAGES = new Set<PipelineStageKey>(["extraction", "analyzers", "agents"]);
   const stageFailures: Array<{ key: string; error: string }> = [];
   const completed = new Set<PipelineStageKey>();
+  // Stages walked past this tick because a prior tick already finished them.
+  // Recorded in memory and flushed as ONE trace row (see runOneStage).
+  const skippedThisTick: string[] = [];
+  let skippedTraceFlushed = false;
+  const flushSkippedTrace = () => {
+    if (skippedTraceFlushed || skippedThisTick.length === 0) return;
+    skippedTraceFlushed = true;
+    trace("pipeline.stages_skipped", {
+      count: skippedThisTick.length,
+      stages: [...skippedThisTick],
+      reason: "already_terminal_in_ledger",
+    });
+  };
   const failed = new Set<PipelineStageKey>();
   const blocked = new Set<PipelineStageKey>();
   const {
