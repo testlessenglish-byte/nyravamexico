@@ -1533,6 +1533,7 @@ async function _runPipelineForCase(
 
     // Execution identity check: abort if superseded by newer execution.
     // Only stages that are actually going to run pay for this.
+    flushSkippedTrace();
     const { data: curCaseRow } = await (supabase as any)
       .from("cases")
       .select("execution_id,cancel_requested")
