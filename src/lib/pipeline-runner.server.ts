@@ -2257,6 +2257,7 @@ async function _runPipelineForCase(
     completed: completed.size,
     blocked: blocked.size,
   });
+  flushSkippedTrace();
   return { ok: true, completedStages: total, warnings: stageFailures };
   } finally {
     clearInterval(heartbeatTimer);
