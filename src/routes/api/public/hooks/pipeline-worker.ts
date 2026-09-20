@@ -263,13 +263,40 @@ async function processLeasedCase(
       { stack: e instanceof Error ? (e.stack ?? "").split("\n").slice(0, 6).join("\n") : null },
       msg.slice(0, 2000),
     );
+    // A thrown invocation is retried automatically a bounded number of times
+    // before it is parked as "failed" for a human. Previously every throw
+    // nulled queued_at/next_stage immediately, so even a transient error
+    // required Clear Stuck Case -> Resume.
+    const MAX_WORKER_AUTO_RETRIES = 3;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: row } = await (admin as any)
+      .from("cases")
+      .select("next_stage,stall_auto_retry_count")
+      .eq("id", leased.id)
+      .maybeSingle();
+    const attempts = Number(row?.stall_auto_retry_count ?? 0);
+    if (attempts < MAX_WORKER_AUTO_RETRIES) {
+      const resumeKey = (row?.next_stage as string | null) ?? leased.next_stage ?? "extraction";
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (admin as any)
+        .from("cases")
+        .update({ stall_auto_retry_count: attempts + 1, error: msg.slice(0, 2000) })
+        .eq("id", leased.id);
+      const { requeueForContinuation } = await import("@/lib/pipeline-stall.server");
+      await requeueForContinuation(admin as never, leased.id, resumeKey);
+      await workerTracePersist(admin, leased.id, "worker.auto_retry_requeued", "warn", {
+        attempt: attempts + 1,
+        max: MAX_WORKER_AUTO_RETRIES,
+        resume_key: resumeKey,
+      });
+      return { caseId: leased.id, ok: false, error: msg };
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (admin as any)
       .from("cases")
       .update({
         queued_at: null,
         worker_lease_until: null,
-        next_stage: null,
         status: "failed",
         status_message: "Worker error",
         error: msg.slice(0, 2000),
