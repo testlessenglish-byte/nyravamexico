@@ -16,6 +16,17 @@ export const Route = createFileRoute("/_authenticated/clients/$clientId")({
   component: ClientDetailPage,
 });
 
+// Case numbers live in matter_metadata; `cases` has no case_number column.
+function caseNumberOf(c: { matter_metadata?: Record<string, any> | null }): string {
+  const m = c.matter_metadata ?? {};
+  const raw =
+    m["case_number"] ??
+    m["expediente"] ??
+    m["case_identity"]?.["case_number"] ??
+    m["case_identity"]?.["expediente"];
+  return typeof raw === "string" ? raw : "";
+}
+
 function ClientDetailPage() {
   const { clientId } = Route.useParams();
   const fetchClient = useServerFn(getClient);
