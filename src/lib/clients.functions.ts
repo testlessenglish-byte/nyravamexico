@@ -117,20 +117,27 @@ export const getClient = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     if (!client) throw new Error("Client not found or access denied.");
 
-    // Cases for this client â€” client_id is new, not yet in types
-    const { data: cases } = await (ctx.supabase as any)
+    // Cases for this client — canonical relation is cases.client_id, the same
+    // one listClients counts. Only real columns of `cases` may be selected here:
+    // PostgREST rejects the whole request for an unknown column, which silently
+    // produced an empty list before.
+    const { data: cases, error: casesError } = await (ctx.supabase as any)
       .from("cases")
-      .select("id, name, case_number, status, matter_type, updated_at")
+      .select(
+        "id, name, status, lifecycle_status, case_type, underlying_materia, procedural_vehicle, jurisdiction, matter_metadata, created_at, updated_at",
+      )
       .eq("client_id", data.clientId)
+      .is("deleted_at", null)
       .order("updated_at", { ascending: false });
+    if (casesError) throw new Error(casesError.message);
 
+    const CLOSED_STATUSES = ["complete", "cancelled", "released"];
     const allCases = (cases ?? []) as Array<Record<string, unknown>>;
-    const activeCases = allCases.filter(
-      (c) => !["complete", "cancelled", "failed"].includes(c.status as string),
+    const closedCases = allCases.filter((c) =>
+      CLOSED_STATUSES.includes(c.status as string) ||
+      ["closed", "archived"].includes((c.lifecycle_status as string) ?? ""),
     );
-    const closedCases = allCases.filter(
-      (c) => ["complete", "cancelled"].includes(c.status as string),
-    );
+    const activeCases = allCases.filter((c) => !closedCases.includes(c));
 
     // Upcoming deadlines across this client's cases
     const caseIds = allCases.map((c) => c.id as string);
