@@ -10,6 +10,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import {
+  decidePostRunQueueAction,
+  decideWorkerErrorAction,
+  MAX_WORKER_AUTO_RETRIES,
+} from "@/lib/pipeline-queue-policy";
 
 const LEASE_MS = 3 * 60 * 1000; // 3 minutes
 
@@ -265,7 +270,6 @@ async function processLeasedCase(
     // before it is parked as "failed" for a human. Previously every throw
     // nulled queued_at/next_stage immediately, so even a transient error
     // required Clear Stuck Case -> Resume.
-    const MAX_WORKER_AUTO_RETRIES = 3;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: row } = await (admin as any)
       .from("cases")
@@ -273,7 +277,7 @@ async function processLeasedCase(
       .eq("id", leased.id)
       .maybeSingle();
     const attempts = Number(row?.stall_auto_retry_count ?? 0);
-    if (attempts < MAX_WORKER_AUTO_RETRIES) {
+    if (decideWorkerErrorAction(attempts) === "auto_retry") {
       const resumeKey = (row?.next_stage as string | null) ?? leased.next_stage ?? "extraction";
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (admin as any)
