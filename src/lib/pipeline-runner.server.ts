@@ -210,11 +210,17 @@ async function _runPipelineForCase(
   });
 
   let isTerminated = false;
+  // Set the moment this invocation voluntarily hands the case back to the
+  // queue (checkpoint -> requeueForContinuation). Without it the 30s
+  // heartbeat could re-stamp a 3-minute lease onto an already-queued case,
+  // making it invisible to claim_next_queued_case (which skips leased rows)
+  // AND to the stall sweeper (which ignores status "queued") for minutes.
+  let leaseHandedBack = false;
   const runnerAbortController = new AbortController();
 
   // 30-second heartbeat lease renewal
   const heartbeatTimer = setInterval(async () => {
-    if (isTerminated) return;
+    if (isTerminated || leaseHandedBack) return;
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: renewed, error: rpcErr } = await (supabase as any).rpc("renew_execution_lease", {
@@ -230,6 +236,11 @@ async function _runPipelineForCase(
           .update({ worker_lease_until: new Date(Date.now() + RUNNER_LEASE_EXTENSION_MS).toISOString() })
           .eq("id", caseId)
           .eq("execution_id", executionId)
+          // Renew only a lease this execution still owns. A queued/terminal
+          // case (lease already cleared) must never be re-locked from here.
+          .not("worker_lease_until", "is", null)
+          .gt("worker_lease_until", new Date().toISOString())
+          .not("status", "in", '("queued","complete","released","failed","cancelled","needs_revision")')
           .select("id");
         if (directErr || !directUpd?.length) {
           console.warn(`[pipeline-runner] Heartbeat lost lease for execution ${executionId}. Aborting.`);
@@ -263,14 +274,20 @@ async function _runPipelineForCase(
   const stageCheckpointCount = async (stageKey: string): Promise<number> => {
     try {
       // Count "stage.checkpoint" trace events for this case + stage.
-      const { data, error } = await supabase
+      // NOTE: with `head: true` PostgREST returns NO rows — the total lives in
+      // `count`, not `data`. Reading `data` here always yielded 0, so the
+      // loop-breaker below could never fire and a stage could checkpoint
+      // forever. Read `count`, and include the pre-start checkpoints too:
+      // a stage that never gets a workable slice loops just as hard as one
+      // that checkpoints mid-run.
+      const { count, error } = await supabase
         .from("pipeline_trace")
         .select("id", { count: "exact", head: true })
         .eq("case_id", caseId)
-        .eq("step", "stage.checkpoint")
+        .in("step", ["stage.checkpoint", "stage.checkpoint_before_start"])
         .contains("detail", { stage: stageKey });
       if (error) return 0;
-      return (data as unknown as number) ?? 0;
+      return typeof count === "number" ? count : 0;
     } catch {
       return 0;
     }
@@ -1368,6 +1385,19 @@ async function _runPipelineForCase(
   const FATAL_STAGES = new Set<PipelineStageKey>(["extraction", "analyzers", "agents"]);
   const stageFailures: Array<{ key: string; error: string }> = [];
   const completed = new Set<PipelineStageKey>();
+  // Stages walked past this tick because a prior tick already finished them.
+  // Recorded in memory and flushed as ONE trace row (see runOneStage).
+  const skippedThisTick: string[] = [];
+  let skippedTraceFlushed = false;
+  const flushSkippedTrace = () => {
+    if (skippedTraceFlushed || skippedThisTick.length === 0) return;
+    skippedTraceFlushed = true;
+    trace("pipeline.stages_skipped", {
+      count: skippedThisTick.length,
+      stages: [...skippedThisTick],
+      reason: "already_terminal_in_ledger",
+    });
+  };
   const failed = new Set<PipelineStageKey>();
   const blocked = new Set<PipelineStageKey>();
   const {
@@ -1487,8 +1517,23 @@ async function _runPipelineForCase(
     const r = runners[key];
     const pct = Math.floor((i / total) * 95);
 
+    // Idempotence gate FIRST — a stage that already reached a terminal
+    // success/skipped state on an earlier tick is never re-executed, and must
+    // cost nothing to walk past. This check used to sit behind a per-stage
+    // `cases` round trip plus a trace insert; on a resumed tick that billed
+    // 24-29s of the ~42s worker budget just re-walking finished stages, so the
+    // stage that still had work checkpointed before it could start. Skipping
+    // is now pure in-memory: no DB read, no per-stage trace row (one
+    // aggregated `pipeline.stages_skipped` row is emitted by the caller).
+    if (alreadyDone(key)) {
+      completed.add(key);
+      skippedThisTick.push(s.key);
+      return { kind: "skipped" };
+    }
 
-    // Execution identity check: abort if superseded by newer execution
+    // Execution identity check: abort if superseded by newer execution.
+    // Only stages that are actually going to run pay for this.
+    flushSkippedTrace();
     const { data: curCaseRow } = await (supabase as any)
       .from("cases")
       .select("execution_id,cancel_requested")
@@ -1508,17 +1553,6 @@ async function _runPipelineForCase(
       return { kind: "cancelled", index: i };
     }
 
-    // Idempotence gate — a stage that already reached a terminal
-    // success/skipped state on an earlier tick is never re-executed.
-    if (alreadyDone(key)) {
-      completed.add(key);
-      trace("stage.skipped_already_terminal", {
-        stage: s.key,
-        index: i + 1,
-        prior_status: latestStatusByEngine.get(engineForStage(key)) ?? null,
-      });
-      return { kind: "skipped" };
-    }
 
     // Dependency gate — record a `blocked` row so the ledger, UI, and report
     // gate all see the truth: this engine did not run because upstream failed.
@@ -1589,8 +1623,35 @@ async function _runPipelineForCase(
       budgetFor(s.key),
     );
     if (remainingInvocationMs <= minStageSliceMs) {
+      // A stage that keeps being starved before it can start loops exactly
+      // like one that checkpoints mid-run — same loop-breaker applies.
+      const priorStarvations = await stageCheckpointCount(s.key);
+      if (priorStarvations >= MAX_STAGE_CHECKPOINTS) {
+        trace("stage.checkpoint_loop_aborted", {
+          stage: s.key,
+          checkpoints: priorStarvations + 1,
+          reason: "starved_before_start",
+        });
+        stageFailures.push({
+          key: s.key,
+          error: `${s.label}: la etapa nunca obtuvo tiempo de ejecución tras ${priorStarvations + 1} intentos.`,
+        });
+        failed.add(key);
+        await updateCase(
+          {
+            status: "failed",
+            status_message: `${s.label}: sin avance tras ${priorStarvations + 1} intentos`,
+            next_stage: s.key,
+            queued_at: null,
+          },
+          `stage.checkpoint_loop:${s.key}`,
+        );
+        return { kind: "checkpoint_loop_aborted", index: i };
+      }
       try {
         const { requeueForContinuation } = await import("@/lib/pipeline-stall.server");
+        leaseHandedBack = true;
+        clearInterval(heartbeatTimer);
         await requeueForContinuation(supabase, caseId, resumeKey);
       } catch (rqErr) {
         console.warn(`[pipeline] re-queue before ${s.key} checkpoint failed`, rqErr);
@@ -1754,6 +1815,8 @@ async function _runPipelineForCase(
         }
         try {
           const { requeueForContinuation } = await import("@/lib/pipeline-stall.server");
+          leaseHandedBack = true;
+          clearInterval(heartbeatTimer);
           await requeueForContinuation(supabase, caseId, resumeKey);
         } catch (rqErr) {
           console.warn(`[pipeline] re-queue after checkpoint failed`, rqErr);
@@ -2194,6 +2257,7 @@ async function _runPipelineForCase(
     completed: completed.size,
     blocked: blocked.size,
   });
+  flushSkippedTrace();
   return { ok: true, completedStages: total, warnings: stageFailures };
   } finally {
     clearInterval(heartbeatTimer);

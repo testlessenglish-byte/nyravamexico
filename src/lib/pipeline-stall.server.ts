@@ -27,6 +27,47 @@ export async function sweepStalledCases(
 ): Promise<{ swept: number; autoRetried: number; ids: string[] }> {
   const staleMs = opts?.staleMs ?? DEFAULT_STALL_MS;
   const cutoff = new Date(Date.now() - staleMs).toISOString();
+
+  // Pass 0 — unstick QUEUED cases. This status was invisible to the sweeper,
+  // yet it is where cases got trapped: a heartbeat firing just after a
+  // checkpoint re-stamped a lease on an already-queued case, and
+  // claim_next_queued_case skips leased rows. Also repairs a queued row that
+  // lost its queued_at (the claimer requires it to be non-null).
+  try {
+    const nowIso = new Date().toISOString();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let qq: any = (db as any)
+      .from("cases")
+      .select("id,queued_at,worker_lease_until,updated_at")
+      .eq("status", "queued")
+      .lt("updated_at", cutoff);
+    if (opts?.caseId) qq = qq.eq("id", opts.caseId);
+    const { data: queuedRows } = await qq;
+    for (const r of (queuedRows ?? []) as Array<{
+      id: string;
+      queued_at: string | null;
+      worker_lease_until: string | null;
+    }>) {
+      const leaseInFuture =
+        !!r.worker_lease_until && new Date(r.worker_lease_until).getTime() > Date.now();
+      if (!leaseInFuture && r.queued_at) continue;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (db as any)
+        .from("cases")
+        .update({
+          worker_lease_until: null,
+          queued_at: r.queued_at ?? nowIso,
+          stall_reason: null,
+        })
+        .eq("id", r.id)
+        .eq("status", "queued");
+      console.info(
+        `[stall-watchdog] released stale queued lease for case ${r.id} (lease=${r.worker_lease_until ?? "null"})`,
+      );
+    }
+  } catch (e) {
+    console.warn("[stall-watchdog] queued-lease sweep failed", e);
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let q: any = (db as any)
     .from("cases")
