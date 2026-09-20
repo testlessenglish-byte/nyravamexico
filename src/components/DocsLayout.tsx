@@ -6,7 +6,9 @@ import { NyravaLogo } from "./NyravaLogo";
 import { SiteFooter } from "./SiteFooter";
 import { DocsSidebar } from "./docs/DocsSidebar";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { MobileNav } from "./MobileNav";
 import { useI18n } from "@/i18n";
+import { PUBLIC_NAV_ITEMS } from "@/lib/public-navigation";
 
 export type Crumb = { label: string; to?: string };
 export type TocItem = { id: string; label: string };
@@ -41,6 +43,7 @@ export function DocsLayout({
   const [activeId, setActiveId] = useState<string | null>(toc[0]?.id ?? null);
   const [showTop, setShowTop] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const publicNavItems = PUBLIC_NAV_ITEMS.map((item) => ({ label: t(item.labelKey), to: item.to }));
 
   useEffect(() => {
     if (toc.length === 0) return;
@@ -71,8 +74,8 @@ export function DocsLayout({
   return (
     <div className="min-h-screen text-foreground">
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-6">
-          <div className="flex items-center gap-2">
+        <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 md:px-6 xl:flex xl:justify-between">
+          <div className="flex min-w-0 items-center gap-2">
             {!hideSidebar && (
               <button
                 aria-label={t("docsSite.toggleNavigation")}
@@ -82,14 +85,14 @@ export function DocsLayout({
                 {mobileNavOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
               </button>
             )}
-            <Link to="/" className="flex items-center gap-2" aria-label={t("docsSite.nyravaHome")}>
+            <Link to="/" className="flex min-w-0 items-center gap-2" aria-label={t("docsSite.nyravaHome")}>
               <NyravaLogo size={28} withWordmark />
             </Link>
             <span className="ml-3 hidden text-[10.5px] font-semibold uppercase tracking-[0.22em] text-muted-foreground md:inline">
               {t("docsSite.docs")}
             </span>
           </div>
-          <nav className="flex items-center gap-2">
+          <nav className="hidden items-center gap-2 xl:flex">
             <Link to="/trust" className="hidden text-[12px] font-medium text-muted-foreground hover:text-foreground md:inline">{t("docsSite.trustCenter")}</Link>
             <Link to="/help" className="hidden text-[12px] font-medium text-muted-foreground hover:text-foreground md:inline">{t("docsSite.help")}</Link>
             <LanguageSwitcher variant="header" />
@@ -100,16 +103,25 @@ export function DocsLayout({
               {t("nav.signIn")}
             </Link>
           </nav>
+          <MobileNav items={publicNavItems}>
+            <LanguageSwitcher variant="sidebar" className="w-full justify-start" />
+            <Link to="/auth" className="rounded-md border border-border px-3 py-2 text-center text-[11px] font-semibold tracking-[0.14em] text-foreground">
+              {t("nav.signIn")}
+            </Link>
+            <Link to="/auth" className="rounded-md bg-primary px-3 py-2 text-center text-[11px] font-bold tracking-[0.14em] text-primary-foreground">
+              {t("nav.openPlatform")}
+            </Link>
+          </MobileNav>
         </div>
       </header>
 
       {crumbs.length > 0 && (
         <div className="border-b border-border/40">
-          <div className="mx-auto max-w-7xl px-4 py-3 md:px-6">
+          <div className="mx-auto min-w-0 max-w-7xl px-4 py-3 md:px-6">
             <nav aria-label={t("docsSite.breadcrumb")} className="flex flex-wrap items-center gap-1.5 text-[12px] text-muted-foreground">
               <Link to="/" className="hover:text-foreground">{t("docsSite.home")}</Link>
               {crumbs.map((c, i) => (
-                <span key={i} className="flex items-center gap-1.5">
+                    <span key={i} className="flex min-w-0 items-center gap-1.5 break-words">
                   <ChevronRight className="h-3 w-3 opacity-50" />
                   {c.to ? (
                     <Link to={c.to} className="hover:text-foreground">{c.label}</Link>
@@ -123,7 +135,7 @@ export function DocsLayout({
         </div>
       )}
 
-      <div className="mx-auto max-w-7xl px-4 py-8 md:px-6 md:py-12">
+      <div className="mx-auto min-w-0 max-w-7xl px-4 py-8 md:px-6 md:py-12">
         <div
           className={
             hideSidebar
@@ -145,7 +157,7 @@ export function DocsLayout({
                     {eyebrow}
                   </div>
                 )}
-                <h1 className="font-display text-3xl font-semibold leading-tight md:text-4xl">{title}</h1>
+                <h1 className="break-words font-display text-3xl font-semibold leading-tight tracking-normal md:text-4xl">{title}</h1>
                 {description && (
                   <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
                     {description}
@@ -158,7 +170,7 @@ export function DocsLayout({
                 )}
               </div>
 
-              <div className="docs-prose space-y-10">{children}</div>
+              <div className="docs-prose min-w-0 space-y-10 break-words">{children}</div>
 
               {next && (
                 <div className="mt-16 border-t border-border/60 pt-6">
