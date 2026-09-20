@@ -321,7 +321,97 @@ function ClientDetailPage() {
           </div>
         </div>
       </div>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar Cliente</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Field label="Nombre">
+              <Input
+                value={form["display_name"] ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, display_name: e.target.value }))}
+              />
+            </Field>
+            <Field label="Tipo de Cliente">
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={form["client_type"] ?? "individual"}
+                onChange={(e) => setForm((f) => ({ ...f, client_type: e.target.value }))}
+              >
+                <option value="individual">Persona Física</option>
+                <option value="company">Persona Moral</option>
+              </select>
+            </Field>
+            <Field label="Razón Social">
+              <Input
+                value={form["legal_name"] ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, legal_name: e.target.value }))}
+              />
+            </Field>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="RFC">
+                <Input
+                  value={form["rfc"] ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, rfc: e.target.value }))}
+                />
+              </Field>
+              <Field label="Número de Referencia">
+                <Input
+                  value={form["reference_number"] ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, reference_number: e.target.value }))}
+                />
+              </Field>
+              <Field label="Correo Electrónico">
+                <Input
+                  type="email"
+                  value={form["email"] ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                />
+              </Field>
+              <Field label="Teléfono">
+                <Input
+                  value={form["phone"] ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                />
+              </Field>
+            </div>
+            <Field label="Dirección">
+              <Textarea
+                rows={2}
+                value={form["address"] ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+              />
+            </Field>
+            <Field label="Notas">
+              <Textarea
+                rows={3}
+                value={form["notes"] ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+              />
+            </Field>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? "Guardando..." : "Guardar Cambios"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block space-y-1">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      {children}
+    </label>
   );
 }
 
