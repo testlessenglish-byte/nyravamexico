@@ -4,6 +4,7 @@ import { loadResolvedReportGovernance } from "../../intelligence/concluded-case-
 import { normalizeCanonicalSources } from "../../intelligence/canonical-source-identity";
 import { validateReincidenciaEvidence } from "../../intelligence/reincidencia-evidence";
 import { composeFinalReportPayload, releaseFinalReportPayload, validateFinalReportContract } from "../final-report-contract";
+import { constitutionalAnalysisNotApplicable } from "../report-language-fallback";
 import type { CaseExportData } from "../../export";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -95,6 +96,19 @@ describe("seven final report contract regressions", () => {
     const bad=structuredClone(payload);
     bad.report_presentation.decision_sections.reverse();
     expect(validateFinalReportContract(bad).blocking_errors).toContain("decisionCoreFirst");
+  });
+  it("4b — accepts the earliest available verified decision-core kind when disposition is absent", () => {
+    const input=regressionInput();
+    const full=input.report!.full_report as any;
+    full.mandatory_decision_core.items=full.mandatory_decision_core.items.filter((item:any)=>item.kind!=="DISPOSITION"&&item.kind!=="REMEDY");
+    const payload=composeFinalReportPayload(input);
+    expect(payload.report_presentation.decision_sections.map(s=>s.kind)).toEqual(["COURT_HOLDING"]);
+    expect(validateFinalReportContract(payload).blocking_errors).not.toContain("decisionCoreFirst");
+  });
+  it("4c — localizes the non-applicable constitutional fallback before persistence", () => {
+    expect(constitutionalAnalysisNotApplicable("es")).not.toMatch(/\bEvidence\b/i);
+    expect(constitutionalAnalysisNotApplicable("es")).toContain("evidencia suficiente");
+    expect(constitutionalAnalysisNotApplicable("en")).toMatch(/^Insufficient evidence/);
   });
   it("5 — verified SCJN decision core overrides an older merged speaker", () => {
     const payload=releaseFinalReportPayload(regressionInput());

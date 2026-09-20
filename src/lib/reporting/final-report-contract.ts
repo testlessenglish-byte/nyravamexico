@@ -233,8 +233,12 @@ export function validateFinalReportContract(payload: FinalReportPayload, capabil
       (!card.details.synthesis || card.details.synthesis.docs.length === card.source_count) &&
       arr(card.finding.evidence_refs).every(ref => view.canonical_sources.some(s => s.canonical_source_id === ref.canonical_source_id)));
   const expectedCore = arr(obj(obj(payload.report?.full_report).mandatory_decision_core).items).filter(i => CORE_ORDER.includes(i.kind));
-  rules.decisionCoreFirst = !governance.decision_core_priority || (view.decision_sections.length > 0 &&
-    view.decision_sections.length === expectedCore.length && view.decision_sections[0].kind === "DISPOSITION" &&
+  const expectedFirstKind = expectedCore
+    .map((item) => item.kind)
+    .filter((kind) => CORE_ORDER.includes(kind))
+    .sort((a, b) => CORE_ORDER.indexOf(a) - CORE_ORDER.indexOf(b))[0];
+  rules.decisionCoreFirst = !governance.decision_core_priority || (expectedCore.length > 0 &&
+    view.decision_sections.length === expectedCore.length && view.decision_sections[0]?.kind === expectedFirstKind &&
     view.decision_sections.every((section, i, sections) => i === 0 || CORE_ORDER.indexOf(sections[i - 1].kind) <= CORE_ORDER.indexOf(section.kind)));
   rules.speakerRoleLabelsValid = !governance.speaker_role_labels_required ||
     (view.finding_cards.every(card => card.finding.speaker_role_label === formatSpeakerRoleBadge(card.finding) &&
