@@ -203,21 +203,53 @@ async function processLeasedCase(
     const failedAt = typeof (result as any)?.failedAt === "string" ? (result as any).failedAt : null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ok = (result as any)?.ok !== false;
-    if (!checkpointed && ok && !failedAt) {
+    // Read the case's real post-run state. Clearing the queue markers is only
+    // safe for a case that actually reached a terminal status — doing it for a
+    // case that is still mid-pipeline (the live "report stage failed fast, then
+    // queue_cleared" incident) leaves it with no queued_at, no next_stage and
+    // no lease: invisible to the claimer forever, recoverable only by a human
+    // clicking Clear Stuck Case.
+    const TERMINAL = new Set([
+      "complete",
+      "released",
+      "needs_revision",
+      "failed",
+      "cancelled",
+    ]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: postRow } = await (admin as any)
+      .from("cases")
+      .select("status,next_stage")
+      .eq("id", leased.id)
+      .maybeSingle();
+    const postStatus = String(postRow?.status ?? "");
+    const postNextStage = (postRow?.next_stage as string | null) ?? null;
+
+    if (checkpointed) {
+      await workerTracePersist(admin, leased.id, "worker.checkpoint_preserved", "warn", {
+        startFrom: startFrom ?? null,
+      });
+    } else if (TERMINAL.has(postStatus)) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (admin as any)
         .from("cases")
         .update({ queued_at: null, worker_lease_until: null, next_stage: null })
         .eq("id", leased.id);
-      await workerTracePersist(admin, leased.id, "worker.queue_cleared", "ok");
-    } else if (!checkpointed) {
-      await workerTracePersist(admin, leased.id, "worker.queue_preserved_terminal_state", "warn", {
-        ok,
-        failedAt,
+      await workerTracePersist(admin, leased.id, "worker.queue_cleared", "ok", {
+        status: postStatus,
       });
     } else {
-      await workerTracePersist(admin, leased.id, "worker.checkpoint_preserved", "warn", {
-        startFrom: startFrom ?? null,
+      // Non-terminal and not a voluntary checkpoint: the invocation ended with
+      // work still outstanding. Hand the case straight back to the queue so the
+      // next cron tick resumes it automatically.
+      const { requeueForContinuation } = await import("@/lib/pipeline-stall.server");
+      const resumeKey = postNextStage ?? failedAt ?? startFrom ?? "extraction";
+      await requeueForContinuation(admin as never, leased.id, resumeKey);
+      await workerTracePersist(admin, leased.id, "worker.requeued_incomplete", "warn", {
+        ok,
+        failedAt,
+        status: postStatus,
+        resume_key: resumeKey,
       });
     }
     return { caseId: leased.id, ok: true };
