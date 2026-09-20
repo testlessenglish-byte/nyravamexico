@@ -34,6 +34,36 @@ type LogRow = {
   finished_at: string | null;
 };
 
+function localizedAgentMessage(
+  message: string,
+  t: (key: string, params?: Record<string, string | number>) => string,
+) {
+  const normalized = message.trim();
+  if (/^Nothing found in supplied evidence\.?$/i.test(normalized)) {
+    return t("agents.reason.nothingFound");
+  }
+  if (/^No output produced\.?$/i.test(normalized)) {
+    return t("agents.reason.noOutput");
+  }
+  const suppressed = normalized.match(/^(\d+) candidate finding\(s\) generated but suppressed by validation\.?$/i);
+  if (suppressed) {
+    return t("agents.reason.suppressed", { count: suppressed[1] });
+  }
+  if (/^No canonical findings available for the report\.?$/i.test(normalized)) {
+    return t("agents.reason.noCanonicalFindings");
+  }
+  if (/^No findings to support the report\.?$/i.test(normalized)) {
+    return t("agents.reason.noSupportingFindings");
+  }
+  if (/^No completed report to review\.?$/i.test(normalized)) {
+    return t("agents.reason.noCompletedReport");
+  }
+  if (/^Scoring stage has not completed;/i.test(normalized)) {
+    return t("agents.reason.scoringIncomplete");
+  }
+  return normalized;
+}
+
 function statusIcon(status: string) {
   if (status === "success") return <CheckCircle2 className="h-4 w-4 text-success" />;
   if (status === "running") return <Loader2 className="h-4 w-4 animate-spin text-primary" />;
@@ -207,12 +237,12 @@ export function MultiAgentPanel({ caseId, report }: { caseId: string; report?: u
                   )}
                   {row?.no_output_reason && (
                     <p className="mt-1 max-h-24 max-w-full overflow-y-auto whitespace-pre-wrap break-all text-[11px] leading-4 text-warning">
-                      {t("agents.noOutput", { reason: row.no_output_reason })}
+                      {t("agents.noOutput", { reason: localizedAgentMessage(row.no_output_reason, t) })}
                     </p>
                   )}
                   {errs.length > 0 && (
                     <p className="mt-1 max-h-24 max-w-full overflow-y-auto whitespace-pre-wrap break-all text-[11px] leading-4 text-destructive">
-                      {errs[0]}
+                      {localizedAgentMessage(errs[0], t)}
                     </p>
                   )}
                   {isAdmin && (row?.no_output_reason || errs.length > 0) && (
