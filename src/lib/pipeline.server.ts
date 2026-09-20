@@ -64,6 +64,7 @@ import {
   judicialHierarchySchemaFragment,
   auditClassificationSchemaFragment,
 } from "@/lib/intelligence/finding-taxonomy";
+import { constitutionalAnalysisNotApplicable } from "@/lib/reporting/report-language-fallback";
 
 type Db = SupabaseClient<Database>;
 
@@ -8497,7 +8498,7 @@ ${paginationTail}`;
   };
   const constProseOverride = isCriminalOrCivilRights
     ? buildConstitutionalProseFromStruct(constGuarded.items as Array<Record<string, unknown>>)
-    : "Insufficient evidence to determine whether a constitutional issue exists. This case type does not implicate constitutional analysis.";
+    : constitutionalAnalysisNotApplicable(reportGeneratedLanguage === "en" ? "en" : "es");
 
   // ===== SINGLE REPORT MODE (authoritative state) =====
   // One state, computed once, applied everywhere. A report is either FULL
