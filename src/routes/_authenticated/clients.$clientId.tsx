@@ -169,6 +169,27 @@ function ClientDetailPage() {
   // Counters derive from the same canonical cases.client_id relation the list uses.
   const activeCasesCount = Number(client.active_case_count ?? 0);
   const closedCasesCount = Number(client.closed_case_count ?? 0);
+  const caseStatusLabels: Record<string, string> = {
+    uploaded: t("clientDetail.caseStatus.uploaded"),
+    extracting: t("clientDetail.caseStatus.extracting"),
+    extracted: t("clientDetail.caseStatus.extracted"),
+    analyzing: t("clientDetail.caseStatus.analyzing"),
+    analyzed: t("clientDetail.caseStatus.analyzed"),
+    agents_running: t("clientDetail.caseStatus.agentsRunning"),
+    agents_complete: t("clientDetail.caseStatus.agentsComplete"),
+    scoring: t("clientDetail.caseStatus.scoring"),
+    scored: t("clientDetail.caseStatus.scored"),
+    reporting: t("clientDetail.caseStatus.reporting"),
+    complete: t("clientDetail.caseStatus.complete"),
+    released: t("clientDetail.caseStatus.released"),
+    failed: t("clientDetail.caseStatus.failed"),
+    cancelled: t("clientDetail.caseStatus.cancelled"),
+    queued: t("clientDetail.caseStatus.queued"),
+    needs_revision: t("clientDetail.caseStatus.needsRevision"),
+    stalled: t("clientDetail.caseStatus.stalled"),
+    intelligence_running: t("clientDetail.caseStatus.intelligenceRunning"),
+    intelligence_complete: t("clientDetail.caseStatus.intelligenceComplete"),
+  };
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 md:py-10 space-y-6">
@@ -311,7 +332,7 @@ function ClientDetailPage() {
                       </div>
                     </div>
                     <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                      {c.status}
+                      {caseStatusLabels[c.status] ?? t("clientDetail.caseStatus.unknown")}
                     </span>
                   </Link>
                 ))}
