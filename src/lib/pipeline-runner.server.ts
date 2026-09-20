@@ -210,11 +210,17 @@ async function _runPipelineForCase(
   });
 
   let isTerminated = false;
+  // Set the moment this invocation voluntarily hands the case back to the
+  // queue (checkpoint -> requeueForContinuation). Without it the 30s
+  // heartbeat could re-stamp a 3-minute lease onto an already-queued case,
+  // making it invisible to claim_next_queued_case (which skips leased rows)
+  // AND to the stall sweeper (which ignores status "queued") for minutes.
+  let leaseHandedBack = false;
   const runnerAbortController = new AbortController();
 
   // 30-second heartbeat lease renewal
   const heartbeatTimer = setInterval(async () => {
-    if (isTerminated) return;
+    if (isTerminated || leaseHandedBack) return;
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: renewed, error: rpcErr } = await (supabase as any).rpc("renew_execution_lease", {
