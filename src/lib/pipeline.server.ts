@@ -8498,7 +8498,7 @@ ${paginationTail}`;
   };
   const constProseOverride = isCriminalOrCivilRights
     ? buildConstitutionalProseFromStruct(constGuarded.items as Array<Record<string, unknown>>)
-    : constitutionalAnalysisNotApplicable(reportGeneratedLanguage === "en" ? "en" : "es");
+    : constitutionalAnalysisNotApplicable(reportLocaleForNotice === "en" ? "en" : "es");
 
   // ===== SINGLE REPORT MODE (authoritative state) =====
   // One state, computed once, applied everywhere. A report is either FULL
