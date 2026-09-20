@@ -1,7 +1,18 @@
 ﻿import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getClient, deleteClientFn } from "@/lib/clients.functions";
+import { useState } from "react";
+import {
+  getClient,
+  deleteClientFn,
+  updateClientFn,
+  archiveClient,
+} from "@/lib/clients.functions";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   User, Building2, Mail, Phone, MapPin, FileText,
   Briefcase, Edit, Archive, ChevronLeft, Trash2,
@@ -31,7 +42,13 @@ function ClientDetailPage() {
   const { clientId } = Route.useParams();
   const fetchClient = useServerFn(getClient);
   const deleteClient = useServerFn(deleteClientFn);
+  const updateClient = useServerFn(updateClientFn);
+  const archiveClientFn = useServerFn(archiveClient);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [editOpen, setEditOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<Record<string, string>>({});
 
   const handleDelete = async () => {
     if (!window.confirm("¿Estás seguro de que deseas eliminar este cliente? Esta acción no se puede deshacer.")) return;
@@ -48,6 +65,77 @@ function ClientDetailPage() {
     queryKey: ["client", clientId],
     queryFn: () => fetchClient({ data: { clientId } }),
   });
+
+  const refreshClient = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["client", clientId] });
+    await queryClient.invalidateQueries({ queryKey: ["clients"] });
+  };
+
+  const openEdit = (c: Record<string, any>) => {
+    setForm({
+      display_name: c.display_name ?? "",
+      client_type: c.client_type ?? "individual",
+      legal_name: c.legal_name ?? "",
+      rfc: c.rfc ?? "",
+      email: c.email ?? "",
+      phone: c.phone ?? "",
+      address: c.address ?? "",
+      reference_number: c.reference_number ?? "",
+      notes: c.notes ?? "",
+    });
+    setEditOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!form["display_name"]?.trim()) {
+      toast.error("El nombre del cliente es obligatorio");
+      return;
+    }
+    const email = (form["email"] ?? "").trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+      toast.error("El correo electrónico no es válido");
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateClient({
+        data: {
+          clientId,
+          display_name: form["display_name"].trim(),
+          client_type: form["client_type"] || "individual",
+          legal_name: form["legal_name"] || undefined,
+          rfc: form["rfc"] || undefined,
+          email: form["email"] || "",
+          phone: form["phone"] || undefined,
+          address: form["address"] || undefined,
+          reference_number: form["reference_number"] || undefined,
+          notes: form["notes"] || undefined,
+        },
+      });
+      await refreshClient();
+      setEditOpen(false);
+      toast.success("Cliente actualizado");
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo actualizar el cliente");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleArchiveToggle = async (currentStatus: string) => {
+    try {
+      if (currentStatus === "archived") {
+        await updateClient({ data: { clientId, status: "active" } });
+        toast.success("Cliente reactivado");
+      } else {
+        await archiveClientFn({ data: { clientId } });
+        toast.success("Cliente archivado");
+      }
+      await refreshClient();
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo cambiar el estado del cliente");
+    }
+  };
 
   if (isLoading) {
     return <div className="p-8 text-center text-sm text-muted-foreground">Cargando detalles...</div>;
@@ -111,11 +199,25 @@ function ClientDetailPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => openEdit(client)}>
               <Edit className="mr-2 h-4 w-4" /> Editar
             </Button>
-            <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10">
-              <Archive className="mr-2 h-4 w-4" /> Archivar
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive hover:bg-destructive/10"
+              onClick={() => handleArchiveToggle(client.status)}
+            >
+              <Archive className="mr-2 h-4 w-4" />
+              {client.status === "archived" ? "Reactivar" : "Archivar"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive hover:bg-destructive/10"
+              onClick={handleDelete}
+            >
+              <Trash2 className="mr-2 h-4 w-4" /> Eliminar
             </Button>
           </div>
         </div>
@@ -224,7 +326,97 @@ function ClientDetailPage() {
           </div>
         </div>
       </div>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar Cliente</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Field label="Nombre">
+              <Input
+                value={form["display_name"] ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, display_name: e.target.value }))}
+              />
+            </Field>
+            <Field label="Tipo de Cliente">
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={form["client_type"] ?? "individual"}
+                onChange={(e) => setForm((f) => ({ ...f, client_type: e.target.value }))}
+              >
+                <option value="individual">Persona Física</option>
+                <option value="company">Persona Moral</option>
+              </select>
+            </Field>
+            <Field label="Razón Social">
+              <Input
+                value={form["legal_name"] ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, legal_name: e.target.value }))}
+              />
+            </Field>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="RFC">
+                <Input
+                  value={form["rfc"] ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, rfc: e.target.value }))}
+                />
+              </Field>
+              <Field label="Número de Referencia">
+                <Input
+                  value={form["reference_number"] ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, reference_number: e.target.value }))}
+                />
+              </Field>
+              <Field label="Correo Electrónico">
+                <Input
+                  type="email"
+                  value={form["email"] ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                />
+              </Field>
+              <Field label="Teléfono">
+                <Input
+                  value={form["phone"] ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                />
+              </Field>
+            </div>
+            <Field label="Dirección">
+              <Textarea
+                rows={2}
+                value={form["address"] ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+              />
+            </Field>
+            <Field label="Notas">
+              <Textarea
+                rows={3}
+                value={form["notes"] ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+              />
+            </Field>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? "Guardando..." : "Guardar Cambios"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block space-y-1">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      {children}
+    </label>
   );
 }
 
