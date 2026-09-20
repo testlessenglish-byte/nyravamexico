@@ -75,14 +75,17 @@ export const listClients = createServerFn({ method: "GET" })
     const { data: clients, error } = await query;
     if (error) throw new Error(error.message);
 
-    // Fetch case counts per client in a second query
+    // Fetch case counts per client in a second query (same canonical relation
+    // and same visibility filter the client-detail page uses).
     const clientIds = (clients ?? []).map((c: { id: string }) => c.id);
     let caseCounts: Record<string, number> = {};
     if (clientIds.length > 0) {
-      const { data: countRows } = await (ctx.supabase as any)
+      const { data: countRows, error: countError } = await (ctx.supabase as any)
         .from("cases")
         .select("client_id")
+        .is("deleted_at", null)
         .in("client_id", clientIds);
+      if (countError) throw new Error(countError.message);
       for (const row of (countRows ?? []) as Array<{ client_id: string }>) {
         caseCounts[row.client_id] = (caseCounts[row.client_id] ?? 0) + 1;
       }
