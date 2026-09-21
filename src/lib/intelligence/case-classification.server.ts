@@ -623,7 +623,38 @@ export async function runCaseClassification(
 
   const patch: Record<string, unknown> = {};
   const currentMeta = (current.matter_metadata as Record<string, unknown> | null) ?? {};
-  patch.matter_metadata = { ...currentMeta, case_configuration: updatedConfig };
+
+  // Immigration-specific auto-classification pass
+  const effectiveCaseType = (current.case_type || caseTypeField?.value || "").toLowerCase();
+  if (effectiveCaseType === "migratorio") {
+    try {
+      const { classifyImmigrationFromDocuments } = await import("../jurisdiction/immigration-classifier");
+      const userProvidedSubtype = (currentMeta.immigration_subtype as string | null) ?? null;
+      const classification = classifyImmigrationFromDocuments(docs, userProvidedSubtype);
+
+      const updatedImmigrationMeta = {
+        ...currentMeta,
+        case_configuration: updatedConfig,
+        immigration_subtype: userProvidedSubtype || classification.subtype.key,
+        immigration_subtype_source: classification.subtype.source_type,
+        immigration_subtype_label_es: classification.subtype.label_es,
+        immigration_subtype_label_en: classification.subtype.label_en,
+        immigration_subtype_confidence: classification.subtype.confidence,
+        immigration_subtype_quote: classification.subtype.source_quote,
+        detected_authority: classification.authority.label,
+        detected_procedural_posture: classification.procedural_posture.label,
+        client_name: currentMeta.client_name || classification.extracted_metadata.client_name,
+        nationality: currentMeta.nationality || classification.extracted_metadata.nationality,
+        passport_number: currentMeta.passport_number || classification.extracted_metadata.passport_number,
+      };
+      patch.matter_metadata = updatedImmigrationMeta;
+    } catch (e) {
+      console.warn("[case-classification] immigration classifier failed", e);
+      patch.matter_metadata = { ...currentMeta, case_configuration: updatedConfig };
+    }
+  } else {
+    patch.matter_metadata = { ...currentMeta, case_configuration: updatedConfig };
+  }
 
   // STALE-ARTIFACT INVALIDATION (Fix instructions Step 5): true only when
   // this run is about to WRITE a case_type value that actually DIFFERS from

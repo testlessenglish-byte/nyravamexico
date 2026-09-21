@@ -1500,19 +1500,27 @@ async function _runPipelineForCase(
   async function runOneStage(
     s: (typeof stages)[number],
     i: number,
-    // Stage key the case should resume from if THIS stage checkpoints. For a
-    // serial stage that is the stage itself; for a member of a parallel batch
-    // it is the batch leader, because stages between the leader and this
-    // member have not executed yet and must not be skipped on resume.
     resumeKey: string = s.key,
   ): Promise<
     | { kind: "skipped" | "blocked" | "success" | "failed" }
-    | {
-        kind: "checkpoint_before_start" | "checkpoint" | "cancelled" | "checkpoint_loop_aborted";
-        index: number;
-      }
+    | { kind: "checkpoint_before_start" | "checkpoint" | "cancelled" | "checkpoint_loop_aborted"; index: number }
     | { kind: "fatal_failed"; message: string }
   > {
+    if (engineForStage(s.key as PipelineStageKey) === "report_generator") {
+      const { getReportReadiness } = await import("@/lib/execution/canonical");
+      const { data: currentRuns } = await (supabase as any).from("pipeline_engine_runs").select("*").eq("case_id", caseId);
+      const readiness = getReportReadiness(currentRuns ?? []);
+      if (readiness.state === "WAITING") {
+        console.warn(`[pipeline] yielding report_generator: ${readiness.reason}`);
+        try {
+          const { requeueForContinuation } = await import("@/lib/pipeline-stall.server");
+          await requeueForContinuation(supabase, caseId, resumeKey);
+        } catch (rqErr) {
+          console.warn(`[pipeline] re-queue after wait failed`, rqErr);
+        }
+        return { kind: "checkpoint", index: i };
+      }
+    }
     const key = s.key as PipelineStageKey;
     const r = runners[key];
     const pct = Math.floor((i / total) * 95);
@@ -2264,4 +2272,5 @@ async function _runPipelineForCase(
     isTerminated = true;
   }
 }
+
 

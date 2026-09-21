@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   CASE_TYPE_SELECT_GROUPS,
   CASE_TYPE_SELECT_OPTIONS,

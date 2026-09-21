@@ -180,5 +180,46 @@ export async function autoDetectCaseContext(
     }
   }
 
+  // Automatic Immigration Subtype & Classification pass
+  try {
+    const { data: updatedCase } = await supabase
+      .from("cases")
+      .select("case_type, matter_metadata")
+      .eq("id", caseId)
+      .maybeSingle();
+
+    if (updatedCase?.case_type === "migratorio") {
+      const { data: docs } = await supabase
+        .from("documents")
+        .select("id, filename, extracted_text")
+        .eq("case_id", caseId);
+
+      const meta = (updatedCase.matter_metadata as Record<string, unknown> | null) ?? {};
+      const userProvidedSubtype = (meta.immigration_subtype as string | null) ?? null;
+
+      const { classifyImmigrationFromDocuments } = await import("@/lib/jurisdiction/immigration-classifier");
+      const classification = classifyImmigrationFromDocuments(docs ?? [], userProvidedSubtype);
+
+      const updatedMeta = {
+        ...meta,
+        immigration_subtype: userProvidedSubtype || classification.subtype.key,
+        immigration_subtype_source: classification.subtype.source_type,
+        immigration_subtype_label_es: classification.subtype.label_es,
+        immigration_subtype_label_en: classification.subtype.label_en,
+        immigration_subtype_confidence: classification.subtype.confidence,
+        immigration_subtype_quote: classification.subtype.source_quote,
+        detected_authority: classification.authority.label,
+        detected_procedural_posture: classification.procedural_posture.label,
+        client_name: meta.client_name || classification.extracted_metadata.client_name,
+        nationality: meta.nationality || classification.extracted_metadata.nationality,
+        passport_number: meta.passport_number || classification.extracted_metadata.passport_number,
+      };
+
+      await supabase.from("cases").update({ matter_metadata: updatedMeta }).eq("id", caseId);
+    }
+  } catch (e) {
+    console.warn("[autoDetectCaseContext] immigration auto-classification failed", e);
+  }
+
   return result;
 }

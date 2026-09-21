@@ -1,4 +1,4 @@
-﻿import { useCaseTranslation } from "@/hooks/useCaseTranslation";
+import { useCaseTranslation } from "@/hooks/useCaseTranslation";
 import { useI18n } from "@/i18n";
 import { presentStoredText } from "@/lib/social/stored-text-presentation";
 import { Loader2 } from "lucide-react";

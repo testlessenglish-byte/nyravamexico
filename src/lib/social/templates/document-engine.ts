@@ -1,4 +1,4 @@
-﻿import jsPDF from "jspdf";
+import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { MexicoTemplateDefinition } from "./mexico-template-definitions";
 

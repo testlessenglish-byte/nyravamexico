@@ -1,4 +1,4 @@
-﻿import { useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { translateTexts } from "@/lib/cases.functions";
 import { useI18n, type Locale } from "@/i18n";

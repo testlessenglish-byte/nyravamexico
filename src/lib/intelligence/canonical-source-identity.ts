@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Canonical Source Document Identity Service
  *
  * Platform-wide authority for document identity, source counting,

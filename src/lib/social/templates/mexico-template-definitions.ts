@@ -1,4 +1,4 @@
-﻿export type TemplateType = "nyrava_template" | "organization_template" | "official_mexican_form";
+export type TemplateType = "nyrava_template" | "organization_template" | "official_mexican_form";
 
 export type TemplateCategory =
   | "intake"

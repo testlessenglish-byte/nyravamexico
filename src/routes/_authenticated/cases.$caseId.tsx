@@ -1,3 +1,22 @@
+const AGENT_LABELS: Record<string, string> = {
+  search_warrant_arrest_legality: "Legalidad de cateo y arresto",
+  sentencing_analysis: "An�lisis de sentencia",
+  forensic_digital_evidence_analysis: "An�lisis forense y de evidencia digital",
+  reasonable_doubt_defense_theory: "Teor�a de defensa por duda razonable",
+  appeal_opportunity_detection: "Detecci�n de oportunidades de apelaci�n",
+  constitutional_rights_mapping: "Mapeo de derechos constitucionales",
+  authority_notification_validation: "Validaci�n de notificaciones a autoridades",
+  international_human_rights_analysis: "An�lisis internacional de derechos humanos",
+  constitutional_controversy_analysis: "An�lisis de controversia constitucional",
+  restitution_quantification_mapping: "Mapeo de cuantificaci�n de restituci�n",
+  amparo_admissibility_screening: "Evaluaci�n de admisibilidad de amparo",
+  agrarian_rights_validation: "Validaci�n de derechos agrarios",
+  ejidal_assembly_compliance: "Cumplimiento de asamblea ejidal",
+  labor_contract_compliance: "Cumplimiento de contrato laboral",
+  unjustified_dismissal_analysis: "An�lisis de despido injustificado",
+  corporate_bylaws_compliance: "Cumplimiento de estatutos corporativos",
+  tax_assessment_validity: "Validez de evaluaci�n fiscal"
+};
 import { assertExportCaseIdentity } from "@/lib/reporting/case-json-export";
 import { releaseFinalReportPayload, type FinalReportPayload } from "@/lib/reporting/final-report-contract";
 import { CanonicalReportFindings } from "@/components/reports/CanonicalReportFindings";
@@ -1901,12 +1920,12 @@ function AddEvidenceBlock({ caseId, invalidate }: { caseId: string; invalidate: 
 function AnalyzersTab({ a }: { a: Record<string, unknown> | null | undefined }) {
   if (!a) return <Empty msg="No analyzer output yet. Run Analyzers to populate this view." />;
   const blocks: [string, unknown][] = [
-    ["Timeline", a.timeline],
-    ["Contradictions", a.contradictions],
-    ["Missing evidence", a.missing_evidence],
-    ["Procedural issues", a.procedural_issues],
-    ["Evidence relationships", a.evidence_relationships],
-    ["Key findings", a.key_findings],
+    ["L�nea de tiempo", a.timeline],
+    ["Contradicciones", a.contradictions],
+    ["Evidencia faltante", a.missing_evidence],
+    ["Problemas procesales", a.procedural_issues],
+    ["Relaciones de evidencia", a.evidence_relationships],
+    ["Hallazgos clave", a.key_findings],
   ];
   return (
     <div className="space-y-4">
@@ -1938,7 +1957,7 @@ function AgentsTab({ agents }: { agents: Agent[] }) {
       {agents.map((a) => (
         <div key={a.id} className="rounded-lg border border-border bg-card p-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold capitalize">{a.agent_type.replace(/_/g, " ")}</h3>
+            <h3 className="text-sm font-semibold capitalize">{(AGENT_LABELS[a.agent_type] || a.agent_type.replace(/_/g, " "))}</h3>
             <span className={`text-xs ${a.status === "complete" ? "text-success" : "text-destructive"}`}>
               {a.status}
             </span>
@@ -3762,3 +3781,5 @@ function AttackSurfaceTab({ surface }: { surface: any }) {
     </div>
   );
 }
+
+

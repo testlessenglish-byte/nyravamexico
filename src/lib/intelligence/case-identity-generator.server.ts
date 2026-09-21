@@ -1,4 +1,4 @@
-﻿// Automatic Case Identity, Name & Description Generator
+// Automatic Case Identity, Name & Description Generator
 //
 // Extracts official docket numbers, principal parties, courts, and generates
 // professional, verified Case Names and Descriptions following the 7-level
