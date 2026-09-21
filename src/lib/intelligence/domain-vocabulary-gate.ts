@@ -103,20 +103,27 @@ export type DomainVocabularyCheck = {
 // content rules — no materia, case, or report text is special-cased.
 // ---------------------------------------------------------------------------
 
-const QUOTE_CHARS = /[«»"“”]/;
-
-const CONTEXT_MARKERS: RegExp[] = [
+// Markers that must GOVERN the term — i.e. appear in the same sentence before
+// it. A negation or attribution that follows the term does not excuse it
+// ("El Ministerio Público no participó" still asserts the institution acted).
+const GOVERNING_MARKERS: RegExp[] = [
   // Attribution — someone else's assertion, not the report's own.
-  /\b(?:sostiene|sostuvo|argument[oóa]|argumenta|alega|aleg[oó]|afirma|afirm[oó]|manifiesta|manifest[oó]|adujo|aduce|expres[oó]|refiere|refiri[oó]|invoca|invoc[oó]|se[nñ]ala(?:\s+que)?|indica\s+que|considera(?:ron)?\s+que|declar[oó]|seg[uú]n|conforme\s+a|de\s+acuerdo\s+con|a\s+juicio\s+de|en\s+palabras\s+de|cita|citando|textualmente|argues|asserts|claims|according\s+to)\b/i,
+  /\b(?:sostiene|sostuvo|argumenta|argument[oó]|alega|alegando|aleg[oó]|afirma|afirm[oó]|manifiesta|manifest[oó]|adujo|aduce|expres[oó]|refiere|refiri[oó]|invoca|invoc[oó]|se[nñ]ala|indica|considera|consideraron|declar[oó]|seg[uú]n|conforme\s+a|de\s+acuerdo\s+con|a\s+juicio\s+de|en\s+palabras\s+de|cita|citando|textualmente|argues|asserts|claims|according\s+to)\b/i,
   // Negation / absence — the institution did not intervene.
-  /\b(?:no\s+(?:se\s+)?\w+|sin\s+\w+|ausencia\s+de|carece\s+de|falta\s+de|nunca|tampoco|inexistente|no\s+consta|no\s+aplica|no\s+es\s+aplicable|did\s+not|was\s+not|absence\s+of|no\s+evidence)\b/i,
+  /\b(?:no|sin|ausencia|carece|carec[ií]a|falta|nunca|tampoco|inexistente|omiti[oó]|omisi[oó]n|did\s+not|was\s+not|absence|no\s+evidence)\b/i,
   // Comparison / contrast / analogy / scope limitation.
-  /\b(?:a\s+diferencia\s+de|en\s+contraste|contrasta|mientras\s+que|por\s+analog[ií]a|an[aá]log[oa]|equivalente\s+a|s[oó]lo\s+(?:aplica|se\s+aplica|es\s+aplicable)|solo\s+(?:aplica|se\s+aplica|es\s+aplicable)|[uú]nicamente\s+(?:aplica|aplicable)|aplicable\s+[uú]nicamente|propio\s+del|propia\s+del|unlike|whereas|by\s+analogy|only\s+applies)\b/i,
-  // Authority titles and citations (tesis, jurisprudencia, statute names).
+  /\b(?:a\s+diferencia\s+de|en\s+contraste|contrasta|mientras\s+que|por\s+analog[ií]a|an[aá]log[oa]|equivalente|s[oó]lo|solo|[uú]nicamente|propio\s+del|propia\s+del|distinto\s+de|unlike|whereas|by\s+analogy|only\s+applies)\b/i,
+];
+
+// Markers that make the whole sentence a reference rather than an assertion,
+// wherever they appear in it: authority titles/citations and explicit
+// cross-domain framing.
+const SENTENCE_MARKERS: RegExp[] = [
   /\b(?:tesis|jurisprudencia|registro\s+digital|semanario\s+judicial|contradicci[oó]n\s+de\s+tesis|amparo\s+(?:directo|en\s+revisi[oó]n)|SCJN|CNPP|C[oó]digo\s+Nacional\s+de\s+Procedimientos\s+Penales|C[oó]digo\s+Penal|criterio\s+jurisprudencial|precedente)\b/i,
-  // Explicit cross-domain framing — the text itself says this is penal-domain.
   /\b(?:materia\s+penal|proceso\s+penal|procedimiento\s+penal|[aá]mbito\s+penal|sede\s+penal|causa\s+penal|v[ií]a\s+penal|derecho\s+penal|criminal\s+(?:proceedings?|procedure|matter))\b/i,
 ];
+
+const QUOTE_SPAN = /«[^»]*»|“[^”]*”|"[^"]*"/g;
 
 function splitSentences(text: string): string[] {
   const parts = text
@@ -126,11 +133,21 @@ function splitSentences(text: string): string[] {
   return parts.length > 0 ? parts : [text];
 }
 
-/** True when this sentence merely references the term rather than asserting
- * the institution acted in the present matter. */
-function isContextualReference(sentence: string): boolean {
-  if (QUOTE_CHARS.test(sentence)) return true;
-  return CONTEXT_MARKERS.some((rx) => rx.test(sentence));
+function isInsideQuote(sentence: string, index: number, length: number): boolean {
+  QUOTE_SPAN.lastIndex = 0;
+  for (let m = QUOTE_SPAN.exec(sentence); m; m = QUOTE_SPAN.exec(sentence)) {
+    if (m.index <= index && index + length <= m.index + m[0].length) return true;
+  }
+  return false;
+}
+
+/** True when this specific occurrence merely references the term rather than
+ * asserting the institution acted in the present matter. */
+function isContextualOccurrence(sentence: string, index: number, length: number): boolean {
+  if (isInsideQuote(sentence, index, length)) return true;
+  if (SENTENCE_MARKERS.some((rx) => rx.test(sentence))) return true;
+  const governing = sentence.slice(0, index);
+  return GOVERNING_MARKERS.some((rx) => rx.test(governing));
 }
 
 /**
@@ -160,15 +177,23 @@ export function checkDomainVocabulary(
   const sentences = splitSentences(text);
   for (const term of PENAL_ONLY_TERMS) {
     if (!term.match.test(text)) continue;
-    const hits = sentences.filter((s) => term.match.test(s));
-    const asserted = hits.length === 0
-      ? !isContextualReference(text)
-      : hits.some((s) => !isContextualReference(s));
+    const rx = new RegExp(term.match.source, "gi");
+    let seen = false;
+    let asserted = false;
+    for (const sentence of sentences) {
+      rx.lastIndex = 0;
+      for (let m = rx.exec(sentence); m; m = rx.exec(sentence)) {
+        seen = true;
+        if (!isContextualOccurrence(sentence, m.index, m[0].length)) asserted = true;
+      }
+    }
+    if (!seen) asserted = true; // term spans a sentence split — fail closed.
     if (asserted) violations.push(term.label);
     else contextual.push(term.label);
   }
   return { clean: violations.length === 0, violations, contextual };
 }
+
 
 export function checkFindingDomainVocabulary(
   finding: { title?: unknown; description?: unknown },
