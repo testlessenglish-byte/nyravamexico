@@ -51,8 +51,7 @@ export function LanguageSwitcher({
     );
   }
 
-  const sizing =
-    variant === "sidebar" ? "px-2 py-1" : variant === "inline" ? "px-2 py-1" : "px-2.5 py-2";
+  const sizing = variant === "inline" ? "px-2 py-1" : "px-2.5 py-2";
 
   return (
     <label
