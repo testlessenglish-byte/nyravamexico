@@ -465,10 +465,13 @@ async function reconcileSavedReportProse(
   // hallucination verification and made the rendered-QA failure resurface as a false
   // `gate:hallucination`, hiding the real blocker while 100% of claims verified.
   // The release is still blocked — by whoever actually blocked it.
-  const allBlockReasons = [
+  // One underlying problem must surface as one actionable reason, even when
+  // mirrored sections reproduce it.
+  const allBlockReasons = [...new Set([
     ...(Array.isArray(saved.quality_block_reasons) ? saved.quality_block_reasons.map(String) : []),
     ...(renderedDecision.blocked ? renderedDecision.reasons : []),
-  ];
+  ])];
+
   const upstreamReleaseBlock = (saved.quality_blocked || renderedDecision.blocked)
     ? (allBlockReasons.length ? allBlockReasons : ["quality_blocked"])
     : null;

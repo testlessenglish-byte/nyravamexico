@@ -262,11 +262,23 @@ export function validateRenderedReport(
             code: "SPANISH_CASE_TYPE_LEAK",
             severity: "critical",
             section: path.split(".")[0] || "Report",
-            message: `Penal-only institution "${label}" appeared in a ${caseType ?? "non-penal"} report at ${path}.`,
+            message: `Penal-only institution "${label}" was asserted in a ${caseType ?? "non-penal"} report at ${path}.`,
             sample: label,
           });
         }
       }
+      // Legitimate quoted / attributed / negated / comparative / authority-title
+      // / cross-domain references are recorded for the audit trail only.
+      for (const label of domainCheck.contextual ?? []) {
+        issues.push({
+          code: "SPANISH_CASE_TYPE_CONTEXTUAL",
+          severity: "warning",
+          section: path.split(".")[0] || "Report",
+          message: `Penal-only institution "${label}" referenced in context (quoted/attributed/negated/comparative/authority) at ${path}.`,
+          sample: label,
+        });
+      }
+
     }
     for (const rx of US_PROCEDURE_TERMS_ALWAYS_WRONG) {
       const sample = firstMatch(value, rx);
