@@ -247,11 +247,11 @@ export async function runEngine<T>(
     console.info(`[engine-audit] runEngine(${args.engine}): unique violation duplicate run suppressed`);
     return undefined as unknown as T;
   }
-  if (insertErr || !inserted?.id) {
+  if (!rowId) {
     const reason = insertErr?.message ?? "insert returned no id";
     throw new Error(`runEngine(${args.engine}): failed to create ledger row — ${reason}`);
   }
-  const id = inserted.id;
+  const id = rowId;
   let terminalWritten = false;
 
   try {
