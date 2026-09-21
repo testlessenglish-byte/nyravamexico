@@ -148,7 +148,7 @@ export async function runEngine<T>(
 
   // If a genuinely active run exists for the same execution+engine, gracefully suppress duplicate
   if (activeRun?.id) {
-    await emitEvent(db, args.caseId, args.engine, `${labelEngine(args.engine)} duplicate run suppressed`, {
+    await emitEvent(db, args.caseId, args.engine, `${labelEngine(args.engine)} ejecuci�n duplicada suprimida`, {
       level: "warn",
       meta: { engine: args.engine, status: "duplicate_suppressed", active_since: activeRun.started_at },
     });
@@ -171,7 +171,7 @@ export async function runEngine<T>(
       .lt("started_at", staleCutoff);
   } catch {}
 
-  await emitEvent(db, args.caseId, args.engine, `${labelEngine(args.engine)} started`, {
+  await emitEvent(db, args.caseId, args.engine, `${labelEngine(args.engine)} iniciado`, {
     meta: { engine: args.engine, status: "running" },
   });
 
@@ -192,7 +192,7 @@ export async function runEngine<T>(
     .maybeSingle();
 
   if (insertErr && isUniqueViolation(insertErr)) {
-    await emitEvent(db, args.caseId, args.engine, `${labelEngine(args.engine)} duplicate run suppressed`, {
+    await emitEvent(db, args.caseId, args.engine, `${labelEngine(args.engine)} ejecuci�n duplicada suprimida`, {
       level: "warn",
       meta: { engine: args.engine, status: "duplicate_suppressed" },
     });
@@ -263,7 +263,7 @@ export async function runEngine<T>(
       throw new Error(`ledger update failed: ${updErr.message}`);
     }
     terminalWritten = true;
-    await emitEvent(db, args.caseId, args.engine, `${labelEngine(args.engine)} ${finalStatus}`, {
+    await emitEvent(db, args.caseId, args.engine, `${labelEngine(args.engine)} ${finalStatus === "completed" ? "completado" : "completado (negativo)"}`, {
       meta: { engine: args.engine, status: finalStatus, runtime_ms: runtime, ...stats },
     });
     return value;
@@ -281,7 +281,7 @@ export async function runEngine<T>(
         })
         .eq("id", id);
       terminalWritten = true;
-      await emitEvent(db, args.caseId, args.engine, `${labelEngine(args.engine)} checkpointed`, {
+      await emitEvent(db, args.caseId, args.engine, `${labelEngine(args.engine)} en punto de control`, {
         level: "warn",
         meta: { engine: args.engine, status: "queued", runtime_ms: runtime, checkpoint: e.progress },
       });
@@ -297,7 +297,7 @@ export async function runEngine<T>(
       })
       .eq("id", id);
     terminalWritten = true;
-    await emitEvent(db, args.caseId, args.engine, `${labelEngine(args.engine)} failed`, {
+    await emitEvent(db, args.caseId, args.engine, `${labelEngine(args.engine)} fallido`, {
       level: "error",
       meta: { engine: args.engine, status: "failed", runtime_ms: runtime, error: msg.slice(0, 2000) },
     });
@@ -356,7 +356,7 @@ export async function recordBlocked(
     blocking_engines: args.blockingEngines,
     dependency_status: "upstream_failed",
   } as never);
-  await emitEvent(db, args.caseId, args.engine, `${labelEngine(args.engine)} blocked`, {
+  await emitEvent(db, args.caseId, args.engine, `${labelEngine(args.engine)} bloqueado`, {
     level: "warn",
     meta: {
       engine: args.engine,
@@ -390,7 +390,7 @@ export async function recordSkipped(
     skipped_reason: args.reason,
     execution_id: args.executionId ?? null,
   } as never);
-  await emitEvent(db, args.caseId, args.engine, `${labelEngine(args.engine)} skipped`, {
+  await emitEvent(db, args.caseId, args.engine, `${labelEngine(args.engine)} omitido`, {
     level: "warn",
     meta: { engine: args.engine, status: "skipped", reason: args.reason },
   });
@@ -460,3 +460,5 @@ export function finalizeEnginesSummaryForEmbed(
     },
   };
 }
+
+

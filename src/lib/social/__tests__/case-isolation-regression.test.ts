@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 
 describe("Comprehensive Care - Case Isolation & Care Plan Query Scoping (Phase 0)", () => {
   it("enforces social_case_id scoping so Case A never retrieves a newer Care Plan belonging to Case B", () => {

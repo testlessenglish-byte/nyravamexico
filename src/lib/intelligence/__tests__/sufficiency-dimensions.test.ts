@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 import { computeESS } from "../sufficiency.server";
 
 describe("computeESS 4-dimension model", () => {

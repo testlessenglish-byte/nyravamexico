@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 import { detectMotions } from "../algorithms";
 import type { ProceduralPosture } from "../procedural-posture";
 

@@ -92,7 +92,7 @@ export type StageDef = {
 export const CANONICAL_STAGES = [
   {
     key: "extraction",
-    label: "Extraction",
+    label: "Extracci�n",
     engine: "extraction",
     timestampColumn: "extracted_at",
     dependsOn: [],
@@ -109,7 +109,7 @@ export const CANONICAL_STAGES = [
   },
   {
     key: "analyzers",
-    label: "Analyzers",
+    label: "Analizadores",
     engine: "analyzers",
     timestampColumn: "analysis_at",
     dependsOn: ["extraction"],
@@ -120,7 +120,7 @@ export const CANONICAL_STAGES = [
   },
   {
     key: "agents",
-    label: "Agents",
+    label: "Agentes",
     engine: "agents",
     timestampColumn: "agents_at",
     dependsOn: ["extraction", "analyzers"],
@@ -129,7 +129,7 @@ export const CANONICAL_STAGES = [
   },
   {
     key: "timeline",
-    label: "Build Timeline",
+    label: "Construir l�nea de tiempo",
     engine: "timeline",
     // runTimelineAudit() (cases.functions.ts) hard-requires the Analyzers
     // stage's `analyses.timeline` column AND Agents' `agents_at` timestamp
@@ -146,7 +146,7 @@ export const CANONICAL_STAGES = [
   },
   {
     key: "evidence_map",
-    label: "Evidence Mapping",
+    label: "Mapeo de pruebas",
     engine: "evidence_map",
     dependsOn: ["extraction"],
     requirement: "enriching",
@@ -154,7 +154,7 @@ export const CANONICAL_STAGES = [
   },
   {
     key: "contradictions",
-    label: "Contradiction Analysis",
+    label: "An�lisis de contradicciones",
     engine: "contradictions",
     timestampColumn: "contradiction_at",
     dependsOn: ["analyzers"],
@@ -163,7 +163,7 @@ export const CANONICAL_STAGES = [
   },
   {
     key: "witness",
-    label: "Witness Intelligence",
+    label: "Inteligencia de testigos",
     engine: "witness_intelligence",
     timestampColumn: "witnesses_at",
     dependsOn: ["analyzers", "agents"],
@@ -172,7 +172,7 @@ export const CANONICAL_STAGES = [
   },
   {
     key: "evidence_intel",
-    label: "Evidence Intelligence",
+    label: "Inteligencia de pruebas",
     engine: "evidence_intelligence",
     timestampColumn: "evidence_intel_at",
     dependsOn: ["analyzers"],
@@ -184,7 +184,7 @@ export const CANONICAL_STAGES = [
     // actually govern the matter. Runs right after the analyzers so every
     // downstream engine reasons against the correct body of Mexican law.
     key: "jurisdiction_intel",
-    label: "Jurisdiction Intelligence",
+    label: "Inteligencia de jurisdicci�n",
     engine: "jurisdiction_intel",
     dependsOn: ["analyzers"],
     requirement: "blocking",
@@ -195,7 +195,7 @@ export const CANONICAL_STAGES = [
   {
     // Materia-specific procedural checklist (plazos, actos, formalidades).
     key: "procedural_compliance",
-    label: "Procedural Compliance Analysis",
+    label: "An�lisis de cumplimiento procesal",
     engine: "procedural_compliance",
     dependsOn: ["analyzers", "jurisdiction_intel"],
     requirement: "enriching",
@@ -203,7 +203,7 @@ export const CANONICAL_STAGES = [
   },
   {
     key: "constitutional",
-    label: "Constitutional Analysis",
+    label: "An�lisis constitucional",
     engine: "constitutional_compliance",
     dependsOn: ["analyzers"],
     requirement: "enriching",
@@ -211,7 +211,7 @@ export const CANONICAL_STAGES = [
   },
   {
     key: "discovery",
-    label: "Discovery Gap Detection",
+    label: "Detecci�n de brechas probatorias",
     engine: "discovery_gaps",
     timestampColumn: "discovery_at",
     dependsOn: ["analyzers"],
@@ -230,7 +230,7 @@ export const CANONICAL_STAGES = [
     // which then thins out the evidence base enough to trip the
     // Hallucination/Judge release gate and block the report anyway.
     key: "perspectives",
-    label: "Multi-Perspective Analysis",
+    label: "An�lisis multiperspectiva",
     engine: "perspectives",
     timestampColumn: "perspectives_at",
     dependsOn: ["analyzers", "agents"],
@@ -239,7 +239,7 @@ export const CANONICAL_STAGES = [
   },
   {
     key: "theories",
-    label: "Theory Generation",
+    label: "Generaci�n de teor�as",
     engine: "theory",
     timestampColumn: "theories_at",
     dependsOn: ["perspectives"],
@@ -248,7 +248,7 @@ export const CANONICAL_STAGES = [
   },
   {
     key: "opportunities",
-    label: "Case Opportunities",
+    label: "Oportunidades estrat�gicas del caso",
     engine: "opportunity",
     timestampColumn: "opportunities_at",
     dependsOn: ["analyzers", "agents"],
@@ -259,7 +259,7 @@ export const CANONICAL_STAGES = [
     // CONFIRMED IN PRODUCTION alongside perspectives above — same manual
     // clear, same single-shot-Groq-call-with-no-internal-checkpoint shape.
     key: "strategy",
-    label: "Strategy Synthesis",
+    label: "S�ntesis de estrategia",
     engine: "strategy",
     timestampColumn: "strategy_at",
     dependsOn: ["perspectives", "theories"],
@@ -268,7 +268,7 @@ export const CANONICAL_STAGES = [
   },
   {
     key: "litigation_strategy_center",
-    label: "Litigation Strategy Center",
+    label: "Centro de estrategia de litigio",
     engine: "litigation_strategy_center",
     timestampColumn: "strategy_center_at",
     // Synthesis-only — reads the already-gated output of these stages and
@@ -280,7 +280,7 @@ export const CANONICAL_STAGES = [
   },
   {
     key: "work_product",
-    label: "Attorney Work Product",
+    label: "Producto de trabajo del abogado",
     engine: "work_product",
     timestampColumn: "work_product_at",
     dependsOn: ["strategy"],
@@ -289,7 +289,7 @@ export const CANONICAL_STAGES = [
   },
   {
     key: "hallucination",
-    label: "Hallucination Review",
+    label: "Revisi�n de alucinaciones",
     engine: "hallucination",
     timestampColumn: "hallucination_at",
     dependsOn: ["analyzers", "agents"],
@@ -298,7 +298,7 @@ export const CANONICAL_STAGES = [
   },
   {
     key: "scoring",
-    label: "Score Case",
+    label: "Puntuaci�n del caso",
     engine: "scoring",
     timestampColumn: "scored_at",
     dependsOn: ["analyzers", "agents"],
@@ -311,7 +311,7 @@ export const CANONICAL_STAGES = [
     // audits it. A surviving blocking violation fails this stage, which blocks
     // `report`: a defective report is never silently published.
     key: "legal_qa",
-    label: "Legal Quality Control",
+    label: "Control de calidad legal",
     engine: "legal_qa",
     dependsOn: ["scoring", "analyzers", "agents"],
     requirement: "blocking",
@@ -327,7 +327,7 @@ export const CANONICAL_STAGES = [
     // written without any of it. Report generation is now the last stage of
     // the pipeline, with nothing running behind it.
     key: "multi_agent",
-    label: "Multi-Agent Review (13 Agents)",
+    label: "Revisi�n multiagente (13 agentes)",
     engine: "multi_agent",
     dependsOn: ["scoring", "legal_qa", "analyzers", "agents"],
     requirement: "optional",
@@ -337,7 +337,7 @@ export const CANONICAL_STAGES = [
   },
   {
     key: "report",
-    label: "Generate Report",
+    label: "Generar informe",
     engine: "report_generator",
     timestampColumn: "report_at",
     // FIX (2026-07-29): jurisdiction_intel is requirement:"blocking" (so
@@ -670,29 +670,36 @@ export type ReportGate = {
   blockers: ReportBlocker[];
 };
 
-export function canGenerateReport(rows: ExecutionRow[]): ReportGate {
+export type ReportReadiness = { state: "READY" } | { state: "WAITING"; reason: string } | { state: "BLOCKED"; blockers: ReportBlocker[] };
+export function getReportReadiness(rows: ExecutionRow[]): ReportReadiness {
   const latest = latestRowsByEngine(rows);
   const isTerminal = (s?: string) => s === "completed" || s === "completed_negative" || s === "skipped";
+  const isFailed = (s?: string) => s === "failed" || s === "blocked";
 
-  const missingRequired = (engines: readonly string[]) =>
-    engines.filter((e) => !isTerminal(latest.get(e)?.status));
-
-  const blocking = missingRequired(REPORT_BLOCKING_ENGINES);
-
-  const optionalToCheck = Array.from(OPTIONAL_ENGINES).filter(e => e !== "multi_agent");
-
-  // Enriching engines are strictly required to be terminal.
-  // Optional engines are NOT required to have a row. But IF they have a row, it must be terminal.
+  const blocking = REPORT_BLOCKING_ENGINES.filter(e => !isTerminal(latest.get(e)?.status));
   const missingEnriching = [
-    ...missingRequired(REPORT_ENRICHING_ENGINES),
-    ...optionalToCheck.filter(e => {
+    ...REPORT_ENRICHING_ENGINES.filter(e => !isTerminal(latest.get(e)?.status)),
+    ...Array.from(OPTIONAL_ENGINES).filter(e => e !== "multi_agent").filter(e => {
       const row = latest.get(e);
       return row && !isTerminal(row.status);
     })
   ];
 
   const allMissing = [...blocking, ...missingEnriching];
-  const ok = allMissing.length === 0;
+  if (allMissing.length === 0) return { state: "READY" };
+
+  const isAnyRunning = allMissing.some(e => {
+    const s = latest.get(e)?.status;
+    return s === "running" || s === "queued";
+  });
+
+  if (isAnyRunning) {
+    const runningEngines = allMissing.filter(e => {
+      const s = latest.get(e)?.status;
+      return s === "running" || s === "queued";
+    });
+    return { state: "WAITING", reason: `Waiting for engines to finish: ${runningEngines.join(", ")}` };
+  }
 
   const blockers: ReportBlocker[] = [];
   for (const e of allMissing) {
@@ -710,12 +717,18 @@ export function canGenerateReport(rows: ExecutionRow[]): ReportGate {
     });
   }
 
-  return {
-    ok,
-    missingBlocking: blocking,
-    missingEnriching,
-    blockers,
-  };
+  return { state: "BLOCKED", blockers };
+}
+
+export function canGenerateReport(rows: ExecutionRow[]): ReportGate {
+  const readiness = getReportReadiness(rows);
+  if (readiness.state === "READY") {
+    return { ok: true, missingBlocking: [], missingEnriching: [], blockers: [] };
+  } else if (readiness.state === "WAITING") {
+    return { ok: false, missingBlocking: [], missingEnriching: [], blockers: [{ engine: "pipeline", category: "optional", status: "running", reason: readiness.reason }] };
+  } else {
+    return { ok: false, missingBlocking: readiness.blockers.filter(b => b.category === "blocking").map(b => b.engine), missingEnriching: readiness.blockers.filter(b => b.category === "enriching").map(b => b.engine), blockers: readiness.blockers };
+  }
 }
 
 /** Back-compat with legacy call sites. `required` defaults to full report set. */
@@ -742,3 +755,6 @@ export function stageTimeoutMs(stageKey: string): number | undefined {
 export const STAGE_TIMEOUT_MS: Readonly<Record<string, number>> = Object.freeze(
   Object.fromEntries(CANONICAL_STAGES.filter((s) => typeof s.timeoutMs === "number").map((s) => [s.key, s.timeoutMs!])),
 );
+
+
+

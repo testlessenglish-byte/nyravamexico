@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 import { validateJSONPipelineIntegrity } from "../json-integrity-gate";
 
 describe("validateJSONPipelineIntegrity", () => {

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Report Capability Contract & LIMITED Mode Engine
  *
  * Central platform authority defining allowed and prohibited capabilities
