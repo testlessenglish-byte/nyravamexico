@@ -2579,12 +2579,17 @@ export const listActivePipelineCases = createServerFn({ method: "GET" })
 export const listCases = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabase } = await getAuthedContext(context, "Cases");
+    const { supabase, userId } = await getAuthedContext(context, "Cases");
+    // Tenant isolation: this is the personal workspace list. It is ALWAYS
+    // scoped to the signed-in owner, regardless of any administrative role
+    // the account holds. Cross-tenant visibility belongs to the explicit
+    // admin surfaces (admin.* server fns, service-role client) only.
     const { data, error } = await supabase
       .from("cases")
       .select(
         "id,name,status,progress,status_message,created_at,completed_at,archived_at,cancel_requested",
       )
+      .eq("user_id", userId)
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(500);
