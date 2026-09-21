@@ -6967,6 +6967,18 @@ ${corpus.slice(0, REPORT_STAGE_CORPUS_CHARS)}${resolutivoAnchorBlock}${penalDisp
         console.info(`[report:chunk] no report row yet for case ${caseId} — ${name} cache skipped`);
       }
       chunkCache = { ...chunkCache, [name]: chunkParsedByName[name] };
+      // A persisted chunk is real forward progress. The report backstop must
+      // therefore count CONSECUTIVE no-progress checkpoints, not total ticks —
+      // otherwise a slow-but-advancing run (narrative succeeds, memo and
+      // intelligence never get a turn) is force-finalized with missing
+      // sections and fails the quality gate. Resets are bounded: there is a
+      // fixed, finite number of chunks, and each can only reset once.
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (db as any).from("cases").update({ report_checkpoint_count: 0 }).eq("id", caseId);
+      } catch (resetErr) {
+        console.warn(`[report:chunk] failed to reset report checkpoint count`, resetErr);
+      }
     } catch (persistErr) {
       // Non-fatal: worst case this chunk just gets regenerated on the next
       // checkpoint instead of resumed, which is the pre-fix behavior — not
