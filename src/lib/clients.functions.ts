@@ -308,17 +308,27 @@ export const deleteClientFn = createServerFn({ method: "POST" })
     const supabase = context.supabase;
     const userId = context.userId;
 
-    // Check if client has cases
-    const { data: cases } = await supabase
+    // Check if client has ACTIVE cases (status not complete, released, cancelled, or failed)
+    const CLOSED_STATUSES = ["complete", "released", "cancelled", "failed"];
+    const { data: allCases } = await supabase
       .from("cases")
-      .select("id")
+      .select("id, status")
       // @ts-ignore
-      .eq("client_id", data.clientId)
-      .limit(1);
+      .eq("client_id", data.clientId);
 
-    if (cases && cases.length > 0) {
-      throw new Error("No se puede eliminar el cliente porque tiene casos activos. Por favor, reasigne o elimine los casos primero.");
+    const activeCases = (allCases ?? []).filter(
+      (c: { status?: string }) => !CLOSED_STATUSES.includes(c.status ?? ""),
+    );
+
+    if (activeCases.length > 0) {
+      throw new Error("No se puede eliminar el cliente porque tiene casos activos. Por favor, reasigne o elimine los casos activos primero.");
     }
+
+    // Unlink non-active cases so foreign key constraint on client_id doesn't fail
+    await (supabase as any)
+      .from("cases")
+      .update({ client_id: null })
+      .eq("client_id", data.clientId);
 
     const { error } = await clientsTable(supabase)
       .delete()

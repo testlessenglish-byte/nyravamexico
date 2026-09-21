@@ -1,18 +1,7 @@
-﻿import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
-import {
-  getClient,
-  deleteClientFn,
-  updateClientFn,
-  archiveClient,
-} from "@/lib/clients.functions";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { getClient, deleteClientFn } from "@/lib/clients.functions";
 import {
   User, Building2, Mail, Phone, MapPin, FileText,
   Briefcase, Edit, Archive, ChevronLeft, Trash2,
@@ -28,38 +17,21 @@ export const Route = createFileRoute("/_authenticated/clients/$clientId")({
   component: ClientDetailPage,
 });
 
-// Case numbers live in matter_metadata; `cases` has no case_number column.
-function caseNumberOf(c: { matter_metadata?: Record<string, any> | null }): string {
-  const m = c.matter_metadata ?? {};
-  const raw =
-    m["case_number"] ??
-    m["expediente"] ??
-    m["case_identity"]?.["case_number"] ??
-    m["case_identity"]?.["expediente"];
-  return typeof raw === "string" ? raw : "";
-}
-
 function ClientDetailPage() {
-  const { locale, t } = useI18n();
+  const { t, locale } = useI18n();
   const { clientId } = Route.useParams();
   const fetchClient = useServerFn(getClient);
   const deleteClient = useServerFn(deleteClientFn);
-  const updateClient = useServerFn(updateClientFn);
-  const archiveClientFn = useServerFn(archiveClient);
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const [editOpen, setEditOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<Record<string, string>>({});
 
   const handleDelete = async () => {
-    if (!window.confirm(t("clientDetail.delete.confirm"))) return;
+    if (!window.confirm(locale === "es" ? "¿Estás seguro de que deseas eliminar este cliente? Esta acción no se puede deshacer." : "Are you sure you want to delete this client? This action cannot be undone.")) return;
     try {
       await deleteClient({ data: { clientId } });
-      toast.success(t("clientDetail.delete.success"));
+      toast.success(locale === "es" ? "Cliente eliminado exitosamente" : "Client deleted successfully");
       navigate({ to: "/clients" });
     } catch (error: any) {
-      toast.error(error.message || t("clientDetail.delete.error"));
+      toast.error(error.message || (locale === "es" ? "Error al eliminar el cliente" : "Error deleting client"));
     }
   };
 
@@ -68,128 +40,25 @@ function ClientDetailPage() {
     queryFn: () => fetchClient({ data: { clientId } }),
   });
 
-  const refreshClient = async () => {
-    await queryClient.invalidateQueries({ queryKey: ["client", clientId] });
-    await queryClient.invalidateQueries({ queryKey: ["clients"] });
-  };
-
-  const openEdit = (c: Record<string, any>) => {
-    setForm({
-      display_name: c.display_name ?? "",
-      client_type: c.client_type ?? "individual",
-      legal_name: c.legal_name ?? "",
-      rfc: c.rfc ?? "",
-      email: c.email ?? "",
-      phone: c.phone ?? "",
-      address: c.address ?? "",
-      reference_number: c.reference_number ?? "",
-      notes: c.notes ?? "",
-    });
-    setEditOpen(true);
-  };
-
-  const handleSave = async () => {
-    if (!form["display_name"]?.trim()) {
-      toast.error(t("clientDetail.validation.nameRequired"));
-      return;
-    }
-    const email = (form["email"] ?? "").trim();
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
-      toast.error(t("clientDetail.validation.emailInvalid"));
-      return;
-    }
-    setSaving(true);
-    try {
-      await updateClient({
-        data: {
-          clientId,
-          display_name: form["display_name"].trim(),
-          client_type: form["client_type"] || "individual",
-          legal_name: form["legal_name"] || undefined,
-          rfc: form["rfc"] || undefined,
-          email: form["email"] || "",
-          phone: form["phone"] || undefined,
-          address: form["address"] || undefined,
-          reference_number: form["reference_number"] || undefined,
-          notes: form["notes"] || undefined,
-        },
-      });
-      await refreshClient();
-      setEditOpen(false);
-      toast.success(t("clientDetail.update.success"));
-    } catch (error: any) {
-      toast.error(error?.message || t("clientDetail.update.error"));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleArchiveToggle = async (currentStatus: string) => {
-    try {
-      if (currentStatus === "archived") {
-        await updateClient({ data: { clientId, status: "active" } });
-        toast.success(t("clientDetail.reactivate.success"));
-      } else {
-        await archiveClientFn({ data: { clientId } });
-        toast.success(t("clientDetail.archive.success"));
-      }
-      await refreshClient();
-    } catch (error: any) {
-      toast.error(error?.message || t("clientDetail.status.error"));
-    }
-  };
-
   if (isLoading) {
-    return <div className="p-8 text-center text-sm text-muted-foreground">{t("clientDetail.loading")}</div>;
+    return <div className="p-8 text-center text-sm text-muted-foreground">{t("common.loading")}</div>;
   }
 
   if (!clientData) {
-    return <div className="p-8 text-center text-sm text-destructive">{t("clientDetail.notFound")}</div>;
+    return <div className="p-8 text-center text-sm text-destructive">{locale === "es" ? "Cliente no encontrado." : "Client not found."}</div>;
   }
 
-  // getClient returns a flat object with client fields + cases + upcoming_deadlines
   const client = clientData as Record<string, any>;
   const cases = (client.cases ?? []) as Array<{
-    id: string;
-    name: string | null;
-    status: string;
-    lifecycle_status: string | null;
-    case_type: string | null;
-    underlying_materia: string | null;
-    procedural_vehicle: string | null;
-    jurisdiction: string | null;
-    matter_metadata: Record<string, any> | null;
-    created_at: string;
-    updated_at: string;
+    id: string; title: string; case_number: string; status: string; matter_type: string; updated_at: string;
   }>;
   const deadlines = (client.upcoming_deadlines ?? []) as Array<{
     id: string; title: string; due_date: string; priority: string; completed: boolean; case_id: string;
   }>;
 
-  // Counters derive from the same canonical cases.client_id relation the list uses.
-  const activeCasesCount = Number(client.active_case_count ?? 0);
-  const closedCasesCount = Number(client.closed_case_count ?? 0);
-  const caseStatusLabels: Record<string, string> = {
-    uploaded: t("clientDetail.caseStatus.uploaded"),
-    extracting: t("clientDetail.caseStatus.extracting"),
-    extracted: t("clientDetail.caseStatus.extracted"),
-    analyzing: t("clientDetail.caseStatus.analyzing"),
-    analyzed: t("clientDetail.caseStatus.analyzed"),
-    agents_running: t("clientDetail.caseStatus.agentsRunning"),
-    agents_complete: t("clientDetail.caseStatus.agentsComplete"),
-    scoring: t("clientDetail.caseStatus.scoring"),
-    scored: t("clientDetail.caseStatus.scored"),
-    reporting: t("clientDetail.caseStatus.reporting"),
-    complete: t("clientDetail.caseStatus.complete"),
-    released: t("clientDetail.caseStatus.released"),
-    failed: t("clientDetail.caseStatus.failed"),
-    cancelled: t("clientDetail.caseStatus.cancelled"),
-    queued: t("clientDetail.caseStatus.queued"),
-    needs_revision: t("clientDetail.caseStatus.needsRevision"),
-    stalled: t("clientDetail.caseStatus.stalled"),
-    intelligence_running: t("clientDetail.caseStatus.intelligenceRunning"),
-    intelligence_complete: t("clientDetail.caseStatus.intelligenceComplete"),
-  };
+  const CLOSED_STATUSES = ["complete", "released", "cancelled", "failed"];
+  const activeCasesCount = cases.filter((c) => !CLOSED_STATUSES.includes(c.status)).length;
+  const closedCasesCount = cases.filter((c) => CLOSED_STATUSES.includes(c.status)).length;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 md:py-10 space-y-6">
@@ -213,33 +82,32 @@ function ClientDetailPage() {
               <h1 className="text-2xl font-bold text-foreground">{client.display_name}</h1>
               <div className="mt-2 flex items-center gap-3">
                 <Badge variant="outline" className="text-primary border-primary/20 bg-primary/5">
-                  {client.client_type === "company" ? t("clientDetail.type.company") : t("clientDetail.type.individual")}
+                  {client.client_type === "company"
+                    ? t("clientDetail.type.company")
+                    : client.client_type === "government"
+                      ? t("clientDetail.type.government")
+                      : client.client_type === "other"
+                        ? t("clientDetail.type.other")
+                        : t("clientDetail.type.individual")}
                 </Badge>
                 <span className={`text-sm font-medium ${client.status === "active" ? "text-green-600" : "text-muted-foreground"}`}>
-                  {client.status === "active" ? t("clientDetail.status.active") : client.status === "inactive" ? t("clientDetail.status.inactive") : t("clientDetail.status.archived")}
+                  {client.status === "active"
+                    ? t("clientDetail.status.active")
+                    : client.status === "inactive"
+                      ? t("clientDetail.status.inactive")
+                      : t("clientDetail.status.archived")}
                 </span>
               </div>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => openEdit(client)}>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm">
               <Edit className="mr-2 h-4 w-4" /> {t("clientDetail.actions.edit")}
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-destructive hover:bg-destructive/10"
-              onClick={() => handleArchiveToggle(client.status)}
-            >
-              <Archive className="mr-2 h-4 w-4" />
-              {client.status === "archived" ? t("clientDetail.actions.reactivate") : t("clientDetail.actions.archive")}
+            <Button variant="outline" size="sm" className="text-muted-foreground hover:bg-muted/10">
+              <Archive className="mr-2 h-4 w-4" /> {t("clientDetail.actions.archive")}
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-destructive hover:bg-destructive/10"
-              onClick={handleDelete}
-            >
+            <Button variant="outline" size="sm" onClick={handleDelete} className="text-destructive border-destructive/30 hover:bg-destructive/10">
               <Trash2 className="mr-2 h-4 w-4" /> {t("clientDetail.actions.delete")}
             </Button>
           </div>
@@ -297,7 +165,7 @@ function ClientDetailPage() {
           <div className="panel overflow-hidden">
             {cases.length === 0 ? (
               <div className="p-8 text-center text-sm text-muted-foreground">
-                {t("clientDetail.cases.empty")}
+                {locale === "es" ? "No hay expedientes asociados a este cliente." : "No cases associated with this client."}
               </div>
             ) : (
               <div className="divide-y divide-border">
@@ -310,29 +178,14 @@ function ClientDetailPage() {
                   >
                     <div className="min-w-0 pr-4">
                       <div className="font-medium text-foreground truncate">
-                        {c.name || t("clientDetail.cases.unnamed")}
+                        {c.case_number || c.title || (locale === "es" ? "Sin título" : "Untitled")}
                       </div>
-                      {caseNumberOf(c) ? (
-                        <div className="mt-0.5 text-xs font-mono text-muted-foreground truncate">
-                          {caseNumberOf(c)}
-                        </div>
-                      ) : null}
-                      <div className="mt-1 text-xs text-muted-foreground truncate">
-                        {[
-                          c.underlying_materia || c.case_type,
-                          c.procedural_vehicle,
-                          c.jurisdiction,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ") || t("clientDetail.cases.matterUnknown")}
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {t("clientDetail.cases.created")} {new Date(c.created_at).toLocaleDateString(locale === "es" ? "es-MX" : "en-US")} · {t("clientDetail.cases.updated")}{" "}
-                        {new Date(c.updated_at).toLocaleDateString(locale === "es" ? "es-MX" : "en-US")}
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {c.matter_type || "General"} · {t("clientDetail.cases.updated")} {new Date(c.updated_at).toLocaleDateString()}
                       </div>
                     </div>
                     <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                      {caseStatusLabels[c.status] ?? t("clientDetail.caseStatus.unknown")}
+                      {c.status === "released" ? t("clientDetail.caseStatus.released") : c.status}
                     </span>
                   </Link>
                 ))}
@@ -349,98 +202,6 @@ function ClientDetailPage() {
           </div>
         </div>
       </div>
-
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{t("clientDetail.edit.title")}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Field label={t("clientDetail.fields.name")}>
-              <Input
-                value={form["display_name"] ?? ""}
-                onChange={(e) => setForm((f) => ({ ...f, display_name: e.target.value }))}
-              />
-            </Field>
-            <Field label={t("clientDetail.fields.type")}>
-              <select
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={form["client_type"] ?? "individual"}
-                onChange={(e) => setForm((f) => ({ ...f, client_type: e.target.value }))}
-              >
-                <option value="individual">{t("clientDetail.type.individual")}</option>
-                <option value="company">{t("clientDetail.type.company")}</option>
-              </select>
-            </Field>
-            <Field label={t("clientDetail.fields.legalName")}>
-              <Input
-                value={form["legal_name"] ?? ""}
-                onChange={(e) => setForm((f) => ({ ...f, legal_name: e.target.value }))}
-              />
-            </Field>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="RFC">
-                <Input
-                  value={form["rfc"] ?? ""}
-                  onChange={(e) => setForm((f) => ({ ...f, rfc: e.target.value }))}
-                />
-              </Field>
-              <Field label={t("clientDetail.fields.reference")}>
-                <Input
-                  value={form["reference_number"] ?? ""}
-                  onChange={(e) => setForm((f) => ({ ...f, reference_number: e.target.value }))}
-                />
-              </Field>
-              <Field label={t("clientDetail.fields.email")}>
-                <Input
-                  type="email"
-                  value={form["email"] ?? ""}
-                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                />
-              </Field>
-              <Field label={t("clientDetail.fields.phone")}>
-                <Input
-                  value={form["phone"] ?? ""}
-                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                />
-              </Field>
-            </div>
-            <Field label={t("clientDetail.fields.address")}>
-              <Textarea
-                rows={2}
-                value={form["address"] ?? ""}
-                onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
-              />
-            </Field>
-            <Field label={t("clientDetail.fields.notes")}>
-              <Textarea
-                rows={3}
-                value={form["notes"] ?? ""}
-                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-              />
-            </Field>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>
-              {t("clientDetail.actions.cancel")}
-            </Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? t("clientDetail.actions.saving") : t("clientDetail.actions.save")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block space-y-1">
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-
