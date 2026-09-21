@@ -81,14 +81,65 @@ const MATERIAS_WITHOUT_PENAL_INSTITUTIONS: ReadonlySet<MexicanCaseType> = new Se
 export type DomainVocabularyCheck = {
   clean: boolean;
   violations: string[];
+  /** Penal-only terms that appeared, but only in a legitimate non-asserting
+   * context (quotation, attribution, negation/absence, comparison, authority
+   * title/citation, or an explicit cross-domain penal reference). Reported for
+   * diagnostics; never a release blocker. */
+  contextual?: string[];
 };
+
+// ---------------------------------------------------------------------------
+// Context awareness.
+//
+// The denylist answers "does this institution exist in this materia?". That is
+// only half of the real question. A report may legitimately NAME a penal
+// institution in a non-penal matter when it is not asserting that the
+// institution acted in this matter: quoting a document, attributing an
+// argument to a party or authority, stating the institution was ABSENT,
+// contrasting penal procedure with the applicable one, citing an authority
+// whose title contains the term, or expressly discussing the penal domain.
+//
+// These markers are materia-agnostic Spanish/English discourse markers, not
+// content rules — no materia, case, or report text is special-cased.
+// ---------------------------------------------------------------------------
+
+const QUOTE_CHARS = /[«»"“”]/;
+
+const CONTEXT_MARKERS: RegExp[] = [
+  // Attribution — someone else's assertion, not the report's own.
+  /\b(?:sostiene|sostuvo|argument[oóa]|argumenta|alega|aleg[oó]|afirma|afirm[oó]|manifiesta|manifest[oó]|adujo|aduce|expres[oó]|refiere|refiri[oó]|invoca|invoc[oó]|se[nñ]ala(?:\s+que)?|indica\s+que|considera(?:ron)?\s+que|declar[oó]|seg[uú]n|conforme\s+a|de\s+acuerdo\s+con|a\s+juicio\s+de|en\s+palabras\s+de|cita|citando|textualmente|argues|asserts|claims|according\s+to)\b/i,
+  // Negation / absence — the institution did not intervene.
+  /\b(?:no\s+(?:se\s+)?\w+|sin\s+\w+|ausencia\s+de|carece\s+de|falta\s+de|nunca|tampoco|inexistente|no\s+consta|no\s+aplica|no\s+es\s+aplicable|did\s+not|was\s+not|absence\s+of|no\s+evidence)\b/i,
+  // Comparison / contrast / analogy / scope limitation.
+  /\b(?:a\s+diferencia\s+de|en\s+contraste|contrasta|mientras\s+que|por\s+analog[ií]a|an[aá]log[oa]|equivalente\s+a|s[oó]lo\s+(?:aplica|se\s+aplica|es\s+aplicable)|solo\s+(?:aplica|se\s+aplica|es\s+aplicable)|[uú]nicamente\s+(?:aplica|aplicable)|aplicable\s+[uú]nicamente|propio\s+del|propia\s+del|unlike|whereas|by\s+analogy|only\s+applies)\b/i,
+  // Authority titles and citations (tesis, jurisprudencia, statute names).
+  /\b(?:tesis|jurisprudencia|registro\s+digital|semanario\s+judicial|contradicci[oó]n\s+de\s+tesis|amparo\s+(?:directo|en\s+revisi[oó]n)|SCJN|CNPP|C[oó]digo\s+Nacional\s+de\s+Procedimientos\s+Penales|C[oó]digo\s+Penal|criterio\s+jurisprudencial|precedente)\b/i,
+  // Explicit cross-domain framing — the text itself says this is penal-domain.
+  /\b(?:materia\s+penal|proceso\s+penal|procedimiento\s+penal|[aá]mbito\s+penal|sede\s+penal|causa\s+penal|v[ií]a\s+penal|derecho\s+penal|criminal\s+(?:proceedings?|procedure|matter))\b/i,
+];
+
+function splitSentences(text: string): string[] {
+  const parts = text
+    .split(/(?<=[.;:!?])\s+|\n+/g)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return parts.length > 0 ? parts : [text];
+}
+
+/** True when this sentence merely references the term rather than asserting
+ * the institution acted in the present matter. */
+function isContextualReference(sentence: string): boolean {
+  if (QUOTE_CHARS.test(sentence)) return true;
+  return CONTEXT_MARKERS.some((rx) => rx.test(sentence));
+}
 
 /**
  * Checks a finding's own text (title + description — NOT its cited quotes,
  * which are independently verified elsewhere) for institutional vocabulary
  * that cannot exist in the case's actual materia. Always `clean: true` for
  * materia "penal" or an unrecognized/unset materia — this gate only fires
- * when we positively know the case is NOT penal.
+ * when we positively know the case is NOT penal, and only when the text
+ * ASSERTS the penal institution in the present matter.
  */
 export function checkDomainVocabulary(
   text: string,
@@ -104,8 +155,19 @@ export function checkDomainVocabulary(
   if (!materia || !MATERIAS_WITHOUT_PENAL_INSTITUTIONS.has(materia as MexicanCaseType)) {
     return { clean: true, violations: [] };
   }
-  const violations = PENAL_ONLY_TERMS.filter((t) => t.match.test(text)).map((t) => t.label);
-  return { clean: violations.length === 0, violations };
+  const violations: string[] = [];
+  const contextual: string[] = [];
+  const sentences = splitSentences(text);
+  for (const term of PENAL_ONLY_TERMS) {
+    if (!term.match.test(text)) continue;
+    const hits = sentences.filter((s) => term.match.test(s));
+    const asserted = hits.length === 0
+      ? !isContextualReference(text)
+      : hits.some((s) => !isContextualReference(s));
+    if (asserted) violations.push(term.label);
+    else contextual.push(term.label);
+  }
+  return { clean: violations.length === 0, violations, contextual };
 }
 
 export function checkFindingDomainVocabulary(
@@ -113,7 +175,16 @@ export function checkFindingDomainVocabulary(
   materia: string | undefined,
   underlyingMateria?: string | null,
 ): DomainVocabularyCheck {
-  const text = `${String(finding.title ?? "")} ${String(finding.description ?? "")}`;
-  return checkDomainVocabulary(text, materia, underlyingMateria);
+  const title = String(finding.title ?? "");
+  const description = String(finding.description ?? "");
+  // A bare title carries no discourse context; evaluate each unit on its own
+  // so a contextual description cannot excuse an asserting title.
+  const titleCheck = checkDomainVocabulary(title, materia, underlyingMateria);
+  const descCheck = checkDomainVocabulary(description, materia, underlyingMateria);
+  const violations = [...new Set([...titleCheck.violations, ...descCheck.violations])];
+  const contextual = [...new Set([...(titleCheck.contextual ?? []), ...(descCheck.contextual ?? [])])]
+    .filter((label) => !violations.includes(label));
+  return { clean: violations.length === 0, violations, contextual };
 }
+
 
