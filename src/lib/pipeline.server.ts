@@ -6371,7 +6371,18 @@ async function _runReportInner(args: {
     buildMandatoryDecisionCore,
     validateMandatoryDecisionCore,
   } = await import("./intelligence/mandatory-decision-core");
-  const mandatoryDecisionCore = buildMandatoryDecisionCore(decisionReconstruction);
+  let mandatoryDecisionCore = buildMandatoryDecisionCore(decisionReconstruction);
+  // This policy is deliberately confined to completed Migratorio reports.
+  // Do not reuse a cached/model disposition as the operative court outcome.
+  let migratorioDisposition: import("./intelligence/migratorio-disposition").MigratorioDisposition | undefined;
+  if (materiaForReport === "migratorio" && mandatoryDecisionCoreRequired) {
+    const { resolveMigratorioDisposition, applyMigratorioDisposition } = await import("./intelligence/migratorio-disposition");
+    const { data: dispositionDocuments, error: dispositionError } = await db.from("documents")
+      .select("id,extracted_text").eq("case_id", caseId).is("archived_at", null);
+    if (dispositionError) throw new Error("Migratorio disposition sources unavailable");
+    migratorioDisposition = resolveMigratorioDisposition(dispositionDocuments ?? [], mandatoryDecisionCore);
+    mandatoryDecisionCore = applyMigratorioDisposition(mandatoryDecisionCore, migratorioDisposition);
+  }
   const {
     persistPenalDisposition,
     renderPenalDisposition,
@@ -9499,6 +9510,7 @@ ${paginationTail}`;
     items: mandatoryDecisionCore,
     validation: mandatoryDecisionCoreValidation,
   };
+  if (migratorioDisposition) (reportRow.full_report as any).migratorio_disposition = migratorioDisposition;
 
   // Stash disputed-issues inside full_report (no dedicated column).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -9,6 +9,7 @@ import { canonicalSourceCount, resolveReportSourceRefs } from "./report-sources"
 import { isDocumentaryVerification, resolveReportCapability, type ReportCapability } from "./report-permissions";
 import { contentRestriction, transformReportContent, fold, absenceText, verifiedAbsence, remediateAbsenceLanguage } from "./report-content-policy";
 import { resolveFinalReleaseDecision } from "./final-release-decision";
+import { matchesMigratorioDisposition, dispositionText, isMigratorioHistoricalDecision, type MigratorioDisposition } from "../intelligence/migratorio-disposition";
 
 type Row = Record<string, any>;
 const obj = (x: any): Row => x && typeof x === "object" && !Array.isArray(x) ? x : {};
@@ -28,6 +29,7 @@ export interface ReportPresentation {
   render_sections?: Array<{id:string; title:string; strategic:boolean}>;
   render_output?: { format: string; text: string };
   decision_sections: Array<{ id: string; kind: string; title: string; text: string; speaker_role: string; speaker_label: string }>;
+  procedural_history?: Array<{ id: string; text: string; speaker_role: string }>;
   finding_cards: Array<{ finding: Row; source_count: number; details: ReturnType<typeof buildFindingWorkProduct> }>;
   withheld_findings: Array<{ id: unknown; category: string; attorney_review_required: boolean }>;
 }
@@ -83,8 +85,23 @@ export function composeFinalReportPayload(input: CaseExportData): FinalReportPay
     (s.source_aliases ?? []).includes(String(d.id)),
   )).map(d => String(d.id ?? d.filename ?? "unknown"));
   const core = arr(obj(full.mandatory_decision_core).items);
+  const migratorio = (c.case_type ?? full.case_type) === "migratorio" && governance.decision_core_priority;
+  const disposition = full.migratorio_disposition as MigratorioDisposition | undefined;
+  const historicalFindings = migratorio ? arr(data.findings).filter(f => isMigratorioHistoricalDecision(f, disposition)) : [];
+  const historicalFindingIds = new Set(historicalFindings.map(f => f.id));
+  if (disposition && historicalFindings.length) {
+    for (const finding of historicalFindings) {
+      const id = `historical-finding:${finding.id}`;
+      if (!disposition.history.some(item => item.id === id)) disposition.history.push({
+        id, kind: "REJECTED_HOLDING", text: [finding.title, finding.description].filter(Boolean).join(" — "),
+        speaker_role: finding.speaker_role ?? null, adoption_status: "historical", proposition_type: "procedural_fact",
+        source_refs: arr(finding.evidence_refs),
+      });
+    }
+  }
   const withheld: ReportPresentation["withheld_findings"] = [];
   const findings = arr(data.findings).map((f): Row | null => {
+    if (historicalFindingIds.has(f.id)) return null;
     const checked = validateReincidenciaEvidence(f);
     if (checked.report_suppressed) {
       withheld.push({ id: f.id, category: checked.category, attorney_review_required: true });
@@ -157,6 +174,9 @@ export function composeFinalReportPayload(input: CaseExportData): FinalReportPay
     snapshot, executive_questions,
     decision_sections, finding_cards: finding_cards.map((card, i) => ({ ...card, finding: projected.findings![i] })),
     withheld_findings: withheld,
+    ...(migratorio ? { procedural_history: [
+      ...(disposition?.history ?? []).map(i => ({ id: i.id, text: i.text, speaker_role: i.speaker_role ?? "unresolved" })),
+    ] } : {}),
   };
   // Last transform includes generated cards, snapshot, memo, legacy prose and
   // every secondary section. No renderer may recover the pre-projection data.
@@ -249,6 +269,34 @@ export function validateFinalReportContract(payload: FinalReportPayload, capabil
         section.speaker_label === formatSpeakerRoleBadge({...item, mandatory_decision_kind:item.kind});
     }));
   const c = obj(payload.case), full = obj(payload.report?.full_report);
+  if ((c.case_type ?? full.case_type) === "migratorio" && governance.decision_core_priority) {
+    const disposition = full.migratorio_disposition as MigratorioDisposition | undefined;
+    if (!matchesMigratorioDisposition(disposition, expectedCore) ||
+        !matchesMigratorioDisposition(disposition, view.decision_sections)) {
+      violations.push("migratorioFinalDispositionConflict");
+    }
+    const historyIds = new Set((disposition?.history ?? []).map(i => i.id));
+    if (view.decision_sections.some(i => historyIds.has(i.id)) ||
+        arr(payload.findings).some(f => isMigratorioHistoricalDecision(f, disposition)) ||
+        view.finding_cards.some(c => isMigratorioHistoricalDecision(c.finding, disposition)) ||
+        (disposition?.history ?? []).some(i => !view.procedural_history?.some(h =>
+          h.id === i.id && dispositionText(h.text) === dispositionText(i.text)))) {
+      violations.push("migratorioProceduralHistoryConflict");
+    }
+    // The derived dashboard priority lanes must use the same disposition.
+    const expectedPriority = view.decision_sections.map(s => s.title + ": " + s.text);
+    const priorities = [view.snapshot.priorityReview, view.executive_questions[4]?.bullets ?? []];
+    if (priorities.some(values => expectedPriority.some((text, i) => values[i] !== text))) {
+      violations.push("migratorioDashboardDispositionConflict");
+    }
+    if (view.render_output && disposition) {
+      const blocks = view.render_output.text.split(/^\s*RESULTADO DEL RECURSO\s*:?\s*$/m).slice(1);
+      if (blocks.length !== disposition.items.length || blocks.some((block, i) =>
+        !dispositionText(block).startsWith(dispositionText(disposition.items[i].text)))) {
+        violations.push("migratorioRenderedDispositionConflict");
+      }
+    }
+  }
   const expectedGovernance = resolveReportGovernance({
     ...c, case_analysis_mode: c.case_analysis_mode ?? full.case_analysis_mode,
     procedural_posture: c.procedural_posture ?? obj(full.case_identity).procedural_posture ?? full.procedural_posture,
