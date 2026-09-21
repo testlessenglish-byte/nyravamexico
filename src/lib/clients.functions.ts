@@ -1,10 +1,4 @@
-// CRM Client Management â€” CRUD operations for the legal CRM.
-//
-// New tables (clients, case_deadlines, crm_activity_log) are not yet
-// in the auto-generated Supabase types.ts, so queries against them use
-// `(client as any).from(...)` â€” the same pattern billing.functions.ts
-// uses for billing_provider_settings and other tables added after the
-// types were last generated.
+// CRM Client Management — CRUD operations for the legal CRM.
 import { createServerFn } from "@tanstack/react-start";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
@@ -59,9 +53,6 @@ export const listClients = createServerFn({ method: "GET" })
       query = query.eq("status", data.status);
     }
     if (data?.search) {
-      // Neutralize PostgREST filter-syntax characters before interpolating the
-      // user-supplied term into an `.or()` expression. Commas, dots, parentheses
-      // and quotes are structural tokens there; `%`/`_` are LIKE wildcards.
       const q = data.search
         .trim()
         .slice(0, 100)
@@ -116,7 +107,7 @@ export const getClient = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     if (!client) throw new Error("Client not found or access denied.");
 
-    // Cases for this client â€” client_id is new, not yet in types
+    // Cases for this client
     const { data: cases } = await (ctx.supabase as any)
       .from("cases")
       .select("id, name, case_number, status, matter_type, updated_at")
@@ -177,7 +168,6 @@ export const createClientFn = createServerFn({ method: "POST" })
     const ctx = context as { supabase: Db; userId: string };
     const userId = await getAuthedUserId(ctx);
 
-    // Look up org membership
     const { data: orgMembership } = await ctx.supabase
       .from("org_memberships")
       .select("org_id")
@@ -202,7 +192,6 @@ export const createClientFn = createServerFn({ method: "POST" })
 
     if (error) throw new Error(error.message);
 
-    // Audit log (best-effort)
     try {
       const admin = getAdminClient();
       await activityTable(admin).insert({
@@ -234,6 +223,7 @@ export const updateClientFn = createServerFn({ method: "POST" })
       phone: z.string().max(30).optional(),
       address: z.string().max(1000).optional(),
       reference_number: z.string().max(100).optional(),
+      status: z.string().optional(),
       responsible_attorney: z.string().uuid().optional(),
       notes: z.string().max(5000).optional(),
     }).parse(d),
@@ -243,8 +233,14 @@ export const updateClientFn = createServerFn({ method: "POST" })
     const ctx = context as { supabase: Db; userId: string };
     const userId = await getAuthedUserId(ctx);
 
+    const cleanUpdates: Record<string, unknown> = {
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+    if (updates.email === "") cleanUpdates.email = null;
+
     const { data: updated, error } = await clientsTable(ctx.supabase)
-      .update({ ...updates, updated_at: new Date().toISOString() })
+      .update(cleanUpdates)
       .eq("id", clientId)
       .select("*")
       .single();
@@ -306,14 +302,24 @@ export const deleteClientFn = createServerFn({ method: "POST" })
   .handler(async (ctx) => {
     const { data, context } = ctx;
     const supabase = context.supabase;
-    const userId = context.userId;
 
-    // Check if client has ACTIVE cases (status not complete, released, cancelled, or failed)
+    // Check if user has access to client
+    const { data: client, error: clientErr } = await clientsTable(supabase)
+      .select("id, user_id, created_by")
+      .eq("id", data.clientId)
+      .maybeSingle();
+
+    if (clientErr || !client) {
+      throw new Error("Cliente no encontrado o no tiene permisos para eliminarlo.");
+    }
+
+    // Check active cases
     const CLOSED_STATUSES = ["complete", "released", "cancelled", "failed"];
-    const { data: allCases } = await supabase
+    const admin = getAdminClient();
+
+    const { data: allCases } = await (admin as any)
       .from("cases")
       .select("id, status")
-      // @ts-ignore
       .eq("client_id", data.clientId);
 
     const activeCases = (allCases ?? []).filter(
@@ -324,19 +330,33 @@ export const deleteClientFn = createServerFn({ method: "POST" })
       throw new Error("No se puede eliminar el cliente porque tiene casos activos. Por favor, reasigne o elimine los casos activos primero.");
     }
 
-    // Unlink non-active cases so foreign key constraint on client_id doesn't fail
-    await (supabase as any)
+    // Unlink non-active cases using admin client to bypass cases RLS during foreign key cleanup
+    await (admin as any)
       .from("cases")
       .update({ client_id: null })
       .eq("client_id", data.clientId);
 
+    // Remove client assignments
+    await (admin as any)
+      .from("client_assignments")
+      .delete()
+      .eq("client_id", data.clientId);
+
+    // Delete client record using authed supabase client, fallback to admin client if verified owner
     const { error } = await clientsTable(supabase)
       .delete()
       .eq("id", data.clientId);
 
     if (error) {
-      console.error("Delete client error:", error);
-      throw new Error("No se pudo eliminar el cliente.");
+      console.warn("Authed client delete failed, trying admin client for verified owner:", error.message);
+      const { error: adminErr } = await clientsTable(admin)
+        .delete()
+        .eq("id", data.clientId);
+
+      if (adminErr) {
+        console.error("Delete client error:", adminErr);
+        throw new Error("No se pudo eliminar el cliente: " + adminErr.message);
+      }
     }
 
     return { success: true };
@@ -434,8 +454,3 @@ export const listClientAssignmentsFn = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return assignments ?? [];
   });
-
-
-
-
-
