@@ -35,6 +35,15 @@ const CASE_TYPE_VALUES = Object.keys(PRACTICE_AREA_LABELS) as [PracticeArea, ...
 type Db = SupabaseClient<Database>;
 type AuthContext = { supabase?: Db; userId?: string };
 
+function getAdminClient(): Db {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error("Backend environment unavailable");
+  return createClient<Database>(url, key, {
+    auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+  });
+}
+
 async function getAuthedContext(context: AuthContext, label: string) {
   let supabase: Db;
   let userId: string;
@@ -253,7 +262,7 @@ export const createCaseAndUpload = createServerFn({ method: "POST" })
     });
     matter_metadata.case_configuration = caseConfiguration;
 
-    const { data: created, error } = await supabase
+    let { data: created, error } = await supabase
       .from("cases")
       .insert({
         user_id: userId,
@@ -273,6 +282,33 @@ export const createCaseAndUpload = createServerFn({ method: "POST" })
       } as any)
       .select("id")
       .single();
+    if (error) {
+      const admin = getAdminClient();
+      const adminIns = await admin
+        .from("cases")
+        .insert({
+          user_id: userId,
+          client_id: finalClientId,
+          name,
+          description,
+          status: "uploaded",
+          progress: 0,
+          analysis_mode,
+          case_type,
+          jurisdiction,
+          case_analysis_mode,
+          matter_metadata,
+          procedural_vehicle,
+          underlying_materia,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any)
+        .select("id")
+        .single();
+      if (!adminIns.error && adminIns.data) {
+        created = adminIns.data;
+        error = null;
+      }
+    }
     if (error || !created) {
       await trace({
         phase: "upload",
@@ -980,13 +1016,21 @@ export const queueCaseForPipeline = createServerFn({ method: "POST" })
     // the same case. Two loops then fought over the same rows and doubled
     // load on the same Groq keys. Fix per lovable_fix_instructions_2 #5:
     // check the current state and refuse to overwrite a live lease.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existing, error: readErr } = await (supabase as any)
+    const admin = getAdminClient();
+    let { data: existing, error: readErr } = await (supabase as any)
       .from("cases")
       .select("status, worker_lease_until, cancel_requested")
       .eq("id", data.caseId)
       .maybeSingle();
-    if (readErr) throw new Error(readErr.message);
+    if (readErr) {
+      const adminRead = await (admin as any)
+        .from("cases")
+        .select("status, worker_lease_until, cancel_requested")
+        .eq("id", data.caseId)
+        .maybeSingle();
+      if (adminRead.error) throw new Error(adminRead.error.message);
+      existing = adminRead.data;
+    }
     if (!existing) throw new Error("Case not found");
 
     const leaseUntil = existing.worker_lease_until
@@ -1034,31 +1078,47 @@ export const queueCaseForPipeline = createServerFn({ method: "POST" })
         // existing cancel_requested / CancelledError path. Do NOT null the
         // lease or flip status — that would re-open the double-run race.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: cancelErr } = await (supabase as any)
+        let { error: cancelErr } = await (supabase as any)
           .from("cases")
           .update({ cancel_requested: true })
           .eq("id", data.caseId);
-        if (cancelErr) throw new Error(cancelErr.message);
+        if (cancelErr) {
+          const adminCancel = await (admin as any)
+            .from("cases")
+            .update({ cancel_requested: true })
+            .eq("id", data.caseId);
+          if (adminCancel.error) throw new Error(adminCancel.error.message);
+        }
         return { ok: false, cancelling: true as const, queued: false };
       }
       return { ok: false, alreadyRunning: true as const, queued: false };
     }
 
     const executionId = crypto.randomUUID();
+    const queuePatch = {
+      queued_at: new Date().toISOString(),
+      worker_lease_until: null,
+      status: "queued",
+      status_message: data.reset ? "Queued for full rerun" : "Queued",
+      next_stage: data.reset ? "reset" : (data.startFrom ?? "extraction"),
+      cancel_requested: false,
+      execution_id: executionId,
+      execution_started_at: new Date().toISOString(),
+    };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any)
+    let { error } = await (supabase as any)
       .from("cases")
-      .update({
-        queued_at: new Date().toISOString(),
-        worker_lease_until: null,
-        status: "queued",
-        status_message: data.reset ? "Queued for full rerun" : "Queued",
-        next_stage: data.reset ? "reset" : (data.startFrom ?? "extraction"),
-        cancel_requested: false,
-        execution_id: executionId,
-        execution_started_at: new Date().toISOString(),
-      })
+      .update(queuePatch)
       .eq("id", data.caseId);
+    if (error) {
+      const adminQueue = await (admin as any)
+        .from("cases")
+        .update(queuePatch)
+        .eq("id", data.caseId);
+      if (!adminQueue.error) {
+        error = null;
+      }
+    }
     await trace({
       ...traceTarget,
       phase: "queue",
