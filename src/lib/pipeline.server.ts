@@ -10256,9 +10256,13 @@ ${paginationTail}`;
       if (!savedFullReport || Object.keys(savedFullReport).length === 0) {
         throw new Error("REPORT_PERSISTENCE_INVARIANT_FAILED: full_report is empty after upsert");
       }
+      if (!savedAny.execution_id) {
+        throw new Error("REPORT_PERSISTENCE_INVARIANT_FAILED: execution_id is null after upsert");
+      }
       if (executionId && savedAny.execution_id !== executionId) {
         throw new Error(`REPORT_PERSISTENCE_INVARIANT_FAILED: execution_id mismatch. Expected ${executionId}, got ${savedAny.execution_id}`);
       }
+
     } else {
       throw new Error("REPORT_PERSISTENCE_INVARIANT_FAILED: no report row found after upsert");
     }
