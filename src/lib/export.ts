@@ -466,6 +466,11 @@ function renderDecisionCore(b: PdfBuilder, data: CaseExportData) {
     b.text(section.text, { size: 12, bold: true, gap: 5 });
     b.text(section.speaker_label + " · " + section.speaker_role, { size: 9, color: MUTED, gap: 5 });
   }
+  const history = presentation(data).procedural_history;
+  if (history?.length) {
+    b.h2("ANTECEDENTES PROCESALES — NO SON EL RESULTADO ACTUAL");
+    for (const item of history) b.text(item.text, { size: 10, gap: 5 });
+  }
 }
 
 const NAVY_TINT: [number, number, number] = [46, 20, 90]; // deep violet band (#2E1059), matches --primary-deep
