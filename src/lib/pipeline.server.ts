@@ -6948,15 +6948,24 @@ ${corpus.slice(0, REPORT_STAGE_CORPUS_CHARS)}${resolutivoAnchorBlock}${penalDisp
   }
   const persistChunkCache = async (name: ChunkName) => {
     try {
-      await db.from("reports").upsert(
-        {
-          case_id: caseId,
-          user_id: userId,
-          execution_id: executionId ?? null,
-          report_chunk_cache: { ...chunkCache, [name]: chunkParsedByName[name] } as unknown as Json,
-        },
-        { onConflict: "case_id" },
-      );
+      // UPDATE-ONLY. An upsert here could create (or, after a stale-row
+      // eviction, re-create) a `reports` row that has never held a report:
+      // `full_report` would take its `{}` column default and `execution_id`
+      // could be null. The chunk cache is a resumption optimisation and must
+      // never be able to author a report row. It also never clears or
+      // downgrades an execution id.
+      const patch: Record<string, unknown> = {
+        report_chunk_cache: { ...chunkCache, [name]: chunkParsedByName[name] } as unknown as Json,
+      };
+      if (executionId) patch.execution_id = executionId;
+      const { data: updated } = await db
+        .from("reports")
+        .update(patch as never)
+        .eq("case_id", caseId)
+        .select("id");
+      if (!updated || updated.length === 0) {
+        console.info(`[report:chunk] no report row yet for case ${caseId} — ${name} cache skipped`);
+      }
       chunkCache = { ...chunkCache, [name]: chunkParsedByName[name] };
     } catch (persistErr) {
       // Non-fatal: worst case this chunk just gets regenerated on the next
@@ -6965,6 +6974,7 @@ ${corpus.slice(0, REPORT_STAGE_CORPUS_CHARS)}${resolutivoAnchorBlock}${penalDisp
       console.warn(`[report:chunk] failed to persist ${name} to cache`, persistErr);
     }
   };
+
   const clearChunkCache = async () => {
     try {
       await db.from("reports").update({ report_chunk_cache: {} }).eq("case_id", caseId);
