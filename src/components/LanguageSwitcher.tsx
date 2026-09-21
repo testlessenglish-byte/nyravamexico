@@ -15,6 +15,42 @@ export function LanguageSwitcher({
 }) {
   const { locale, setLocale, t } = useI18n();
 
+  // In the mobile drawer, render direct tap buttons instead of a native
+  // <select>: the native picker is unreliable on phones when nested inside
+  // a modal sheet (picker fails to open / auto-zoom dismisses it).
+  if (variant === "sidebar") {
+    return (
+      <div
+        role="group"
+        aria-label={t("common.language")}
+        className={cn("grid grid-cols-2 gap-2", className)}
+      >
+        {LOCALES.map((l) => {
+          const active = locale === l;
+          return (
+            <button
+              key={l}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setLocale(l)}
+              className={cn(
+                "flex items-center justify-center gap-1.5 rounded-md border px-2 py-2 text-[11px] font-semibold tracking-[0.14em] uppercase transition",
+                active
+                  ? "border-primary/60 bg-primary/10 text-foreground"
+                  : "border-border bg-transparent text-muted-foreground hover:border-primary/50 hover:text-foreground",
+              )}
+            >
+              <span aria-hidden className="text-[13px] leading-none">
+                {FLAG[l]}
+              </span>
+              {l === "es" ? t("common.language.es") : t("common.language.en")}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   const sizing =
     variant === "sidebar" ? "px-2 py-1" : variant === "inline" ? "px-2 py-1" : "px-2.5 py-2";
 
