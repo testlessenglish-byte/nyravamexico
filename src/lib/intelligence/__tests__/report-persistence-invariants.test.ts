@@ -5,6 +5,10 @@ import { describe, expect, it } from "vitest";
 const root = process.cwd();
 const pipeline = readFileSync(join(root, "src/lib/pipeline.server.ts"), "utf8");
 const runner = readFileSync(join(root, "src/lib/pipeline-runner.server.ts"), "utf8");
+const derivedEngines = readFileSync(
+  join(root, "src/lib/intelligence/derived-engines.server.ts"),
+  "utf8",
+);
 
 function chunkCacheBlock(): string {
   const start = pipeline.indexOf("const persistChunkCache");
@@ -48,5 +52,14 @@ describe("report persistence invariants", () => {
   it("the report save verifies read-back before completing", () => {
     expect(pipeline).toContain("REPORT_PERSISTENCE_INVARIANT_FAILED: full_report is empty after upsert");
     expect(pipeline).toContain("REPORT_PERSISTENCE_INVARIANT_FAILED: execution_id mismatch");
+  });
+
+  it("a needs-revision report is preserved during derived-engine diagnostics", () => {
+    const invalidation = derivedEngines.slice(
+      derivedEngines.indexOf("async function invalidateReleasedSnapshot"),
+      derivedEngines.indexOf("export async function deriveContradictions"),
+    );
+    expect(invalidation).toContain('new Set(["released", "complete"])');
+    expect(invalidation).not.toContain('"needs_revision"]');
   });
 });
