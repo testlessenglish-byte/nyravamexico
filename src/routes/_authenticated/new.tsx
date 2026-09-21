@@ -1,4 +1,4 @@
-﻿import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -105,12 +105,6 @@ function NewCasePage() {
     }
     if (!caseType) {
       toast.error(t("new.toast.needCaseType"));
-      return;
-    }
-    if (caseType === "migratorio" && !immigrationSubtype) {
-      toast.error(
-        locale === "es" ? "Selecciona el subtipo migratorio." : "Select an immigration subtype.",
-      );
       return;
     }
 
@@ -399,15 +393,21 @@ function NewCasePage() {
             <div className="space-y-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
               <div>
                 <label className="text-sm font-medium">
-                  {locale === "es" ? "Subtipo migratorio" : "Immigration subtype"}
+                  {locale === "es" ? "Subtipo migratorio" : "Immigration subtype"}{" "}
+                  <span className="text-muted-foreground font-normal">({locale === "es" ? "Opcional — Auto-clasificación por IA" : "Optional — AI Auto-classification"})</span>
                 </label>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {locale === "es"
+                    ? "Si lo dejas en blanco, Nyrava analizará los documentos cargados para determinar automáticamente el subtipo de la taxonomía (73 subtipos), la autoridad y la postura procesal."
+                    : "If left blank, Nyrava will analyze uploaded documents to automatically determine the taxonomy subtype (73 subtypes), authority, and procedural posture."}
+                </p>
                 <select
                   value={immigrationSubtype}
                   onChange={(e) => setImmigrationSubtype(e.target.value)}
                   className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
                   <option value="">
-                    {locale === "es" ? "Selecciona un subtipo" : "Select a subtype"}
+                    {locale === "es" ? "Auto-detectar desde documentos (o selecciona un subtipo)" : "Auto-detect from documents (or select a subtype)"}
                   </option>
                   {IMMIGRATION_SUBTYPES.map(([key, es, en]) => (
                     <option key={key} value={key}>
