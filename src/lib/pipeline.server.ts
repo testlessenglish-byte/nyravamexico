@@ -10172,6 +10172,25 @@ ${paginationTail}`;
     );
   }
 
+  // Never persist a report without the execution that produced it. A failed
+  // stamping attempt above must not silently leave `execution_id` null.
+  if (!reportRow.execution_id) {
+    const { data: retryCase } = await (db as any)
+      .from("cases")
+      .select("execution_id")
+      .eq("id", caseId)
+      .maybeSingle();
+    const retryExecutionId =
+      executionId ?? ((retryCase as { execution_id?: string | null } | null)?.execution_id ?? null);
+    if (!retryExecutionId) {
+      throw new Error(
+        "REPORT_PERSISTENCE_INVARIANT_FAILED: no execution_id available for the report being saved",
+      );
+    }
+    reportRow.execution_id = retryExecutionId;
+  }
+
+
   // Last composition checkpoint. Export/HTML repeat this same contract check
   // on their actual payload (which can include newer live findings).
   const { composeFinalReportPayload, validateFinalReportContract } = await import("./reporting/final-report-contract");
@@ -10237,9 +10256,13 @@ ${paginationTail}`;
       if (!savedFullReport || Object.keys(savedFullReport).length === 0) {
         throw new Error("REPORT_PERSISTENCE_INVARIANT_FAILED: full_report is empty after upsert");
       }
+      if (!savedAny.execution_id) {
+        throw new Error("REPORT_PERSISTENCE_INVARIANT_FAILED: execution_id is null after upsert");
+      }
       if (executionId && savedAny.execution_id !== executionId) {
         throw new Error(`REPORT_PERSISTENCE_INVARIANT_FAILED: execution_id mismatch. Expected ${executionId}, got ${savedAny.execution_id}`);
       }
+
     } else {
       throw new Error("REPORT_PERSISTENCE_INVARIANT_FAILED: no report row found after upsert");
     }

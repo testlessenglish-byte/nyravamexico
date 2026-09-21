@@ -54,6 +54,18 @@ describe("report persistence invariants", () => {
     expect(pipeline).toContain("REPORT_PERSISTENCE_INVARIANT_FAILED: execution_id mismatch");
   });
 
+  it("a report can never be saved or read back with a null execution_id", () => {
+    expect(pipeline).toContain(
+      "REPORT_PERSISTENCE_INVARIANT_FAILED: no execution_id available for the report being saved",
+    );
+    expect(pipeline).toContain(
+      "REPORT_PERSISTENCE_INVARIANT_FAILED: execution_id is null after upsert",
+    );
+    // Stamping failure must recover the execution id instead of continuing with null.
+    expect(pipeline).toContain("if (!reportRow.execution_id) {");
+  });
+
+
   it("a needs-revision report is preserved during derived-engine diagnostics", () => {
     const invalidation = derivedEngines.slice(
       derivedEngines.indexOf("async function invalidateReleasedSnapshot"),
