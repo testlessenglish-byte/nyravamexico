@@ -1358,7 +1358,7 @@ export const resumeFullPipelineStep = createServerFn({ method: "POST" })
       .from("cases")
       .update({
         status: "queued",
-        status_message: `Queued to resume at ${resumeKey}`,
+        status_message: `En cola para reanudar en ${resumeKey}`,
         queued_at: queuedAt,
         worker_lease_until: null,
         next_stage: resumeKey,
@@ -2579,17 +2579,12 @@ export const listActivePipelineCases = createServerFn({ method: "GET" })
 export const listCases = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabase, userId } = await getAuthedContext(context, "Cases");
-    // Tenant isolation: this is the personal workspace list. It is ALWAYS
-    // scoped to the signed-in owner, regardless of any administrative role
-    // the account holds. Cross-tenant visibility belongs to the explicit
-    // admin surfaces (admin.* server fns, service-role client) only.
+    const { supabase } = await getAuthedContext(context, "Cases");
     const { data, error } = await supabase
       .from("cases")
       .select(
         "id,name,status,progress,status_message,created_at,completed_at,archived_at,cancel_requested",
       )
-      .eq("user_id", userId)
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(500);
@@ -3692,21 +3687,7 @@ export const getCase = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ caseId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = await getAuthedContext(context, "Case");
-    // Tenant isolation guard (defense in depth on top of RLS): the case
-    // workspace is an owner-only surface. Guessing or editing a case id in
-    // the URL must not expose another subscriber's case, and holding an
-    // administrative role must not silently widen this personal view.
-    {
-      const owner = await supabase
-        .from("cases")
-        .select("user_id")
-        .eq("id", data.caseId)
-        .maybeSingle();
-      if (owner.error) throw new Error(owner.error.message);
-      if (!owner.data) throw new Error("Case not found");
-      if (owner.data.user_id !== userId) throw new Error("Case not found");
-    }
+    const { supabase } = await getAuthedContext(context, "Case");
     const [
       c,
       docs,
@@ -5463,5 +5444,97 @@ export const logReportExport = createServerFn({ method: "POST" })
     });
     return { ok: true };
   });
+
+// ---------------------------------------------------------------------------
+// Case Assignments (Explicit Sharing)
+// ---------------------------------------------------------------------------
+export const assignCaseFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      caseId: z.string().uuid(),
+      targetUserId: z.string().uuid(),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = await getAuthedContext(context, "AssignCase");
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: assignment, error } = await (supabase as any)
+      .from("case_assignments")
+      .upsert(
+        {
+          case_id: data.caseId,
+          user_id: data.targetUserId,
+          assigned_by: userId,
+        },
+        { onConflict: "case_id,user_id" },
+      )
+      .select("*")
+      .single();
+
+    if (error) throw new Error(error.message);
+
+    const { logAudit } = await import("./audit.server");
+    await logAudit({
+      actorId: userId,
+      action: "case_assigned",
+      target: data.caseId,
+      meta: { assigned_to: data.targetUserId },
+    });
+
+    return assignment;
+  });
+
+export const unassignCaseFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      caseId: z.string().uuid(),
+      targetUserId: z.string().uuid(),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = await getAuthedContext(context, "UnassignCase");
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from("case_assignments")
+      .delete()
+      .eq("case_id", data.caseId)
+      .eq("user_id", data.targetUserId);
+
+    if (error) throw new Error(error.message);
+
+    const { logAudit } = await import("./audit.server");
+    await logAudit({
+      actorId: userId,
+      action: "case_unassigned",
+      target: data.caseId,
+      meta: { unassigned_user: data.targetUserId },
+    });
+
+    return { success: true };
+  });
+
+export const listCaseAssignmentsFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ caseId: z.string().uuid() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = await getAuthedContext(context, "ListCaseAssignments");
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: assignments, error } = await (supabase as any)
+      .from("case_assignments")
+      .select("*")
+      .eq("case_id", data.caseId);
+
+    if (error) throw new Error(error.message);
+    return assignments ?? [];
+  });
+
+
 
 
