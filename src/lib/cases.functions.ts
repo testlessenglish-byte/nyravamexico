@@ -2579,12 +2579,17 @@ export const listActivePipelineCases = createServerFn({ method: "GET" })
 export const listCases = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabase } = await getAuthedContext(context, "Cases");
+    const { supabase, userId } = await getAuthedContext(context, "Cases");
+    // Tenant isolation: this is the personal workspace list. It is ALWAYS
+    // scoped to the signed-in owner, regardless of any administrative role
+    // the account holds. Cross-tenant visibility belongs to the explicit
+    // admin surfaces (admin.* server fns, service-role client) only.
     const { data, error } = await supabase
       .from("cases")
       .select(
         "id,name,status,progress,status_message,created_at,completed_at,archived_at,cancel_requested",
       )
+      .eq("user_id", userId)
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(500);
@@ -3687,7 +3692,21 @@ export const getCase = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ caseId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { supabase } = await getAuthedContext(context, "Case");
+    const { supabase, userId } = await getAuthedContext(context, "Case");
+    // Tenant isolation guard (defense in depth on top of RLS): the case
+    // workspace is an owner-only surface. Guessing or editing a case id in
+    // the URL must not expose another subscriber's case, and holding an
+    // administrative role must not silently widen this personal view.
+    {
+      const owner = await supabase
+        .from("cases")
+        .select("user_id")
+        .eq("id", data.caseId)
+        .maybeSingle();
+      if (owner.error) throw new Error(owner.error.message);
+      if (!owner.data) throw new Error("Case not found");
+      if (owner.data.user_id !== userId) throw new Error("Case not found");
+    }
     const [
       c,
       docs,
