@@ -188,6 +188,8 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       // Signup flow only: start the plan with a 7-day free trial. A payment
       // method is still required up front; Stripe charges after the trial.
       trial: z.boolean().optional(),
+      cancelPath: z.string().optional(),
+      successPath: z.string().optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
@@ -243,12 +245,16 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       customer_email: payerEmail,
       line_items: [{ price: planRow.stripe_price_id, quantity: 1 }],
       ...(data.trial ? { payment_method_collection: "always" as const } : {}),
-      success_url: data.trial
-        ? `${data.origin}/dashboard?trial=started`
-        : `${data.origin}/billing?checkout=success&provider=stripe`,
-      cancel_url: data.trial
-        ? `${data.origin}/choose-plan?checkout=cancelled`
-        : `${data.origin}/billing?checkout=cancelled`,
+      success_url: data.successPath
+        ? `${data.origin}${data.successPath}`
+        : data.trial
+          ? `${data.origin}/dashboard?trial=started`
+          : `${data.origin}/billing?checkout=success&provider=stripe`,
+      cancel_url: data.cancelPath
+        ? `${data.origin}${data.cancelPath}`
+        : data.trial
+          ? `${data.origin}/choose-plan?checkout=cancelled`
+          : `${data.origin}/billing?checkout=cancelled`,
       metadata: {
         user_id: userId,
         plan: planRow.key,
