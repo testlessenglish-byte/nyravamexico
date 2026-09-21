@@ -31,3 +31,11 @@
 - [x] Eliminate shared-header overflow across all public pages at 320–430px
 - [x] Keep navigation, language, sign-in, and platform access available in the mobile menu
 - [x] Verify every public route and mobile/PWA-style menu flow without horizontal scrolling
+
+## Legal workspace privacy and team access (Sep 21)
+- [ ] Establish one canonical workspace and explicit per-case assignment model
+- [ ] Replace owner/admin/firm/org shortcuts with centralized case authorization across legal-work tables
+- [ ] Harden client/CRM visibility, storage objects, downloads, search, APIs, RPCs, and background jobs
+- [ ] Reconcile existing ownership/workspace links without deleting or reassigning legal work
+- [ ] Add owner assignment controls and assigned-case views for team members
+- [ ] Prove individual, team-owner, worker, cross-team, admin, direct-ID, and revocation boundaries through backend and UI tests
