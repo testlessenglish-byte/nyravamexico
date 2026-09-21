@@ -105,11 +105,11 @@ export function isMigratorioHistoricalDecision(item: { speaker_role?: unknown; p
 
 /** Compare source-anchored orders, not word overlap. The canonical disposition
  * lane is verbatim by contract, so paraphrases cannot invert its legal effect. */
-export function matchesMigratorioDisposition(expected: MigratorioDisposition | undefined, items: Array<{id: string; kind: string; text: string}>): boolean {
+export function matchesMigratorioDisposition(expected: MigratorioDisposition | undefined, items: Array<{id?: unknown; kind?: unknown; text?: unknown}>): boolean {
   if (expected?.version !== 1 || expected.status !== "verified" || !expected.items.length) return false;
   const actual = items.filter(i => i.kind === "DISPOSITION" || i.kind === "RESOLUTIVOS");
   return actual.length === expected.items.length && actual.every((item, i) =>
-    item.id === expected.items[i].id && dispositionText(item.text) === dispositionText(expected.items[i].text)) &&
+    item.id === expected.items[i].id && typeof item.text === "string" && dispositionText(item.text) === dispositionText(expected.items[i].text)) &&
     expected.items.every(item => item.source_refs.some(ref => ref.document_id && ref.quote &&
       dispositionText(item.text).endsWith(dispositionText(ref.quote))));
 }
