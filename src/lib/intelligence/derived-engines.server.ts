@@ -81,7 +81,10 @@ async function invalidateReleasedSnapshot(db: Db, caseId: string, source: string
   if (readError) throw new Error(`[${source}] failed reading case state: ${readError.message}`);
 
   const currentStatus = String(caseRow?.status ?? "");
-  const terminal = new Set(["released", "complete", "needs_revision"]);
+  // `needs_revision` is a preserved blocked draft, not a released snapshot.
+  // Diagnostic/derived reruns must never delete the report that explains why
+  // release was blocked.
+  const terminal = new Set(["released", "complete"]);
   if (!terminal.has(currentStatus)) return;
 
   const derivedTables = ["report_versions", "canonical_analysis", "reports"] as const;

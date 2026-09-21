@@ -48,6 +48,7 @@ import {
   type LegalAuthorityCitation,
   type PrecedentCitation,
 } from "./decision-reconstruction";
+import { extractPublishedThesisHoldings } from "./thesis-decision-fallback";
 
 type Db = SupabaseClient<Database>;
 const MODEL = GROQ_DEFAULT_MODEL;
@@ -534,6 +535,14 @@ ${corpusText}`,
   reconstruction.court_holding = (Array.isArray(parsed.court_holding) ? parsed.court_holding : [])
     .map((item: unknown) => toProposition(item, corpus, docs))
     .filter((x: ReconstructedProposition | null): x is ReconstructedProposition => x !== null);
+
+  // A published tesis states its authoritative holding under the labelled
+  // `Criterio jurídico` section. If the model paraphrased that passage, the
+  // verifier above correctly discarded it; recover the exact source text
+  // rather than leaving an otherwise verifiable decision core empty.
+  if (!reconstruction.court_holding.some((item) => item.status === "PRESENT")) {
+    reconstruction.court_holding = extractPublishedThesisHoldings(docs, corpus.pageChars);
+  }
 
   const disposition = toSourced(
     parsed.disposition_remedy,
