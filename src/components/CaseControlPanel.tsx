@@ -436,7 +436,7 @@ function CollapsedCaseSettings({
       {!open && (
         <div className="px-4 pb-3 flex flex-wrap gap-1.5 text-[11px]">
           {ct && <span className="rounded bg-primary/10 px-2 py-0.5 text-primary font-medium">{ct}</span>}
-          {ct === "migratorio" && matterMetadata?.immigration_subtype_label_es && (
+          {ct === "migratorio" && Boolean(matterMetadata?.immigration_subtype_label_es) && (
             <span className={`rounded px-2 py-0.5 text-xs font-medium flex items-center gap-1 ${
               matterMetadata.immigration_subtype_source === "system_detected"
                 ? "bg-purple-500/15 text-purple-600 border border-purple-500/30"

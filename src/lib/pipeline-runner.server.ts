@@ -1506,7 +1506,7 @@ async function _runPipelineForCase(
     | { kind: "checkpoint_before_start" | "checkpoint" | "cancelled" | "checkpoint_loop_aborted"; index: number }
     | { kind: "fatal_failed"; message: string }
   > {
-    if (s.engine === "report_generator") {
+    if (engineForStage(s.key as PipelineStageKey) === "report_generator") {
       const { getReportReadiness } = await import("@/lib/execution/canonical");
       const { data: currentRuns } = await (supabase as any).from("pipeline_engine_runs").select("*").eq("case_id", caseId);
       const readiness = getReportReadiness(currentRuns ?? []);
