@@ -1048,6 +1048,38 @@ export type Database = {
           },
         ]
       }
+      case_assignments: {
+        Row: {
+          assigned_by: string | null
+          case_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_by?: string | null
+          case_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          assigned_by?: string | null
+          case_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_assignments_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       case_chat_messages: {
         Row: {
           case_id: string
@@ -2930,6 +2962,38 @@ export type Database = {
             columns: ["resolved_authority_id"]
             isOneToOne: false
             referencedRelation: "legal_authorities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_assignments: {
+        Row: {
+          assigned_by: string | null
+          client_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_by?: string | null
+          client_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          assigned_by?: string | null
+          client_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_assignments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
@@ -11202,6 +11266,14 @@ export type Database = {
       assign_social_case_manager: {
         Args: { p_case: string; p_role?: string; p_user: string }
         Returns: undefined
+      }
+      can_access_case: {
+        Args: { _case_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_access_client: {
+        Args: { _client_id: string; _user_id: string }
+        Returns: boolean
       }
       can_contribute_org: {
         Args: { _org: string; _user: string }
