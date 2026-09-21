@@ -114,7 +114,7 @@ const NEGATION_MARKER =
 // Comparison / contrast / analogy / scope limitation — the term is being
 // distinguished from, or bounded away from, what governs this matter.
 const COMPARISON_MARKER =
-  /\b(?:a\s+diferencia\s+de|en\s+contraste|contrasta|mientras\s+que|por\s+analog[ií]a|an[aá]log[oa]|equivalente|s[oó]lo|solo|[uú]nicamente|propio\s+del|propia\s+del|distinto\s+de|unlike|whereas|by\s+analogy|only\s+applies)\b/i;
+  /\b(?:a\s+diferencia\s+del?|en\s+contraste|contrasta|mientras\s+que|por\s+analog[ií]a|an[aá]log[oa]|equivalente|s[oó]lo|solo|[uú]nicamente|propio\s+del|propia\s+del|distinto\s+del?|unlike|whereas|by\s+analogy|only\s+applies)\b/i;
 
 // Attribution — someone else's assertion, not the report's own. Deliberately
 // NOT sufficient on its own: "La SCJN sostuvo que el Ministerio Público debe
