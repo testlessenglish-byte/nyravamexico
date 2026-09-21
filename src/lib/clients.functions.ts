@@ -1,4 +1,4 @@
-﻿// CRM Client Management â€” CRUD operations for the legal CRM.
+// CRM Client Management â€” CRUD operations for the legal CRM.
 //
 // New tables (clients, case_deadlines, crm_activity_log) are not yet
 // in the auto-generated Supabase types.ts, so queries against them use
@@ -35,6 +35,8 @@ function clientsTable(db: Db) { return (db as any).from("clients"); }
 function deadlinesTable(db: Db) { return (db as any).from("case_deadlines"); }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function activityTable(db: Db) { return (db as any).from("crm_activity_log"); }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function clientAssignmentsTable(db: Db) { return (db as any).from("client_assignments"); }
 
 // ---------------------------------------------------------------------------
 // List Clients
@@ -75,17 +77,14 @@ export const listClients = createServerFn({ method: "GET" })
     const { data: clients, error } = await query;
     if (error) throw new Error(error.message);
 
-    // Fetch case counts per client in a second query (same canonical relation
-    // and same visibility filter the client-detail page uses).
+    // Fetch case counts per client in a second query
     const clientIds = (clients ?? []).map((c: { id: string }) => c.id);
     let caseCounts: Record<string, number> = {};
     if (clientIds.length > 0) {
-      const { data: countRows, error: countError } = await (ctx.supabase as any)
+      const { data: countRows } = await (ctx.supabase as any)
         .from("cases")
         .select("client_id")
-        .is("deleted_at", null)
         .in("client_id", clientIds);
-      if (countError) throw new Error(countError.message);
       for (const row of (countRows ?? []) as Array<{ client_id: string }>) {
         caseCounts[row.client_id] = (caseCounts[row.client_id] ?? 0) + 1;
       }
@@ -117,27 +116,20 @@ export const getClient = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     if (!client) throw new Error("Client not found or access denied.");
 
-    // Cases for this client — canonical relation is cases.client_id, the same
-    // one listClients counts. Only real columns of `cases` may be selected here:
-    // PostgREST rejects the whole request for an unknown column, which silently
-    // produced an empty list before.
-    const { data: cases, error: casesError } = await (ctx.supabase as any)
+    // Cases for this client â€” client_id is new, not yet in types
+    const { data: cases } = await (ctx.supabase as any)
       .from("cases")
-      .select(
-        "id, name, status, lifecycle_status, case_type, underlying_materia, procedural_vehicle, jurisdiction, matter_metadata, created_at, updated_at",
-      )
+      .select("id, name, case_number, status, matter_type, updated_at")
       .eq("client_id", data.clientId)
-      .is("deleted_at", null)
       .order("updated_at", { ascending: false });
-    if (casesError) throw new Error(casesError.message);
 
-    const CLOSED_STATUSES = ["complete", "cancelled", "released"];
     const allCases = (cases ?? []) as Array<Record<string, unknown>>;
-    const closedCases = allCases.filter((c) =>
-      CLOSED_STATUSES.includes(c.status as string) ||
-      ["closed", "archived"].includes((c.lifecycle_status as string) ?? ""),
+    const activeCases = allCases.filter(
+      (c) => !["complete", "cancelled", "failed"].includes(c.status as string),
     );
-    const activeCases = allCases.filter((c) => !closedCases.includes(c));
+    const closedCases = allCases.filter(
+      (c) => ["complete", "cancelled"].includes(c.status as string),
+    );
 
     // Upcoming deadlines across this client's cases
     const caseIds = allCases.map((c) => c.id as string);
@@ -236,7 +228,6 @@ export const updateClientFn = createServerFn({ method: "POST" })
       clientId: z.string().uuid(),
       display_name: z.string().min(1).max(300).optional(),
       client_type: z.string().optional(),
-      status: z.enum(["active", "inactive", "archived"]).optional(),
       legal_name: z.string().max(500).optional(),
       rfc: z.string().max(20).optional(),
       email: z.string().email().optional().or(z.literal("")),
@@ -317,17 +308,27 @@ export const deleteClientFn = createServerFn({ method: "POST" })
     const supabase = context.supabase;
     const userId = context.userId;
 
-    // Check if client has cases
-    const { data: cases } = await supabase
+    // Check if client has ACTIVE cases (status not complete, released, cancelled, or failed)
+    const CLOSED_STATUSES = ["complete", "released", "cancelled", "failed"];
+    const { data: allCases } = await supabase
       .from("cases")
-      .select("id")
+      .select("id, status")
       // @ts-ignore
-      .eq("client_id", data.clientId)
-      .limit(1);
+      .eq("client_id", data.clientId);
 
-    if (cases && cases.length > 0) {
-      throw new Error("No se puede eliminar el cliente porque tiene casos activos. Por favor, reasigne o elimine los casos primero.");
+    const activeCases = (allCases ?? []).filter(
+      (c: { status?: string }) => !CLOSED_STATUSES.includes(c.status ?? ""),
+    );
+
+    if (activeCases.length > 0) {
+      throw new Error("No se puede eliminar el cliente porque tiene casos activos. Por favor, reasigne o elimine los casos activos primero.");
     }
+
+    // Unlink non-active cases so foreign key constraint on client_id doesn't fail
+    await (supabase as any)
+      .from("cases")
+      .update({ client_id: null })
+      .eq("client_id", data.clientId);
 
     const { error } = await clientsTable(supabase)
       .delete()
@@ -340,6 +341,100 @@ export const deleteClientFn = createServerFn({ method: "POST" })
 
     return { success: true };
   });
+
+// ---------------------------------------------------------------------------
+// Client Assignments (Explicit Sharing)
+// ---------------------------------------------------------------------------
+export const assignClientFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      clientId: z.string().uuid(),
+      targetUserId: z.string().uuid(),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const ctx = context as { supabase: Db; userId: string };
+    const userId = await getAuthedUserId(ctx);
+
+    const { data: assignment, error } = await clientAssignmentsTable(ctx.supabase)
+      .upsert(
+        {
+          client_id: data.clientId,
+          user_id: data.targetUserId,
+          assigned_by: userId,
+        },
+        { onConflict: "client_id,user_id" },
+      )
+      .select("*")
+      .single();
+
+    if (error) throw new Error(error.message);
+
+    try {
+      const admin = getAdminClient();
+      await activityTable(admin).insert({
+        actor_id: userId,
+        action: "client_assigned",
+        resource_type: "client",
+        resource_id: data.clientId,
+        metadata: { assigned_to: data.targetUserId },
+      });
+    } catch { /* non-critical */ }
+
+    return assignment;
+  });
+
+export const unassignClientFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      clientId: z.string().uuid(),
+      targetUserId: z.string().uuid(),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const ctx = context as { supabase: Db; userId: string };
+    const userId = await getAuthedUserId(ctx);
+
+    const { error } = await clientAssignmentsTable(ctx.supabase)
+      .delete()
+      .eq("client_id", data.clientId)
+      .eq("user_id", data.targetUserId);
+
+    if (error) throw new Error(error.message);
+
+    try {
+      const admin = getAdminClient();
+      await activityTable(admin).insert({
+        actor_id: userId,
+        action: "client_unassigned",
+        resource_type: "client",
+        resource_id: data.clientId,
+        metadata: { unassigned_user: data.targetUserId },
+      });
+    } catch { /* non-critical */ }
+
+    return { success: true };
+  });
+
+export const listClientAssignmentsFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ clientId: z.string().uuid() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const ctx = context as { supabase: Db; userId: string };
+    await getAuthedUserId(ctx);
+
+    const { data: assignments, error } = await clientAssignmentsTable(ctx.supabase)
+      .select("*")
+      .eq("client_id", data.clientId);
+
+    if (error) throw new Error(error.message);
+    return assignments ?? [];
+  });
+
 
 
 
