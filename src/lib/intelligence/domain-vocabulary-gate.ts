@@ -104,24 +104,35 @@ export type DomainVocabularyCheck = {
 // ---------------------------------------------------------------------------
 
 // Markers that must GOVERN the term — i.e. appear in the same sentence before
-// it. A negation or attribution that follows the term does not excuse it
-// ("El Ministerio Público no participó" still asserts the institution acted).
-const GOVERNING_MARKERS: RegExp[] = [
-  // Attribution — someone else's assertion, not the report's own.
-  /\b(?:sostiene|sostuvo|argumenta|argument[oó]|alega|alegando|aleg[oó]|afirma|afirm[oó]|manifiesta|manifest[oó]|adujo|aduce|expres[oó]|refiere|refiri[oó]|invoca|invoc[oó]|se[nñ]ala|indica|considera|consideraron|declar[oó]|seg[uú]n|conforme\s+a|de\s+acuerdo\s+con|a\s+juicio\s+de|en\s+palabras\s+de|cita|citando|textualmente|argues|asserts|claims|according\s+to)\b/i,
-  // Negation / absence — the institution did not intervene.
-  /\b(?:no|sin|ausencia|carece|carec[ií]a|falta|nunca|tampoco|inexistente|omiti[oó]|omisi[oó]n|did\s+not|was\s+not|absence|no\s+evidence)\b/i,
-  // Comparison / contrast / analogy / scope limitation.
-  /\b(?:a\s+diferencia\s+de|en\s+contraste|contrasta|mientras\s+que|por\s+analog[ií]a|an[aá]log[oa]|equivalente|s[oó]lo|solo|[uú]nicamente|propio\s+del|propia\s+del|distinto\s+de|unlike|whereas|by\s+analogy|only\s+applies)\b/i,
-];
+// it. A negation that follows the term does not excuse it ("El Ministerio
+// Público no participó" still asserts the institution acted here).
 
-// Markers that make the whole sentence a reference rather than an assertion,
-// wherever they appear in it: authority titles/citations and explicit
-// cross-domain framing.
-const SENTENCE_MARKERS: RegExp[] = [
-  /\b(?:tesis|jurisprudencia|registro\s+digital|semanario\s+judicial|contradicci[oó]n\s+de\s+tesis|amparo\s+(?:directo|en\s+revisi[oó]n)|SCJN|CNPP|C[oó]digo\s+Nacional\s+de\s+Procedimientos\s+Penales|C[oó]digo\s+Penal|criterio\s+jurisprudencial|precedente)\b/i,
-  /\b(?:materia\s+penal|proceso\s+penal|procedimiento\s+penal|[aá]mbito\s+penal|sede\s+penal|causa\s+penal|v[ií]a\s+penal|derecho\s+penal|criminal\s+(?:proceedings?|procedure|matter))\b/i,
-];
+// Negation / absence — the institution did NOT intervene in this matter.
+const NEGATION_MARKER =
+  /\b(?:no|sin|ausencia|carece|carec[ií]a|falta|nunca|tampoco|inexistente|omiti[oó]|omisi[oó]n|did\s+not|was\s+not|absence|no\s+evidence)\b/i;
+
+// Comparison / contrast / analogy / scope limitation — the term is being
+// distinguished from, or bounded away from, what governs this matter.
+const COMPARISON_MARKER =
+  /\b(?:a\s+diferencia\s+de|en\s+contraste|contrasta|mientras\s+que|por\s+analog[ií]a|an[aá]log[oa]|equivalente|s[oó]lo|solo|[uú]nicamente|propio\s+del|propia\s+del|distinto\s+de|unlike|whereas|by\s+analogy|only\s+applies)\b/i;
+
+// Attribution — someone else's assertion, not the report's own. Deliberately
+// NOT sufficient on its own: "La SCJN sostuvo que el Ministerio Público debe
+// proteger a la víctima" still imports a penal institution as governing law
+// into a non-penal matter. It only neutralises the term when the sentence also
+// quotes, negates, limits, or expressly frames it as penal-domain.
+const ATTRIBUTION_MARKER =
+  /\b(?:sostiene|sostuvo|argumenta|argument[oó]|alega|alegando|aleg[oó]|afirma|afirm[oó]|manifiesta|manifest[oó]|adujo|aduce|expres[oó]|refiere|refiri[oó]|invoca|invoc[oó]|se[nñ]ala|indica|considera|consideraron|declar[oó]|seg[uú]n|conforme\s+a|de\s+acuerdo\s+con|a\s+juicio\s+de|en\s+palabras\s+de|cita|citando|textualmente|argues|asserts|claims|according\s+to)\b/i;
+
+// Authority titles/citations. Like attribution, a companion marker only.
+const AUTHORITY_MARKER =
+  /\b(?:tesis|jurisprudencia|registro\s+digital|semanario\s+judicial|contradicci[oó]n\s+de\s+tesis|criterio\s+jurisprudencial|precedente|SCJN)\b/i;
+
+// Explicit cross-domain framing — the sentence itself situates the term in the
+// penal domain (including penal statutes cited by name), so it is a reference
+// to another domain rather than a claim about this matter. Sufficient alone.
+const CROSS_DOMAIN_MARKER =
+  /\b(?:materia\s+penal|proceso\s+penal|procedimiento\s+penal|[aá]mbito\s+penal|sede\s+penal|causa\s+penal|v[ií]a\s+penal|derecho\s+penal|CNPP|C[oó]digo\s+Nacional\s+de\s+Procedimientos\s+Penales|C[oó]digo\s+Penal|criminal\s+(?:proceedings?|procedure|matter))\b/i;
 
 const QUOTE_SPAN = /«[^»]*»|“[^”]*”|"[^"]*"/g;
 
@@ -142,13 +153,20 @@ function isInsideQuote(sentence: string, index: number, length: number): boolean
 }
 
 /** True when this specific occurrence merely references the term rather than
- * asserting the institution acted in the present matter. */
+ * asserting the institution acted in, or governs, the present matter. */
 function isContextualOccurrence(sentence: string, index: number, length: number): boolean {
   if (isInsideQuote(sentence, index, length)) return true;
-  if (SENTENCE_MARKERS.some((rx) => rx.test(sentence))) return true;
+  if (CROSS_DOMAIN_MARKER.test(sentence)) return true;
   const governing = sentence.slice(0, index);
-  return GOVERNING_MARKERS.some((rx) => rx.test(governing));
+  if (NEGATION_MARKER.test(governing) || COMPARISON_MARKER.test(governing)) return true;
+  // Attribution/authority need a companion neutralising marker anywhere in the
+  // sentence; otherwise the attributed statement still imports the institution.
+  const attributed = ATTRIBUTION_MARKER.test(governing) || AUTHORITY_MARKER.test(governing);
+  return (
+    attributed && (NEGATION_MARKER.test(sentence) || COMPARISON_MARKER.test(sentence))
+  );
 }
+
 
 /**
  * Checks a finding's own text (title + description — NOT its cited quotes,
