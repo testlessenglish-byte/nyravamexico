@@ -175,23 +175,71 @@ export async function runEngine<T>(
     meta: { engine: args.engine, status: "running" },
   });
 
-  // Insert running row.
-  const { data: inserted, error: insertErr } = await db
-    .from("pipeline_engine_runs")
-    .insert({
-      case_id: args.caseId,
-      user_id: args.userId,
-      engine: args.engine,
-      status: "running",
-      started_at: startedAt,
-      execution_id: args.executionId ?? null,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      parent_engine: args.parentEngine ?? null,
-    } as never)
-    .select("id")
-    .maybeSingle();
+  // CLAIM an existing `queued` row before inserting.
+  //
+  // A checkpointed engine leaves its ledger row at status="queued" (see the
+  // catch block below) so the next worker tick resumes it. But
+  // `uniq_pipeline_engine_runs_active` is unique on (case_id, engine) for
+  // status IN ('queued','running'), so a plain INSERT of the resumed run hits
+  // a 23505 and — before this fix — was swallowed as "duplicate suppressed".
+  // The engine then never re-ran, its row stayed `queued` forever, and the
+  // runner's resume clamp rewound the pipeline to that stage on every tick:
+  // a case pinned at the same progress, re-running earlier stages minute
+  // after minute and never reaching the report (confirmed live on
+  // "Joe — Migratorio", 670 replayed witness rows, perspectives queued since
+  // the first tick). Resuming a checkpoint means taking over that row.
+  const claimQueuedRow = async (): Promise<string | null> => {
+    const { data, error } = await db
+      .from("pipeline_engine_runs")
+      .update({
+        status: "running",
+        started_at: startedAt,
+        ended_at: null,
+        error: null,
+        execution_id: args.executionId ?? null,
+      } as never)
+      .eq("case_id", args.caseId)
+      .eq("engine", args.engine)
+      .eq("status", "queued")
+      .select("id")
+      .maybeSingle();
+    if (error) {
+      console.warn(`[engine-audit] runEngine(${args.engine}) queued-row claim failed: ${error.message}`);
+      return null;
+    }
+    return (data as { id?: string } | null)?.id ?? null;
+  };
 
-  if (insertErr && isUniqueViolation(insertErr)) {
+  let rowId = await claimQueuedRow();
+
+  let insertErr: { code?: string; message?: string } | null = null;
+  if (!rowId) {
+    // Insert running row.
+    const { data: inserted, error } = await db
+      .from("pipeline_engine_runs")
+      .insert({
+        case_id: args.caseId,
+        user_id: args.userId,
+        engine: args.engine,
+        status: "running",
+        started_at: startedAt,
+        execution_id: args.executionId ?? null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        parent_engine: args.parentEngine ?? null,
+      } as never)
+      .select("id")
+      .maybeSingle();
+    insertErr = error;
+    rowId = (inserted as { id?: string } | null)?.id ?? null;
+
+    if (insertErr && isUniqueViolation(insertErr)) {
+      // Raced with a concurrent checkpoint write — try to claim it once more.
+      rowId = await claimQueuedRow();
+      if (rowId) insertErr = null;
+    }
+  }
+
+  if (!rowId && insertErr && isUniqueViolation(insertErr)) {
     await emitEvent(db, args.caseId, args.engine, `${labelEngine(args.engine)} ejecuci�n duplicada suprimida`, {
       level: "warn",
       meta: { engine: args.engine, status: "duplicate_suppressed" },
@@ -199,11 +247,11 @@ export async function runEngine<T>(
     console.info(`[engine-audit] runEngine(${args.engine}): unique violation duplicate run suppressed`);
     return undefined as unknown as T;
   }
-  if (insertErr || !inserted?.id) {
+  if (!rowId) {
     const reason = insertErr?.message ?? "insert returned no id";
     throw new Error(`runEngine(${args.engine}): failed to create ledger row — ${reason}`);
   }
-  const id = inserted.id;
+  const id = rowId;
   let terminalWritten = false;
 
   try {
