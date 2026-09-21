@@ -88,8 +88,8 @@ CREATE POLICY "Users can view fundraising profiles in their org"
   FOR SELECT
   USING (
     org_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid()
+      SELECT org_id FROM public.social_organization_members
+      WHERE user_id = auth.uid() AND status = 'active'
     )
   );
 
@@ -98,8 +98,8 @@ CREATE POLICY "Organization owners and admins can update fundraising profiles"
   FOR ALL
   USING (
     org_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid() AND role IN ('owner', 'admin', 'organization_owner', 'program_director', 'case_management_supervisor')
+      SELECT org_id FROM public.social_organization_members
+      WHERE user_id = auth.uid() AND status = 'active' AND role::text IN ('owner', 'admin', 'organization_owner', 'program_director', 'case_management_supervisor')
     )
   );
 
@@ -109,8 +109,8 @@ CREATE POLICY "Authenticated users can view campaigns in their org"
   FOR SELECT
   USING (
     org_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid()
+      SELECT org_id FROM public.social_organization_members
+      WHERE user_id = auth.uid() AND status = 'active'
     )
   );
 
@@ -125,8 +125,8 @@ CREATE POLICY "Staff can insert draft campaign requests"
   FOR INSERT
   WITH CHECK (
     org_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid()
+      SELECT org_id FROM public.social_organization_members
+      WHERE user_id = auth.uid() AND status = 'active'
     )
   );
 
@@ -135,8 +135,8 @@ CREATE POLICY "Organization admins can manage campaigns"
   FOR ALL
   USING (
     org_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid() AND role IN ('owner', 'admin', 'organization_owner', 'program_director', 'case_management_supervisor')
+      SELECT org_id FROM public.social_organization_members
+      WHERE user_id = auth.uid() AND status = 'active' AND role::text IN ('owner', 'admin', 'organization_owner', 'program_director', 'case_management_supervisor')
     )
   );
 
@@ -154,8 +154,8 @@ CREATE POLICY "Staff can view support offers for their org campaigns"
     campaign_id IN (
       SELECT id FROM public.social_community_campaigns
       WHERE org_id IN (
-        SELECT organization_id FROM public.organization_members
-        WHERE user_id = auth.uid()
+        SELECT org_id FROM public.social_organization_members
+        WHERE user_id = auth.uid() AND status = 'active'
       )
     )
   );
@@ -167,8 +167,8 @@ CREATE POLICY "Staff can update support offers for their org campaigns"
     campaign_id IN (
       SELECT id FROM public.social_community_campaigns
       WHERE org_id IN (
-        SELECT organization_id FROM public.organization_members
-        WHERE user_id = auth.uid()
+        SELECT org_id FROM public.social_organization_members
+        WHERE user_id = auth.uid() AND status = 'active'
       )
     )
   );

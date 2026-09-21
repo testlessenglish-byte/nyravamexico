@@ -78,10 +78,12 @@ AS $$
     SELECT 1 FROM public.organizations o
     WHERE o.id = check_org_id AND o.created_by = auth.uid()
   ) OR EXISTS (
-    SELECT 1 FROM public.organization_members om
-    WHERE om.organization_id = check_org_id
-      AND om.user_id = auth.uid()
-      AND om.role IN ('owner', 'organization_owner')
+    SELECT 1 FROM public.org_memberships m
+    WHERE m.org_id = check_org_id
+      AND m.user_id = auth.uid()
+      AND m.deleted_at IS NULL
+      AND m.status = 'active'
+      AND m.role_in_org::text IN ('owner', 'organization_owner')
   );
 $$;
 
