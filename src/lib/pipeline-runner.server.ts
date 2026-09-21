@@ -1717,24 +1717,29 @@ async function _runPipelineForCase(
       }
       if (s.key === "report") {
         // A resolved runner call is not sufficient: report completion means a
-        // persisted artifact for this exact execution exists.
+        // persisted, NON-EMPTY artifact for this exact execution exists.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: persistedReport, error: persistedReportError } = await (supabase as any)
           .from("reports")
-          .select("id,execution_id")
+          .select("id,execution_id,full_report")
           .eq("case_id", caseId)
           .maybeSingle();
+        const persistedFull = (persistedReport?.full_report ?? null) as Record<string, unknown> | null;
+        const emptyFull =
+          !persistedFull || typeof persistedFull !== "object" || Object.keys(persistedFull).length === 0;
         if (
           persistedReportError ||
           !persistedReport ||
+          emptyFull ||
           (executionId && persistedReport.execution_id !== executionId)
         ) {
           throw new Error(
-            `REPORT_PERSISTENCE_INVARIANT_FAILED: report_generator returned without a same-execution report row${
-              persistedReportError ? ` (${persistedReportError.message})` : ""
+            `REPORT_PERSISTENCE_INVARIANT_FAILED: report_generator returned without a same-execution, non-empty report row${
+              persistedReportError ? ` (${persistedReportError.message})` : emptyFull ? " (full_report empty)" : ""
             }`,
           );
         }
+
         // Report finished cleanly — reset the checkpoint backstop counter so a
         // later regenerate starts with a fresh budget.
         try {
