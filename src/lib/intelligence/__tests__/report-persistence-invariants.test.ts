@@ -30,8 +30,13 @@ describe("report persistence invariants", () => {
   });
 
   it("the chunk cache never writes full_report", () => {
-    expect(chunkCacheBlock()).not.toContain("full_report");
+    const code = chunkCacheBlock()
+      .split("\n")
+      .filter((line) => !line.trim().startsWith("//"))
+      .join("\n");
+    expect(code).not.toContain("full_report");
   });
+
 
   it("report_generator completion requires a same-execution, non-empty report", () => {
     const block = runner.slice(runner.indexOf('if (s.key === "report")'));
