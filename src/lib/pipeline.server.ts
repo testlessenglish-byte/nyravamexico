@@ -9054,6 +9054,21 @@ ${paginationTail}`;
           band: null,
         };
 
+  // Completed Migratorio reports: if every model sentence of the executive
+  // summary was scrubbed, rebuild it only from the verified, source-quoted
+  // decision core (no new legal content).
+  if (materiaForReport === "migratorio" && mandatoryDecisionCoreRequired && pick("executive_summary").trim().length < 80) {
+    const kindOrder = ["COURT_HOLDING", "DISPOSITION", "REMEDY", "CONTROLLING_ISSUE"];
+    const coreLines = mandatoryDecisionCore
+      .filter((i) => kindOrder.includes(i.kind) && i.adoption_status !== "historical" && i.adoption_status !== "rejected" && String(i.text ?? "").trim())
+      .sort((a, b) => kindOrder.indexOf(a.kind) - kindOrder.indexOf(b.kind))
+      .map((i) => String(i.text).trim());
+    if (coreLines.length) {
+      const lead = reportGeneratedLanguage === "en" ? "Decision summary (verified from the record):" : "Síntesis de la resolución (verificada en autos):";
+      prose.executive_summary = `${lead} ${coreLines.join(" ")}`;
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const reportRow: any = {
     case_id: caseId,
