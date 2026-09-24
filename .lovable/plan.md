@@ -1,27 +1,34 @@
-# Fix the held-back Family report (ADR 6433/2022)
+# Make held-back reports correct themselves and release, for every case type
 
-## What is actually happening
-Reports are not broken across the site. The last Immigration/Amparo reports (Joe Smith — Amparo, Jorge Espinal 2, Joe — Migratorio) all released. Only the newest case, **ADR 6433/2022 (Family)**, finished at 100% and was then held back by quality checks for three reasons:
+## What is happening
+Reports finish at 100%, then the quality checks hold them back (latest: ADR 6433/2022, Family). The same three causes repeat across case types:
 
-1. **Missing ruling point** — 1 of the 3 verified points from the court's decision does not appear in the summary or findings.
-2. **Placeholder wording leaked** — a template phrase ("well supported" filler) was left in the facts, timeline summary and full report.
-3. **Wrong-area wording** — Spanish terms belonging to a different legal area (e.g. criminal vocabulary) appeared in a Family report.
+1. **Missing ruling point** — a verified point from the court's decision is left out of the summary/findings.
+2. **Placeholder wording** — a template "well supported" filler phrase is written as literal text.
+3. **Wrong-area wording** — terms from another legal area (e.g. criminal) appear, or a legitimate quote gets flagged.
 
-The checks did their job; the report generator for Family cases produced text that should not pass.
+Today, when a check fails, the report just stops at "needs revision". Nothing tries to repair it.
 
-## Fix (Family cases, shared code only — Immigration/Amparo en Revisión stays frozen)
-1. Confirm each cause against the saved report: find the missing ruling point, the exact leaked filler sentences, and the exact wrong-area words and where they come from.
-2. Ensure every verified ruling point is always carried into the executive summary / findings for Family cases (using only what the court documents say — nothing invented).
-3. Replace or remove the "well supported" filler at its source so it is never written as literal text.
-4. Fix the wording source so Family reports use Family vocabulary; if the leak is a legitimate quote or reference, make sure the existing context-aware check recognizes it rather than loosening the check.
-5. Re-run ADR 6433/2022 and confirm it releases.
+## The fix (shared for all case types)
+1. **Stop the causes at the source**
+   - Always carry every verified ruling point into the summary and findings (only what the documents say — nothing invented).
+   - Remove the "well supported" filler at its source so it is never written as text.
+   - Make each report use its own legal area's vocabulary; ensure quotes and references to other areas are recognized as such.
+2. **Add an automatic correction step before final release**
+   - If a check fails for a fixable reason (missing ruling point, filler text, wrong-area wording), the system repairs that exact part using the verified case data and re-runs all checks.
+   - Up to 2 correction rounds. If it passes, the report releases.
+   - If it still fails, the report stays held with a clear, single reason shown — never released with a real problem.
+3. **Re-run** ADR 6433/2022 and the other held-back cases to confirm they release.
 
 ## Guarantees
-- No quality check is weakened or turned off.
-- No changes to the frozen Immigration / Amparo en Revisión pipeline.
+- No quality check is weakened, skipped or turned off — corrections must pass the same checks.
+- No invented legal facts; repairs use only verified document data.
 - No rollback of the site.
 
+## Immigration / Amparo en Revisión (frozen)
+That pipeline is frozen per your earlier instruction. It will be left untouched unless you confirm it should also get the automatic correction step.
+
 ## Verification
-- Add regression tests for the three causes (Family), plus run the existing Immigration, Penal, Civil and Labor report tests to confirm nothing else changes.
-- Check the preview builds cleanly.
-- The background processor runs the published version, so the fix needs publishing before the re-run works live.
+- Regression tests for the three causes and the correction step across Family, Civil, Labor, Penal, Amparo and Immigration (Immigration as test only).
+- Preview builds cleanly.
+- Needs publishing before background re-runs use the fix.
