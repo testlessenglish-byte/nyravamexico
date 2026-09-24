@@ -370,7 +370,12 @@ function freeze<T>(value: T): T {
 }
 
 export function releaseFinalReportPayload(input: CaseExportData): FinalReportPayload {
-  if (input.report?.quality_blocked === true) throw new Error("REPORT_BLOCKED: report failed its release gate");
+  if (input.report?.quality_blocked === true) {
+    const reasons = Array.isArray(input.report.quality_block_reasons)
+      ? input.report.quality_block_reasons.map(String).filter(Boolean)
+      : [];
+    throw new Error(`REPORT_BLOCKED: ${reasons.join(", ") || "report failed its release gate"}`);
+  }
   let payload = (input as FinalReportPayload).report_presentation ? input as FinalReportPayload : composeFinalReportPayload(input);
   let validation = validateFinalReportContract(payload);
   // REMEDIATE -> REVALIDATE before BLOCK. An uncited absolute absence sentence

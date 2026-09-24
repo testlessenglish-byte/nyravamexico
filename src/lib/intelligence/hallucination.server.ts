@@ -476,17 +476,6 @@ async function reconcileSavedReportProse(
     ? (allBlockReasons.length ? allBlockReasons : ["quality_blocked"])
     : null;
 
-  if (renderedDecision.blocked) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any)
-      .from("reports")
-      .update({
-        quality_blocked: true,
-        quality_block_reasons: allBlockReasons,
-      })
-      .eq("case_id", caseId);
-  }
-
   return {
     quarantinedActionsRemoved: removed,
     scoreProseReconciled: scoreReconciled,

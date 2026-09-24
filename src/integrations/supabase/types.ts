@@ -6006,6 +6006,35 @@ export type Database = {
           },
         ]
       }
+      report_chunk_caches: {
+        Row: {
+          case_id: string
+          chunks: Json
+          execution_id: string
+          updated_at: string
+        }
+        Insert: {
+          case_id: string
+          chunks?: Json
+          execution_id: string
+          updated_at?: string
+        }
+        Update: {
+          case_id?: string
+          chunks?: Json
+          execution_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_chunk_caches_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: true
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       report_versions: {
         Row: {
           canonical_version: number | null

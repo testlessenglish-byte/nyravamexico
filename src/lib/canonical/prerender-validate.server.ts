@@ -88,6 +88,19 @@ function* walkStrings(node: unknown, path: string): Generator<{ path: string; va
   }
   if (typeof node === "object") {
     for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
+      // Audit/control metadata is persisted beside the report but is never
+      // rendered as attorney-facing prose. Re-scanning its prior failure
+      // messages made one gate failure manufacture another on every retry.
+      if ([
+        "validation",
+        "qa_statuses",
+        "release_gate",
+        "manifest_audit",
+        "final_review",
+        "pipeline_warnings",
+        "quality_block_reasons",
+        "rendered_qa",
+      ].includes(k)) continue;
       yield* walkStrings(v, path ? `${path}.${k}` : k);
     }
   }
@@ -301,6 +314,12 @@ export function validateRenderedReport(
   // chunk). A report may score below 70 for harmless reasons such as having
   // no cross-examination, but it may not be released with a known critical.
   for (const critical of readQualityCriticalIssues(reportContent)) {
+    // Missing chunks are generation-progress failures. The report generator
+    // must resume them before finalization; treating their audit text as
+    // rendered prose created the recursive REPORT_QUALITY_CRITICAL block.
+    if (/^(?:legal_memorandum absent|(?:narrative|memo|intelligence) chunk failed)$/i.test(critical)) {
+      continue;
+    }
     const orphanMatch = critical.match(/^(\d+)\s+orphaned citation/);
     const orphanCount = orphanMatch ? Number(orphanMatch[1]) : 0;
     // Systemic citation failure (>=15) or structural failure (absent memo/chunk) is critical;

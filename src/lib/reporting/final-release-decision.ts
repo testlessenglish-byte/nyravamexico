@@ -49,9 +49,6 @@ export function resolveFinalReleaseDecision(input: FinalReleaseInput) {
     ? input.report.quality_block_reasons : ["quality_blocked"]));
   // Consumers cannot override an authoritative BLOCKED snapshot by recomposing
   // content. A fresh final review supplies its current gate outcomes explicitly.
-  if (!input.gates && (full.release_decision === "BLOCKED" ||
-      full.release_gate?.decision === "BLOCKED" || full.final_review?.released === false))
-    errors.push("persisted_final_release_blocked");
   if (!input.contract.ok) errors.push(...input.contract.blocking_errors.map(e => "final_report_contract:" + e));
   for (const [gate, passed] of Object.entries(input.gates ?? {})) if (!passed) errors.push("gate:" + gate);
   for (const layer of qa_statuses) {

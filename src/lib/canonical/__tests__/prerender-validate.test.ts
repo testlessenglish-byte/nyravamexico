@@ -156,4 +156,19 @@ describe("validateRenderedReport", () => {
     );
     expect(issues).toHaveLength(0);
   });
+
+  it("does not turn internal generation audit messages into rendered-content failures", () => {
+    const issues = validateRenderedReport(
+      {
+        attorney_summary: "El expediente contiene constancias verificadas.",
+        full_report: {
+          validation: { quality_gate: { critical_issues: ["legal_memorandum absent", "memo chunk failed"] } },
+          pipeline_warnings: ["well-supported internal marker"],
+        },
+      },
+      "civil",
+    );
+    expect(issues.some((issue) => issue.code === "REPORT_QUALITY_CRITICAL")).toBe(false);
+    expect(issues.some((issue) => issue.code === "TOKEN_WELL_SUPPORTED")).toBe(false);
+  });
 });
