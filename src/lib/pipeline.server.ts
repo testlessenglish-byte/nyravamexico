@@ -7440,6 +7440,29 @@ ${paginationTail}`;
     );
   }
 
+  if (!chunkStatus.narrative.ok && Object.keys(salvagedProse).length > 0) {
+    chunkParsedByName.narrative = { prose: salvagedProse };
+    chunkStatus.narrative.ok = true;
+    await persistChunkCache("narrative");
+  }
+  if (!chunkStatus.memo.ok && salvagedMemo) {
+    chunkParsedByName.memo = { legal_memorandum: salvagedMemo };
+    chunkStatus.memo.ok = true;
+    await persistChunkCache("memo");
+  }
+
+  const missingChunks = (Object.keys(chunkStatus) as ChunkName[]).filter(
+    (name) => !chunkStatus[name].ok,
+  );
+  if (missingChunks.length > 0) {
+    clearInterval(watcher);
+    const { CheckpointRequired } = await import("./pipeline-checkpoint.server");
+    throw new CheckpointRequired(
+      "report",
+      `Report sections pending: ${missingChunks.join(", ")}. Completed sections were saved for the next pass.`,
+    );
+  }
+
   clearInterval(watcher);
 
   await setCase(db, caseId, { status_message: "Assembling litigation package", progress: 85 });
