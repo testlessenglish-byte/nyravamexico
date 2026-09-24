@@ -6935,7 +6935,7 @@ ${corpus.slice(0, REPORT_STAGE_CORPUS_CHARS)}${resolutivoAnchorBlock}${penalDisp
       .eq("case_id", caseId)
       .maybeSingle();
     const row = cacheRow as { chunks?: unknown; execution_id?: string | null } | null;
-    const raw = row?.execution_id === executionId ? row.chunks : null;
+    const raw = row && row.execution_id === executionId ? row.chunks : null;
     if (raw && typeof raw === "object") chunkCache = raw as typeof chunkCache;
   } catch (cacheErr) {
     console.warn("[report:chunk] failed to load chunk cache — starting fresh", cacheErr);
