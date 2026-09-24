@@ -6923,18 +6923,19 @@ ${corpus.slice(0, REPORT_STAGE_CORPUS_CHARS)}${resolutivoAnchorBlock}${penalDisp
   // prompt, same timeout, same restart, no forward progress ever made. This
   // is the general form of the bug — any practice area with a large enough
   // STANDARDS block or a large enough corpus can trigger it, not just tax
-  // law. Persisting each chunk's result to `reports.report_chunk_cache` as
+  // law. Persisting each chunk's result to an execution-scoped progress row as
   // soon as it succeeds, and skipping already-cached chunks on the next
   // attempt, means each worker tick only has to finish whatever chunks are
   // still outstanding — guaranteeing forward progress instead of a loop.
   let chunkCache: Partial<Record<ChunkName, Record<string, unknown>>> = {};
   try {
-    const { data: cacheRow } = await db
-      .from("reports")
-      .select("report_chunk_cache")
+    const { data: cacheRow } = await (db as any)
+      .from("report_chunk_caches")
+      .select("chunks,execution_id")
       .eq("case_id", caseId)
       .maybeSingle();
-    const raw = (cacheRow as { report_chunk_cache?: unknown } | null)?.report_chunk_cache;
+    const row = cacheRow as { chunks?: unknown; execution_id?: string | null } | null;
+    const raw = row?.execution_id === executionId ? row.chunks : null;
     if (raw && typeof raw === "object") chunkCache = raw as typeof chunkCache;
   } catch (cacheErr) {
     console.warn("[report:chunk] failed to load chunk cache — starting fresh", cacheErr);
@@ -6948,24 +6949,12 @@ ${corpus.slice(0, REPORT_STAGE_CORPUS_CHARS)}${resolutivoAnchorBlock}${penalDisp
   }
   const persistChunkCache = async (name: ChunkName) => {
     try {
-      // UPDATE-ONLY. An upsert here could create (or, after a stale-row
-      // eviction, re-create) a `reports` row that has never held a report:
-      // `full_report` would take its `{}` column default and `execution_id`
-      // could be null. The chunk cache is a resumption optimisation and must
-      // never be able to author a report row. It also never clears or
-      // downgrades an execution id.
-      const patch: Record<string, unknown> = {
-        report_chunk_cache: { ...chunkCache, [name]: chunkParsedByName[name] } as unknown as Json,
-      };
-      if (executionId) patch.execution_id = executionId;
-      const { data: updated } = await db
-        .from("reports")
-        .update(patch as never)
-        .eq("case_id", caseId)
-        .select("id");
-      if (!updated || updated.length === 0) {
-        console.info(`[report:chunk] no report row yet for case ${caseId} — ${name} cache skipped`);
-      }
+      if (!executionId) throw new Error("active execution id unavailable for report chunk checkpoint");
+      const chunks = { ...chunkCache, [name]: chunkParsedByName[name] };
+      const { error } = await (db as any)
+        .from("report_chunk_caches")
+        .upsert({ case_id: caseId, execution_id: executionId, chunks }, { onConflict: "case_id" });
+      if (error) throw error;
       chunkCache = { ...chunkCache, [name]: chunkParsedByName[name] };
       // A persisted chunk is real forward progress. The report backstop must
       // therefore count CONSECUTIVE no-progress checkpoints, not total ticks —
@@ -6989,7 +6978,7 @@ ${corpus.slice(0, REPORT_STAGE_CORPUS_CHARS)}${resolutivoAnchorBlock}${penalDisp
 
   const clearChunkCache = async () => {
     try {
-      await db.from("reports").update({ report_chunk_cache: {} }).eq("case_id", caseId);
+      await (db as any).from("report_chunk_caches").delete().eq("case_id", caseId);
     } catch {
       /* noop — stale cache entries are harmless; they're only ever read by name-match */
     }
@@ -7181,6 +7170,7 @@ ${corpus.slice(0, REPORT_STAGE_CORPUS_CHARS)}${resolutivoAnchorBlock}${penalDisp
     await runChunk("memo", memoSysSuffix, memoShape, 4000, canonicalContextBlock);
     await runChunk("intelligence", intelSysSuffix, intelShape, 3000, canonicalContextBlock);
   }
+
 
   // `r` drives downstream logic (parsed, fallback banner). Anchor on narrative
   // since prose is the visible surface; memo/intelligence merge in below.

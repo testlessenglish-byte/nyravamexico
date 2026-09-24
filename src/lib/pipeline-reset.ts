@@ -32,6 +32,7 @@ export const CASE_DERIVED_TABLES = [
   "image_intelligence",
   "report_versions",
   "reports",
+  "report_chunk_caches",
   "pipeline_events",
   // Verification / provenance artifacts of the previous execution. Left
   // behind these made a fresh run look like it had inherited the earlier
