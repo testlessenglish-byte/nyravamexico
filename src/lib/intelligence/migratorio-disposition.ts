@@ -17,6 +17,9 @@ export const dispositionText = (value: string) => value.normalize("NFC").replace
 function issuingCourt(text: string): Court | null {
   const caption = text.slice(0, 2500).split(/\b(?:ANTECEDENTES|RESULTANDO|CONSIDERANDO)\b/i)[0];
   if (/^(?:Instancia\s*:\s*(?:Primera Sala|Segunda Sala|Pleno)|\s*SUPREMA CORTE DE JUSTICIA DE LA NACI[ÓO]N)\b/im.test(caption)) return "scjn";
+  // SCJN engrose captions name a Ministro/Ministra as ponente; only SCJN
+  // members hold that title (colegiados use Magistrado/a).
+  if (/^\s*PONENTE\s*:\s*MINISTR[OA]\b/im.test(caption)) return "scjn";
   if (/^(?:Instancia\s*:\s*)?\s*TRIBUNA(?:L|LES)\s+COLEGIADOS?\b/im.test(caption)) return "tribunal_colegiado";
   if (/^\s*(?:JUZGADO\b[^\n]*|TRIBUNAL SUPERIOR DE JUSTICIA\b[^\n]*)/im.test(caption)) return "tribunal_local";
   return null;
