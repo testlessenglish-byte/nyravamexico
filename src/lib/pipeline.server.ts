@@ -7605,10 +7605,10 @@ ${paginationTail}`;
     while ((m = SCORE_KEYWORD_RE.exec(before))) lastKeyword = m[1];
     return lastKeyword && RISK_KEYWORDS.has(lastKeyword.toLowerCase())
       ? "elevated"
-      : "well-supported";
+      : "consistent with the record";
   };
   const fallbackFor = (keyword: string): string =>
-    RISK_KEYWORDS.has(keyword.toLowerCase()) ? "elevated" : "well-supported";
+    RISK_KEYWORDS.has(keyword.toLowerCase()) ? "elevated" : "consistent with the record";
   // Citation-quote spans — "[DOC 4 p.1: 'I think that's him, but I'm not
   // 100% sure']" — must never be touched by this sanitizer. These are
   // verbatim evidence quotes verified against the corpus; a number inside
@@ -9529,7 +9529,7 @@ ${paginationTail}`;
     ).getCurrentIntelligenceVersion(db, userId),
   };
 
-  const mandatoryDecisionCoreValidation = mandatoryDecisionCoreRequired
+  const validateCoreNow = () => mandatoryDecisionCoreRequired
     ? validateMandatoryDecisionCore(mandatoryDecisionCore, {
         executiveSummary: reportRow.executive_summary,
         findings: findings.map((finding) => ({
@@ -9537,7 +9537,28 @@ ${paginationTail}`;
           description: finding.description,
         })),
       })
-    : { required: 0, represented: 0, ok: true, missing: [] };
+    : { required: 0, represented: 0, ok: true, missing: [] as Array<{ id: string; kind: string; text: string }> };
+  let mandatoryDecisionCoreValidation = validateCoreNow();
+  // Automatic correction (all case types except the frozen Migratorio
+  // pipeline): carry any verified, source-backed decision proposition that
+  // the model omitted into the executive summary verbatim, then re-run the
+  // SAME validator. No text is invented — only verified core items are used.
+  if (
+    mandatoryDecisionCoreRequired &&
+    !mandatoryDecisionCoreValidation.ok &&
+    mandatoryDecisionCoreValidation.missing.length > 0 &&
+    String(caseType ?? "").toLowerCase() !== "migratorio"
+  ) {
+    const { appendMissingDecisionCore } = await import("./intelligence/report-auto-correct");
+    reportRow.executive_summary = appendMissingDecisionCore(
+      reportRow.executive_summary,
+      mandatoryDecisionCoreValidation.missing,
+    );
+    mandatoryDecisionCoreValidation = validateCoreNow();
+    pipelineWarnings.push(
+      `auto_correct: decision core repaired — ${mandatoryDecisionCoreValidation.represented}/${mandatoryDecisionCoreValidation.required} now represented`,
+    );
+  }
   // This is intentionally a first-class report invariant, not another
   // advisory quality score. Final release re-reads this exact persisted
   // value and refuses to release a completed-case report when it is absent
@@ -9931,6 +9952,19 @@ ${paginationTail}`;
     // separate, later decision.
     try {
       const { validateRenderedReport } = await import("@/lib/canonical/prerender-validate.server");
+      // Automatic correction before the rendered check (all case types except
+      // the frozen Migratorio pipeline): scrub leaked sanitizer filler and
+      // drop sentences asserting institutions from a foreign legal area.
+      // The unchanged check below then decides release on the result.
+      if (String(caseType ?? "").toLowerCase() !== "migratorio") {
+        const { autoCorrectRenderedReport } = await import("./intelligence/report-auto-correct");
+        const fixed = autoCorrectRenderedReport(
+          reportRow as unknown as Record<string, unknown>,
+          caseType,
+          reportUnderlyingMateria,
+        );
+        if (fixed > 0) pipelineWarnings.push(`auto_correct: ${fixed} report field(s) repaired before rendered QA`);
+      }
       const renderedQaIssues = validateRenderedReport(
         reportRow as unknown as Record<string, unknown>,
         caseType,
