@@ -123,6 +123,19 @@ describe("targeted hardening A–G",()=>{
     expect(decision).toMatchObject({released:true,decision:"PASS_WITH_WARNINGS"});
     expect(decision.qa_statuses[0]).toMatchObject({status:"WARN_NON_BLOCKING",blocking:false,issues:1});
   });
+  it("does not let a stale nested release verdict re-block a corrected report",()=>{
+    const report={quality_blocked:false,full_report:{release_decision:"BLOCKED",final_review:{released:false}}};
+    expect(resolveFinalReleaseDecision({report,contract:{ok:true,blocking_errors:[]}})).toMatchObject({
+      released:true,
+      quality_blocked:false,
+    });
+  });
+  it("preserves the real blocking reasons at the export boundary",()=>{
+    const raw=input();
+    raw.report!.quality_blocked=true;
+    raw.report!.quality_block_reasons=["gate:judge", "gate:rendered_report"];
+    expect(()=>releaseFinalReportPayload(raw)).toThrow("REPORT_BLOCKED: gate:judge, gate:rendered_report");
+  });
   it("holding is a valid schema alias; adopted party claims remain blocking corruption",()=>{
     const holding:any={speaker_role:"scjn",proposition_type:"holding",adoption_status:"adopted",
       audit_classification:"VERIFIED_COURT_HOLDING",impact_direction:"neutral",evidence_refs:[ref]};

@@ -589,7 +589,7 @@
   "caseWorkspace.noReportHint": "Genere el informe para incluir todas sus secciones. PDF y JSON funcionan en cualquier momento.",
   "caseWorkspace.qualityGate.label": "Puntaje de calidad del informe",
   "caseWorkspace.qualityGate.notPassed": "Por debajo del umbral de calidad — revise antes de confiar en este informe tal cual.",
-  "caseWorkspace.reportBlocked": "Informe bloqueado: falló la integridad de las citas",
+  "caseWorkspace.reportBlocked": "Informe bloqueado: no aprobó la revisión final de calidad",
   "caseWorkspace.reportBlocked.json": "La exportación JSON sigue disponible para auditoría.",
   "caseWorkspace.talk.subtitle": "Haga preguntas. Nyrava responde con citas a las constancias del expediente.",
   "caseWorkspace.talk.title": "Consultar este caso",

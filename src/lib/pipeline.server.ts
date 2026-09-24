@@ -7020,18 +7020,9 @@ ${corpus.slice(0, REPORT_STAGE_CORPUS_CHARS)}${resolutivoAnchorBlock}${penalDisp
     // Already resumed from a prior tick's cache — don't burn another AI
     // call re-deriving something we already have.
     if (chunkStatus[name].ok && chunkCache[name]) return null;
-    // Backstop tripped: this exact call has already failed to complete
-    // MAX_REPORT_CHECKPOINTS times. Retrying again would just reproduce the
-    // same timeout — skip straight to the salvage/fallback path below
-    // instead of burning another tick.
-    if (forceFinalize) {
-      chunkStatus[name].error =
-        chunkStatus[name].error ?? "skipped — report checkpoint backstop reached";
-      console.warn(
-        `[report:chunk] ${name} skipped — checkpoint backstop reached, forcing finalization`,
-      );
-      return null;
-    }
+    // Never turn a report-generation timeout into a completed partial report.
+    // Successful sections now survive in report_chunk_caches, so each retry
+    // can spend its full budget only on the sections still missing.
     try {
       const res = await callGroq({
         apiKey,
