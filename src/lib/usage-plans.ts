@@ -51,4 +51,6 @@ export const USAGE_FEATURE_LABELS: Record<string, string> = {
   report_generation: "Report generation",
   motion_generation: "Motion generation",
   strategic_analysis: "Strategic analysis",
+  voice_speak: "Voice (text-to-speech)",
+  voice_transcribe: "Voice (speech-to-text)",
 };
