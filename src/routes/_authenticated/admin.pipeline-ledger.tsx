@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_authenticated/admin/pipeline-ledger")({
       <div className="mx-auto max-w-2xl p-10">
         <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-6">
           <h2 className="text-lg font-semibold text-destructive">Couldn't load pipeline ledger</h2>
-          <p className="mt-2 text-sm text-destructive/90">{error.message}</p>
+          <p className="mt-2 text-sm text-destructive/90">{error instanceof Error ? error.message : String(error)}</p>
           <button
             onClick={() => { reset(); void router.invalidate(); }}
             className="mt-4 rounded-md border border-border bg-card px-3 py-2 text-sm hover:bg-muted"
