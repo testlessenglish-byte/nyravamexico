@@ -48,7 +48,8 @@ function NotFoundInner() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({ error: rawError, reset }: { error: unknown; reset: () => void }) {
+  const error = rawError instanceof Error ? rawError : new Error(String(rawError));
   return (
     <I18nProvider>
       <ErrorInner error={error} reset={reset} />
@@ -132,10 +133,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "manifest", href: "/manifest.webmanifest" },
     ],
   }),
-  beforeLoad: ({ location }) => {
-    // Internal Lovable routes must not go through app-level redirects
-    if (location.pathname.startsWith("/lovable/")) return;
-  },
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
