@@ -177,6 +177,25 @@ export const Route = createFileRoute("/api/voice/speak")({
         let attempts = flattenVoiceChain(chain);
         attempts = applyVoiceCooldowns(reorderForTtsLocale(attempts, language));
 
+        // Usage gate — the platform-gateway fallback below spends the
+        // business's own provider credits, not the user's. Without this,
+        // an authenticated account with no BYOK key configured could call
+        // this endpoint in an unbounded loop and run up real TTS cost with
+        // no ceiling, unlike every other AI-backed feature in the app.
+        const { checkAndConsumeUsage, usageExceededMessage } = await import("@/lib/usage.server");
+        const usage = await checkAndConsumeUsage({
+          userId,
+          kind: "ai_request",
+          feature: "voice_speak",
+          byokActive: chain.userKeyCount > 0,
+        });
+        if (!usage.allowed) {
+          return new Response(
+            JSON.stringify({ error: usageExceededMessage("Voice", usage) }),
+            { status: 429, headers: { "Content-Type": "application/json" } },
+          );
+        }
+
         const cleaned = (text ?? "").trim();
         if (!cleaned) return new Response("Empty text", { status: 400 });
 

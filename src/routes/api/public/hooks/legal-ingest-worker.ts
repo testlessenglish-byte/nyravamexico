@@ -49,11 +49,26 @@ export const Route = createFileRoute("/api/public/hooks/legal-ingest-worker")({
           .select("secret")
           .eq("name", "legal_ingest_worker")
           .maybeSingle();
-        if (secErr || !sec?.secret || sec.secret !== provided) {
+        if (secErr || !sec?.secret) {
           return new Response(JSON.stringify({ error: "unauthorized" }), {
             status: 401,
             headers: { "Content-Type": "application/json" },
           });
+        }
+        // Constant-time compare — same reasoning as pipeline-worker.ts and
+        // reminders-worker.ts: a plain `!==` on a secret leaks timing
+        // information proportional to how many leading bytes match.
+        {
+          const a = new TextEncoder().encode(provided);
+          const b = new TextEncoder().encode(sec.secret);
+          let ok = a.length === b.length;
+          for (let i = 0; i < Math.min(a.length, b.length); i++) ok = ok && a[i] === b[i];
+          if (!ok) {
+            return new Response(JSON.stringify({ error: "unauthorized" }), {
+              status: 401,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
         }
 
         const connectors = await getEnabledConnectors(admin);

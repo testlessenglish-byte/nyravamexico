@@ -1,4 +1,32 @@
 User-agent: *
 Allow: /
 
+# Authenticated app surface and internal API — nothing here is crawlable
+# content anyway (login-gated or worker-only), but keep bots from wasting
+# crawl budget on it or ever indexing a stray redirect/error page under
+# one of these paths.
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /cases
+Disallow: /admin
+Disallow: /account
+Disallow: /ai-keys
+Disallow: /alerts
+Disallow: /billing
+Disallow: /evidence
+Disallow: /health
+Disallow: /messages
+Disallow: /motion
+Disallow: /new
+Disallow: /onboarding
+Disallow: /profile-setup
+Disallow: /reports
+Disallow: /security-dashboard
+Disallow: /settings
+Disallow: /strategy
+Disallow: /talk
+Disallow: /timeline
+Disallow: /usage
+Disallow: /witness
+
 Sitemap: https://mexico.nyrava.com/sitemap.xml
